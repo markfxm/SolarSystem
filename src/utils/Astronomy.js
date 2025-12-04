@@ -1,0 +1,172 @@
+import * as THREE from 'three';
+
+const planetsData = {
+  mercury: {
+    a: 0.387098,
+    e: [0.205635, 5.59e-10],
+    i: [7.0047, 5.00e-8],
+    N: [48.3313, 3.24587e-5],
+    w: [29.1241, 1.01444e-5],
+    M: [168.6562, 4.0923344368],
+    rotationPeriodHours: 1408
+  },
+  venus: {
+    a: 0.723330,
+    e: [0.006773, -1.302e-9],
+    i: [3.3946, 2.75e-8],
+    N: [76.6799, 2.46590e-5],
+    w: [54.8910, 1.38374e-5],
+    M: [48.0052, 1.6021302244],
+    rotationPeriodHours: -5832
+  },
+  earth: {
+    a: 1.000000,
+    e: [0.016709, -1.151e-9],
+    i: [0, 0], // Fixed
+    N: [0, 0], // Fixed
+    w: [282.9404, 4.70935e-5],
+    M: [356.0470, 0.9856002585],
+    rotationPeriodHours: 23.934
+  },
+  mars: {
+    a: 1.523688,
+    e: [0.093405, 2.516e-9],
+    i: [1.8497, -1.78e-8],
+    N: [49.5574, 2.11081e-5],
+    w: [286.5016, 2.92961e-5],
+    M: [18.6021, 0.5240207766],
+    rotationPeriodHours: 24.623
+  },
+  jupiter: {
+    a: 5.20256,
+    e: [0.048498, 4.469e-9],
+    i: [1.3030, -1.557e-7],
+    N: [100.4542, 2.76854e-5],
+    w: [273.8777, 1.64505e-5],
+    M: [19.8950, 0.0830853001],
+    rotationPeriodHours: 9.925
+  },
+  saturn: {
+    a: 9.55475,
+    e: [0.055546, -9.499e-9],
+    i: [2.4886, -1.081e-7],
+    N: [113.6634, 2.38980e-5],
+    w: [339.3939, 2.97661e-5],
+    M: [316.9670, 0.0334442282],
+    rotationPeriodHours: 10.656
+  },
+  uranus: {
+    a: 19.18171 - 1.55e-8, // a has linear term, but small
+    e: [0.047318, 7.45e-9],
+    i: [0.7733, 1.9e-8],
+    N: [74.0005, 1.3978e-5],
+    w: [96.6612, 3.0565e-5],
+    M: [142.5905, 0.011725806],
+    rotationPeriodHours: -17.24
+  },
+  neptune: {
+    a: 30.05826 + 3.313e-8, // a has linear term
+    e: [0.008606, 2.15e-9],
+    i: [1.7700, -2.55e-7],
+    N: [131.7806, 3.0173e-5],
+    w: [272.8461, -6.027e-6],
+    M: [260.2471, 0.005995147],
+    rotationPeriodHours: 16.11
+  }
+};
+
+export function computeD(date) {
+  let Y = date.getUTCFullYear();
+  let M = date.getUTCMonth() + 1;
+  let D = date.getUTCDate();
+  let hours = date.getUTCHours() / 24;
+  let minutes = date.getUTCMinutes() / 1440;
+  let seconds = date.getUTCSeconds() / 86400;
+
+  if (M < 3) {
+    Y--;
+    M += 12;
+  }
+
+  return 367 * Y - Math.floor(7 * (Y + Math.floor((M + 9) / 12)) / 4) + Math.floor(275 * M / 9) + D + hours + minutes + seconds - 730530;
+}
+
+function rev(x) {
+  return x - Math.floor(x / 360) * 360;
+}
+
+export function computeElements(planetName, d) {
+  const data = planetsData[planetName];
+  return {
+    a: data.a, // Uranus and Neptune have linear terms, but apply if specified
+    e: data.e[0] + data.e[1] * d,
+    i: data.i[0] + data.i[1] * d,
+    N: data.N[0] + data.N[1] * d,
+    w: data.w[0] + data.w[1] * d,
+    M: data.M[0] + data.M[1] * d
+  };
+}
+
+// Astronomy.js — replace the old computePosition with this one
+export function computePosition(elements, scale = 10) {
+  // Work completely in radians from the start
+  const a = elements.a;
+  const e = elements.e;
+  const i = elements.i * Math.PI / 180;
+  const N = elements.N * Math.PI / 180;        // longitude of ascending node
+  const w = elements.w * Math.PI / 180;        // argument of perihelion
+  let M = elements.M * Math.PI / 180;          // mean anomaly in radians
+
+  // Reduce M to [-π, π] (optional but safer)
+  M = M - Math.floor(M / (2 * Math.PI) + 0.5) * 2 * Math.PI;
+
+  // Solve Kepler's equation — 10 iterations is more than enough for perfect precision
+  let E = e < 0.05 ? M : (M + e * Math.sin(M)) / (1 - e * Math.cos(M)); // better initial guess for low e
+  for (let iter = 0; iter < 10; iter++) {
+    const sinE = Math.sin(E);
+    const cosE = Math.cos(E);
+    const f = E - e * sinE - M;
+    const fprime = 1 - e * cosE;
+    E -= f / fprime;
+  }
+
+  // True anomaly ν
+  const cosV = (Math.cos(E) - e) / (1 - e * Math.cos(E));
+  const sinV = Math.sqrt(1 - e * e) * Math.sin(E) / (1 - e * Math.cos(E));
+  const v = Math.atan2(sinV, cosV);
+
+  // Distance from Sun
+  const r = a * (1 - e * Math.cos(E));
+
+  // Argument of latitude
+  const omega = v + w;
+
+  // Heliocentric coordinates in orbital plane
+  const xOrb = r * Math.cos(omega);
+  const yOrb = r * Math.sin(omega);
+
+  // Rotate by inclination and node
+  const cosN = Math.cos(N);
+  const sinN = Math.sin(N);
+  const cosI = Math.cos(i);
+  const sinI = Math.sin(i);
+
+  const x = xOrb * cosN - yOrb * cosI * sinN;
+  const y = xOrb * sinN + yOrb * cosI * cosN;
+  const z = yOrb * sinI;
+
+  return {
+    x: x * scale,
+    y: y * scale,
+    z: z * scale,
+    r: r * scale
+  };
+}
+
+
+
+
+export function getRotationSpeed(planetName) {
+  const data = planetsData[planetName];
+  return (2 * Math.PI) / (data.rotationPeriodHours * 3600); // rad/s
+}
