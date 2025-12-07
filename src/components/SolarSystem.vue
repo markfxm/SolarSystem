@@ -32,6 +32,17 @@ const setFastSpeed = () => {
   speedMultiplier.value = 500000
 }
 
+// Add this function with your other functions (near setRealTime / setFastSpeed)
+const goHome = () => {
+  if (selectedPlanet) {
+    selectedPlanet.scale.set(1, 1, 1)  // reset zoom effect on previous planet
+    selectedPlanet = null
+  }
+  isFlying = true
+  targetCameraPosition = new THREE.Vector3(0, 300, 1200)
+  targetLookAt = new THREE.Vector3(0, 0, 0)
+}
+
 // Helper – move every planet to the position it should have at Julian day d
 const updatePlanetPositions = (d) => {
   Object.keys(planetObjects).forEach(name => {
@@ -125,6 +136,38 @@ onMounted(async () => {
   sun.userData.name = 'sun'
   scene.add(sun)
 
+  // Glowing selection ring — always faces camera
+  // BRIGHT & SHARP planet halo — instantly visible everywhere
+  const createPlanetHalo = (radius, color = 0xaaddff) => {
+    const geometry = new THREE.RingGeometry(radius * 1.5, radius * 1.75, 64)
+
+    const material = new THREE.MeshBasicMaterial({
+      color: color,           // brighter base color
+      side: THREE.DoubleSide,
+      blending: THREE.AdditiveBlending,
+      transparent: true,
+      opacity: 0.9,        // much more visible
+      depthWrite: false
+    })
+
+    const ring = new THREE.Mesh(geometry, material)
+
+    // Make it a perfect billboard — always faces camera perfectly (very important!)
+    ring.rotation.x = -Math.PI / 2
+    ring.onBeforeRender = function (renderer, scene, camera) {
+      ring.quaternion.copy(camera.quaternion)
+    }
+
+    // Optional: make it pulse softly for extra pop (uncomment if you like it)
+    // ring.userData.pulse = 0
+    // ring.onBeforeRender = function () {
+    //   ring.userData.pulse += 0.03
+    //   ring.material.opacity = 0.8 + Math.sin(ring.userData.pulse) * 0.2
+    //   ring.quaternion.copy(camera.quaternion)
+    // }
+
+    return ring
+  }
 
   // Create planet + PURPLE orbit
   // Create planets using unified function + purple orbits
@@ -133,10 +176,17 @@ onMounted(async () => {
     const planet = createUnifiedPlanet(size, tex, scene, isEarth)
     planet.userData.name = name
 
+    // ADD HALO TO ALL PLANETS EXCEPT SUN
+    if (name !== 'sun') {
+      const halo = createPlanetHalo(size, 0x88ccff)   // soft cyan glow
+      planet.add(halo)                                // attached to planet → follows perfectly
+    }
+
     // 2. Get real orbital elements (at any time — shape doesn't change)
     const elements = computeElements(name, 0)   // d=0 is fine for orbit shape
 
     // 3. Create real elliptical orbit (matches planet path exactly)
+/*
     const orbit = createEllipticalOrbit(
       elements.a,      // semi-major axis in AU
       elements.e,      // eccentricity
@@ -145,6 +195,8 @@ onMounted(async () => {
       0xd4aaff,       // beautiful bright lavender-purple
       0.9              // very visible
     )
+*/
+    const orbit = createEllipticalOrbit(elements, orbitScale, 512, 0xd4aaff, 0.92);
     scene.add(orbit)
 
     return planet
@@ -215,6 +267,7 @@ onMounted(async () => {
     mouse.y = -(e.clientY / window.innerHeight) * 2 + 1
     raycaster.setFromCamera(mouse, camera)
     const hits = raycaster.intersectObjects(planets)
+
     if (hits.length > 0) {
       const p = hits[0].object
       if (selectedPlanet && selectedPlanet !== p) selectedPlanet.scale.set(1,1,1)
@@ -224,13 +277,7 @@ onMounted(async () => {
       const r = p.geometry.parameters.radius || 10
       targetCameraPosition = p.position.clone().add(new THREE.Vector3(0, r * 0.5, r * 4))
       targetLookAt = p.position.clone()
-    } else {
-      if (selectedPlanet) selectedPlanet.scale.set(1,1,1)
-      selectedPlanet = null
-      isFlying = true
-      targetCameraPosition = new THREE.Vector3(0, 300, 1200)
-      targetLookAt = new THREE.Vector3(0, 0, 0)
-    }
+    } 
   })
 
   updateSunPosition()
@@ -298,6 +345,14 @@ onMounted(async () => {
     renderer.setSize(window.innerWidth, window.innerHeight)
   })
 })
+
+onUnmounted(() => {
+  window.removeEventListener('mousemove', onMouseMove)
+  window.removeEventListener('click', onClick)
+  window.removeEventListener('resize', onResize)
+  renderer?.dispose()
+})
+
 </script>
 
 <template>
@@ -324,6 +379,16 @@ onMounted(async () => {
                     min-width:110px; box-shadow:0 3px 10px rgba(0,0,0,0.5);
                     transition:all 0.2s;">
             ×500000 Speed
+          </button>
+
+          <button @click="goHome"
+              style="padding:9px 16px; font-size:15px; font-weight:600; color:#fff; 
+                    background:#666; border:none; border-radius:8px; cursor:pointer; 
+                    min-width:110px; box-shadow:0 3px 10px rgba(0,0,0,0.5);
+                    transition:all 0.2s;"
+              onmouseover="this.style.background='#888'"
+              onmouseout="this.style.background='#666'">
+            Home
           </button>
     </div>
 
