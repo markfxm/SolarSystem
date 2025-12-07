@@ -1,3 +1,57 @@
+<template>
+  <div ref="container" style="width:100vw; height:100vh; background:#000; position:relative; overflow:hidden;">
+    <!-- NEW: Speed control panel -->
+    <div style="position:absolute; top:20%; left:20px; z-index:100; display:flex; flex-direction:column; gap:12px;">
+          <button @click="setRealTime"
+              :style="speedMode === 'real' 
+                      ? 'background:#1e88e5; transform:scale(1.02);' 
+                      : 'background:#222; color:#aaa;'"
+              style="padding:9px 16px; font-size:15px; font-weight:600; color:#fff; 
+                    border:none; border-radius:8px; cursor:pointer; 
+                    min-width:110px; box-shadow:0 3px 10px rgba(0,0,0,0.5);
+                    transition:all 0.2s;">
+            Real Time
+          </button>
+
+          <button @click="setFastSpeed"
+              :style="speedMode === 'fast' 
+                      ? 'background:#ff6f00; transform:scale(1.02);' 
+                      : 'background:#222; color:#aaa;'"
+              style="padding:9px 16px; font-size:15px; font-weight:600; color:#fff; 
+                    border:none; border-radius:8px; cursor:pointer; 
+                    min-width:110px; box-shadow:0 3px 10px rgba(0,0,0,0.5);
+                    transition:all 0.2s;">
+            ×500000 Speed
+          </button>
+
+          <button @click="goHome"
+              style="padding:9px 16px; font-size:15px; font-weight:600; color:#fff; 
+                    background:#666; border:none; border-radius:8px; cursor:pointer; 
+                    min-width:110px; box-shadow:0 3px 10px rgba(0,0,0,0.5);
+                    transition:all 0.2s;"
+              onmouseover="this.style.background='#888'"
+              onmouseout="this.style.background='#666'">
+            Home
+          </button>
+    </div>
+
+    <div style="position:absolute; top:10px; left:10px; color:#fff; background:rgba(0,0,0,0.7); padding:10px 16px; border-radius:8px; font:18px Arial; z-index:10;">
+      {{ currentTime }}
+    </div>
+    
+    <div v-if="hoveredPlanetName" style="position:absolute; top:20px; left:50%; transform:translateX(-50%); color:#fff; background:rgba(0,0,0,0.8); padding:12px 24px; border-radius:12px; font:28px Arial; font-weight:bold; z-index:10; pointer-events:none;">
+      {{ hoveredPlanetName }}
+    </div>
+
+    <!-- NEW: Planet Navigation Panel on the right -->
+    <PlanetNavigationPanel
+      :selected-body="selectedPlanet?.userData.name || null"
+      @select="flyToPlanet"
+    />
+    
+  </div>
+</template>
+
 <script setup>
 import { onMounted, onUnmounted, shallowRef, ref } from 'vue'
 import * as THREE from 'three'
@@ -6,14 +60,15 @@ import { createUnifiedPlanet } from '../utils/Planet.js'
 import { createNebula } from '../utils/Nebula.js'
 import { computeD, computeElements, computePosition, getRotationSpeed } from '../utils/Astronomy.js'
 import { createEllipticalOrbit } from '../utils/EllipticalOrbit.js'
+import PlanetNavigationPanel from './PlanetNavigationPanel.vue'
 
 const container = shallowRef(null)
 const currentTime = ref(new Date().toLocaleString())
 const hoveredPlanetName = ref('')
 
-// ──────────────────────────────────────────────────────
+
 // NEW: speed control
-// ──────────────────────────────────────────────────────
+
 const speedMode = ref('real')          // 'real' or 'fast'
 const speedMultiplier = ref(1)          // 1 = real time, 500000 = fast
 let baseD = 0                           // reference Julian day value
@@ -186,17 +241,14 @@ onMounted(async () => {
     const elements = computeElements(name, 0)   // d=0 is fine for orbit shape
 
     // 3. Create real elliptical orbit (matches planet path exactly)
-/*
+
     const orbit = createEllipticalOrbit(
-      elements.a,      // semi-major axis in AU
-      elements.e,      // eccentricity
-      orbitScale,      // scale to make it fit our scene
-      384,             // smooth curve
-      0xd4aaff,       // beautiful bright lavender-purple
-      0.9              // very visible
-    )
-*/
-    const orbit = createEllipticalOrbit(elements, orbitScale, 512, 0xd4aaff, 0.92);
+      elements, 
+      orbitScale,       // scale to make it fit our scene
+      512,              // smooth curve
+      0xd4aaff,         // beautiful bright lavender-purple
+      0.92              // very visible
+    );
     scene.add(orbit)
 
     return planet
@@ -353,51 +405,25 @@ onUnmounted(() => {
   renderer?.dispose()
 })
 
+const flyToPlanet = (planetName) => {
+  const target = planets.find(p => p.userData.name === planetName)
+  if (!target) return
+
+  // Deselect previous
+  if (selectedPlanet && selectedPlanet !== target) {
+    selectedPlanet.scale.set(1, 1, 1)
+  }
+
+  selectedPlanet = target
+  isFlying = true
+
+  const radius = target.geometry.parameters.radius || 10
+  const distance = radius * 5
+  const height = radius * 0.7
+
+  // Position camera offset from planet
+  const offset = new THREE.Vector3(0, height, distance)
+  targetCameraPosition = target.position.clone().add(offset)
+  targetLookAt = target.position.clone()
+}
 </script>
-
-<template>
-  <div ref="container" style="width:100vw; height:100vh; background:#000; position:relative; overflow:hidden;">
-    <!-- NEW: Speed control panel -->
-    <div style="position:absolute; top:20%; left:20px; z-index:100; display:flex; flex-direction:column; gap:12px;">
-          <button @click="setRealTime"
-              :style="speedMode === 'real' 
-                      ? 'background:#1e88e5; transform:scale(1.02);' 
-                      : 'background:#222; color:#aaa;'"
-              style="padding:9px 16px; font-size:15px; font-weight:600; color:#fff; 
-                    border:none; border-radius:8px; cursor:pointer; 
-                    min-width:110px; box-shadow:0 3px 10px rgba(0,0,0,0.5);
-                    transition:all 0.2s;">
-            Real Time
-          </button>
-
-          <button @click="setFastSpeed"
-              :style="speedMode === 'fast' 
-                      ? 'background:#ff6f00; transform:scale(1.02);' 
-                      : 'background:#222; color:#aaa;'"
-              style="padding:9px 16px; font-size:15px; font-weight:600; color:#fff; 
-                    border:none; border-radius:8px; cursor:pointer; 
-                    min-width:110px; box-shadow:0 3px 10px rgba(0,0,0,0.5);
-                    transition:all 0.2s;">
-            ×500000 Speed
-          </button>
-
-          <button @click="goHome"
-              style="padding:9px 16px; font-size:15px; font-weight:600; color:#fff; 
-                    background:#666; border:none; border-radius:8px; cursor:pointer; 
-                    min-width:110px; box-shadow:0 3px 10px rgba(0,0,0,0.5);
-                    transition:all 0.2s;"
-              onmouseover="this.style.background='#888'"
-              onmouseout="this.style.background='#666'">
-            Home
-          </button>
-    </div>
-
-    <div style="position:absolute; top:10px; left:10px; color:#fff; background:rgba(0,0,0,0.7); padding:10px 16px; border-radius:8px; font:18px Arial; z-index:10;">
-      {{ currentTime }}
-    </div>
-    
-    <div v-if="hoveredPlanetName" style="position:absolute; top:20px; left:50%; transform:translateX(-50%); color:#fff; background:rgba(0,0,0,0.8); padding:12px 24px; border-radius:12px; font:28px Arial; font-weight:bold; z-index:10; pointer-events:none;">
-      {{ hoveredPlanetName }}
-    </div>
-  </div>
-</template>
