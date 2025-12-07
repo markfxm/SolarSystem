@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 
 export function createStarfield(scene) {
-  const numStars = 10000; // Increased for more star lights
+  const numStars = 5000; // Increased for more star lights
   const starsGeometry = new THREE.BufferGeometry();
   const positions = new Float32Array(numStars * 3);
   const starColors = new Float32Array(numStars * 3);
