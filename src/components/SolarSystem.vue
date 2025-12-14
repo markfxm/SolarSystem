@@ -93,9 +93,52 @@ const goHome = () => {
     selectedPlanet.scale.set(1, 1, 1)  // reset zoom effect on previous planet
     selectedPlanet = null
   }
+  isTracking = false
+  trackingBody = null
+  trackingLastPosition = null
+  if (trackingPrevControls) {
+    controls.enablePan = trackingPrevControls.enablePan
+    trackingPrevControls = null
+  }
+  controls.minDistance = defaultMinDistance
+  controls.maxDistance = defaultMaxDistance
+  startFlyTo(new THREE.Vector3(0, 300, 1200), new THREE.Vector3(0, 0, 0))
+}
+
+const startFlyTo = (cameraPos, lookAtPos, body = null) => {
+  flyFromCameraPosition = camera.position.clone()
+  flyFromLookAt = controls.target.clone()
+  targetCameraPosition = cameraPos
+  targetLookAt = lookAtPos
   isFlying = true
-  targetCameraPosition = new THREE.Vector3(0, 300, 1200)
-  targetLookAt = new THREE.Vector3(0, 0, 0)
+  flyTargetBody = body
+  flyTargetCameraOffset = body ? cameraPos.clone().sub(body.position) : null
+  flyPrevControls = {
+    enableRotate: controls.enableRotate,
+    enablePan: controls.enablePan,
+    enableZoom: controls.enableZoom,
+    enableDamping: controls.enableDamping,
+  }
+  controls.enableRotate = false
+  controls.enablePan = false
+  controls.enableZoom = false
+  controls.enableDamping = false
+  flyStartMs = performance.now()
+  const dist = flyFromCameraPosition.distanceTo(targetCameraPosition)
+  flyDurationMs = Math.min(4500, Math.max(1200, dist * 3))
+}
+
+const getFlyToPositions = (body) => {
+  const minDistanceFactor = 0.5
+  const radius = body?.geometry?.parameters?.radius || 10
+  const minDistance = Math.max(0.5, radius * minDistanceFactor)
+  const distance = Math.max(radius * 5, minDistance + radius * 2)
+  const height = Math.max(radius * 0.7, radius * 2)
+  return {
+    cameraPos: body.position.clone().add(new THREE.Vector3(0, height, distance)),
+    lookAtPos: body.position.clone(),
+    minDistance
+  }
 }
 
 // Helper – move every planet to the position it should have at Julian day d
@@ -113,6 +156,19 @@ let raycaster, mouse = new THREE.Vector2()
 let planets = []
 let targetCameraPosition = null, targetLookAt = null, selectedPlanet = null
 let isFlying = false
+let flyFromCameraPosition = null
+let flyFromLookAt = null
+let flyStartMs = 0
+let flyDurationMs = 1200
+let flyPrevControls = null
+let flyTargetBody = null
+let flyTargetCameraOffset = null
+let defaultMinDistance = 50
+let defaultMaxDistance = 10000
+let isTracking = false
+let trackingBody = null
+let trackingLastPosition = null
+let trackingPrevControls = null
 let initialD = 0
 const planetObjects = {}
 const planetNames = {
@@ -172,6 +228,8 @@ onMounted(async () => {
   controls.rotateSpeed = 0.6
   controls.minDistance = 50
   controls.maxDistance = 10000
+  defaultMinDistance = controls.minDistance
+  defaultMaxDistance = controls.maxDistance
 
   const [
     dayTexture, nightTexture, sunTexture,
@@ -278,7 +336,7 @@ onMounted(async () => {
   Object.keys(planetObjects).forEach(name => {
     const el = computeElements(name, computeD(new Date()))
     const pos = computePosition(el, orbitScale)
-    planetObjects[name].position.set(pos.x, 0, pos.z)
+    planetObjects[name].position.set(pos.x, pos.y, pos.z)
   })
 
   console.log('Venus distance:', venus.position.length())
@@ -324,11 +382,19 @@ onMounted(async () => {
       const p = hits[0].object
       if (selectedPlanet && selectedPlanet !== p) selectedPlanet.scale.set(1,1,1)
       selectedPlanet = p
-      isFlying = true
       
-      const r = p.geometry.parameters.radius || 10
-      targetCameraPosition = p.position.clone().add(new THREE.Vector3(0, r * 0.5, r * 4))
-      targetLookAt = p.position.clone()
+      const { cameraPos, lookAtPos, minDistance } = getFlyToPositions(p)
+      controls.minDistance = minDistance
+      controls.maxDistance = defaultMaxDistance
+      isTracking = true
+      trackingBody = p
+      trackingLastPosition = null
+      if (!trackingPrevControls) {
+        trackingPrevControls = { enablePan: controls.enablePan }
+      }
+      controls.enablePan = false
+
+      startFlyTo(cameraPos, lookAtPos, p)
     } 
   })
 
@@ -337,7 +403,6 @@ onMounted(async () => {
   const animate = () => {
     requestAnimationFrame(animate)
     const delta = clock.getDelta() // seconds since last frame
-    controls.update()
 
     // ────── TIME CALCULATION (JavaScript) ──────
     let d
@@ -372,19 +437,51 @@ onMounted(async () => {
     });
 
     // SUPER SMOOTH fly-in (no sudden stop!)
-    if (isFlying && targetCameraPosition) {
-      camera.position.lerp(targetCameraPosition, 0.08)
-      if (targetLookAt) controls.target.lerp(targetLookAt, 0.08)
-      
-      if (camera.position.distanceTo(targetCameraPosition) < 3) {
-        camera.position.copy(targetCameraPosition)
-        if (targetLookAt) controls.target.copy(targetLookAt)
-        if (selectedPlanet) {
-          const r = selectedPlanet.geometry.parameters.radius || 10
-          selectedPlanet.scale.set(40 / r, 40 / r, 40 / r)
-        }
-        isFlying = false
+    if (isFlying && targetCameraPosition && flyFromCameraPosition && flyFromLookAt) {
+      if (flyTargetBody && flyTargetCameraOffset) {
+        targetLookAt = flyTargetBody.position.clone()
+        targetCameraPosition = flyTargetBody.position.clone().add(flyTargetCameraOffset)
       }
+      const t = Math.min(1, (performance.now() - flyStartMs) / flyDurationMs)
+      const eased = 1 - Math.pow(1 - t, 3)
+
+      camera.position.lerpVectors(flyFromCameraPosition, targetCameraPosition, eased)
+
+      if (targetLookAt) {
+        const currentLookAt = new THREE.Vector3().lerpVectors(flyFromLookAt, targetLookAt, eased)
+        controls.target.copy(currentLookAt)
+        controls.update()
+
+        if (t >= 1) {
+          camera.position.copy(targetCameraPosition)
+          controls.target.copy(targetLookAt)
+          if (flyPrevControls) {
+            controls.enableRotate = flyPrevControls.enableRotate
+            controls.enablePan = flyPrevControls.enablePan
+            controls.enableZoom = flyPrevControls.enableZoom
+            controls.enableDamping = flyPrevControls.enableDamping
+            flyPrevControls = null
+          }
+          controls.update()
+          isFlying = false
+          flyFromCameraPosition = null
+          flyFromLookAt = null
+          flyTargetBody = null
+          flyTargetCameraOffset = null
+          trackingLastPosition = null
+        }
+      }
+    } else {
+      if (isTracking && trackingBody) {
+        if (!trackingLastPosition) {
+          trackingLastPosition = trackingBody.position.clone()
+        }
+        const deltaMove = trackingBody.position.clone().sub(trackingLastPosition)
+        camera.position.add(deltaMove)
+        controls.target.copy(trackingBody.position)
+        trackingLastPosition.copy(trackingBody.position)
+      }
+      controls.update()
     }
 
     renderer.render(scene, camera)
@@ -415,15 +512,17 @@ const flyToPlanet = (planetName) => {
   }
 
   selectedPlanet = target
-  isFlying = true
 
-  const radius = target.geometry.parameters.radius || 10
-  const distance = radius * 5
-  const height = radius * 0.7
-
-  // Position camera offset from planet
-  const offset = new THREE.Vector3(0, height, distance)
-  targetCameraPosition = target.position.clone().add(offset)
-  targetLookAt = target.position.clone()
+  const { cameraPos, lookAtPos, minDistance } = getFlyToPositions(target)
+  controls.minDistance = minDistance
+  controls.maxDistance = defaultMaxDistance
+  isTracking = true
+  trackingBody = target
+  trackingLastPosition = null
+  if (!trackingPrevControls) {
+    trackingPrevControls = { enablePan: controls.enablePan }
+  }
+  controls.enablePan = false
+  startFlyTo(cameraPos, lookAtPos, target)
 }
 </script>
