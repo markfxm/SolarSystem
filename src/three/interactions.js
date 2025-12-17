@@ -7,7 +7,14 @@ export function createInteractions({
   timeController,
   onHoverNameChange
 }) {
-  const { camera, controls, renderer, scene } = engine
+  const {
+    camera,
+    controls,
+    renderer,
+    scene,
+    defaultMinDistance,
+    defaultMaxDistance
+  } = engine
 
   const raycaster = new THREE.Raycaster()
   const mouse = new THREE.Vector2()
@@ -74,9 +81,7 @@ export function createInteractions({
       enableRotate: controls.enableRotate,
       enablePan: controls.enablePan,
       enableZoom: controls.enableZoom,
-      enableDamping: controls.enableDamping,
-      minDistance: controls.minDistance,
-      maxDistance: controls.maxDistance
+      enableDamping: controls.enableDamping
     }
 
     controls.enableRotate = false
@@ -245,6 +250,9 @@ export function createInteractions({
         Object.assign(controls, prevControlsState)
         prevControlsState = null
     }
+
+    controls.minDistance = defaultMinDistance
+    controls.maxDistance = defaultMaxDistance
 
     // start smooth fly back to home
     flyFromCameraPos = camera.position.clone()
