@@ -1,0 +1,74 @@
+import * as THREE from 'three'
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
+
+export function createEngine(container) {
+  // Scene
+  const scene = new THREE.Scene()
+  scene.background = new THREE.Color(0x000011)
+
+  // Camera
+  const camera = new THREE.PerspectiveCamera(
+    45,
+    window.innerWidth / window.innerHeight,
+    0.1,
+    20000
+  )
+  camera.position.set(0, 300, 1200)
+
+  // Renderer
+  const renderer = new THREE.WebGLRenderer({ antialias: true })
+  renderer.setSize(window.innerWidth, window.innerHeight)
+  renderer.setPixelRatio(window.devicePixelRatio)
+  container.appendChild(renderer.domElement)
+
+  // Controls
+  const controls = new OrbitControls(camera, renderer.domElement)
+  controls.enableDamping = true
+  controls.dampingFactor = 0.08
+  controls.rotateSpeed = 0.6
+  controls.minDistance = 50
+  controls.maxDistance = 10000
+
+  const defaultMinDistance = controls.minDistance
+  const defaultMaxDistance = controls.maxDistance
+
+  // Resize
+  const onResize = () => {
+    camera.aspect = window.innerWidth / window.innerHeight
+    camera.updateProjectionMatrix()
+    renderer.setSize(window.innerWidth, window.innerHeight)
+  }
+  window.addEventListener('resize', onResize)
+
+  // Clock
+  const clock = new THREE.Clock()
+
+  // Animation loop
+  function start(update) {
+    function animate() {
+      requestAnimationFrame(animate)
+      const delta = clock.getDelta()
+      update(delta)
+      controls.update()
+      renderer.render(scene, camera)
+    }
+    animate()
+  }
+
+  function dispose() {
+    window.removeEventListener('resize', onResize)
+    renderer.dispose()
+  }
+
+  return {
+    scene,
+    camera,
+    renderer,
+    controls,
+    clock,
+    start,
+    dispose,
+    defaultMinDistance,
+    defaultMaxDistance
+  }
+}
