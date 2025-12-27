@@ -101,7 +101,7 @@ onMounted(async () => {
   engine.start(delta => {
     timeController.update(delta)
     sunController.update()
-    interactions.update()
+    interactions.update(delta) // <-- pass delta here
   })
 })
 

@@ -63,6 +63,23 @@ export function createInteractions({
     const { cameraPos, lookAt, minDistance } =
       getFlyToPositions(body)
 
+    // Save current controls state (including enabled) so we can restore exactly
+    prevControlsState = {
+      enabled: controls.enabled ?? true,
+      enableRotate: controls.enableRotate ?? true,
+      enablePan: controls.enablePan ?? true,
+      enableZoom: controls.enableZoom ?? true,
+      enableDamping: controls.enableDamping ?? false
+    }
+
+    // Disable controls entirely during smooth fly-to to avoid conflicts
+    controls.enabled = false
+    controls.enableRotate = false
+    controls.enablePan = false
+    controls.enableZoom = false
+    controls.enableDamping = false
+    controls.minDistance = minDistance
+
     flyFromCameraPos = camera.position.clone()
     flyFromTarget = controls.target.clone()
 
@@ -77,19 +94,6 @@ export function createInteractions({
     isTracking = true
     trackingLastPosition = null
 
-    prevControlsState = {
-      enableRotate: controls.enableRotate,
-      enablePan: controls.enablePan,
-      enableZoom: controls.enableZoom,
-      enableDamping: controls.enableDamping
-    }
-
-    controls.enableRotate = false
-    controls.enablePan = false
-    controls.enableZoom = false
-    controls.enableDamping = false
-    controls.minDistance = minDistance
-
     const dist = flyFromCameraPos.distanceTo(flyToCameraPos)
     flyDurationMs = Math.min(4500, Math.max(1200, dist * 3))
   }
@@ -97,14 +101,41 @@ export function createInteractions({
   function finishFly() {
     isFlying = false
 
+    // Restore controls from saved state if available, otherwise ensure interactive
     if (prevControlsState) {
-      Object.assign(controls, prevControlsState)
+      try {
+        // restore enabled explicitly first
+        controls.enabled = prevControlsState.enabled ?? true
+        controls.enableRotate = prevControlsState.enableRotate ?? true
+        controls.enablePan = prevControlsState.enablePan ?? true
+        controls.enableZoom = prevControlsState.enableZoom ?? true
+        controls.enableDamping = prevControlsState.enableDamping ?? false
+      } catch (e) {
+        // Fallback: ensure controls are interactive
+        controls.enabled = true
+        controls.enableRotate = true
+        controls.enablePan = true
+        controls.enableZoom = true
+        controls.enableDamping = prevControlsState?.enableDamping ?? false
+      }
       prevControlsState = null
+    } else {
+      controls.enabled = true
+      controls.enableRotate = true
+      controls.enablePan = true
+      controls.enableZoom = true
+      controls.enableDamping = false
     }
 
     trackingLastPosition = null
     timeController?.unfreeze()
 
+    // Mark arrived target as selected and keep tracking enabled until user intervenes
+    if (flyTargetBody) {
+      selectedObject = flyTargetBody
+      flyTargetBody = null
+      flyCameraOffset = null
+    }
   }
 
   /* ─────────────────────────────
@@ -135,12 +166,7 @@ export function createInteractions({
   function onClick() {
     if (!hoveredObject) return
 
-    if (selectedObject && selectedObject !== hoveredObject) {
-      selectedObject.scale.set(1, 1, 1)
-    }
-
-    selectedObject = hoveredObject
-    startFlyTo(selectedObject)
+    startFlyTo(hoveredObject)
   }
 
   /* ─────────────────────────────
@@ -153,15 +179,10 @@ export function createInteractions({
     )
     if (!target) return
 
-    if (selectedObject && selectedObject !== target) {
-      selectedObject.scale.set(1, 1, 1)
-    }
-
-    selectedObject = target
     startFlyTo(target)
   }
 
-  function update() {
+  function update(deltaSeconds = 0) {
     const now = performance.now()
 
     // Smooth fly-to
@@ -218,11 +239,47 @@ export function createInteractions({
         selectedObject.position
       )
     }
+
+    // Always update the rotation of the selected object using deltaSeconds
+    if (selectedObject) {
+      const rotSpeed = selectedObject.userData.rotationSpeed || 0
+      selectedObject.rotation.y += rotSpeed * deltaSeconds
+      // ensure visibility
+      if (!selectedObject.visible) {
+        selectedObject.visible = true
+      }
+    }
+  }
+
+  // Called when OrbitControls emits 'start'
+  function onControlsStart() {
+    // User started interacting manually -> stop automatic tracking so controls take over
+    if (isTracking) {
+      isTracking = false
+    }
+    // Ensure controls are enabled for manual interaction
+    controls.enabled = true
+  }
+
+  // Additional DOM-level detection for manual interaction (covers pointer/touch)
+  function onUserInteractionStart() {
+    if (isTracking) {
+      isTracking = false
+    }
+    controls.enabled = true
   }
 
   function dispose() {
     window.removeEventListener('mousemove', onMouseMove)
     window.removeEventListener('click', onClick)
+    // remove controls listener
+    if (controls && controls.removeEventListener) {
+      controls.removeEventListener('start', onControlsStart)
+    }
+    // remove DOM listener
+    if (renderer?.domElement && renderer.domElement.removeEventListener) {
+      renderer.domElement.removeEventListener('pointerdown', onUserInteractionStart)
+    }
   }
 
   /* ─────────────────────────────
@@ -235,26 +292,41 @@ export function createInteractions({
   function goHome() {
     timeController?.freeze()
 
-    // cancel selection & tracking
     selectedObject = null
     isTracking = false
     trackingLastPosition = null
 
-    // cancel fly state
     isFlying = false
     flyTargetBody = null
     flyCameraOffset = null
 
-    // restore controls immediately
+    // Restore controls immediately if we saved state
     if (prevControlsState) {
-        Object.assign(controls, prevControlsState)
-        prevControlsState = null
+      try {
+        controls.enabled = prevControlsState.enabled ?? true
+        controls.enableRotate = prevControlsState.enableRotate ?? true
+        controls.enablePan = prevControlsState.enablePan ?? true
+        controls.enableZoom = prevControlsState.enableZoom ?? true
+        controls.enableDamping = prevControlsState.enableDamping ?? false
+      } catch (e) {
+        controls.enabled = true
+        controls.enableRotate = true
+        controls.enablePan = true
+        controls.enableZoom = true
+        controls.enableDamping = prevControlsState?.enableDamping ?? false
+      }
+      prevControlsState = null
+    } else {
+      controls.enabled = true
+      controls.enableRotate = true
+      controls.enablePan = true
+      controls.enableZoom = true
+      controls.enableDamping = false
     }
 
     controls.minDistance = defaultMinDistance
     controls.maxDistance = defaultMaxDistance
 
-    // start smooth fly back to home
     flyFromCameraPos = camera.position.clone()
     flyFromTarget = controls.target.clone()
 
@@ -269,6 +341,15 @@ export function createInteractions({
 
   window.addEventListener('mousemove', onMouseMove)
   window.addEventListener('click', onClick)
+
+  // Ensure manual control interruptions stop tracking
+  if (controls && controls.addEventListener) {
+    controls.addEventListener('start', onControlsStart)
+  }
+  // Add DOM listener to cover pointer/touch interactions
+  if (renderer?.domElement && renderer.domElement.addEventListener) {
+    renderer.domElement.addEventListener('pointerdown', onUserInteractionStart)
+  }
 
   return {
     update,
