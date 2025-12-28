@@ -1,5 +1,9 @@
 <script setup>
+import { inject } from '@vercel/analytics'
 import DayNightEarth from './components/SolarSystem.vue'
+
+// Initialize analytics
+inject()
 </script>
 
 <template>
