@@ -24,7 +24,7 @@
 
     <!-- Panel Content -->
     <div class="panel-content">
-      <h3 class="panel-title">Solar System</h3>
+      <h3 class="panel-title">{{ title }}</h3>
 
       <ul class="planet-list">
         <li
@@ -46,7 +46,8 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
+import { t } from '../utils/i18n.js'
 
 defineProps({
   selectedBody: {
@@ -54,26 +55,24 @@ defineProps({
     default: null
   }
 })
-
 defineEmits(['select'])
 
 const isOpen = ref(false)
+const togglePanel = () => { isOpen.value = !isOpen.value }
 
-const togglePanel = () => {
-  isOpen.value = !isOpen.value
-}
+const title = computed(() => t('nav_title'))
 
-const bodies = [
-  { id: 'sun', label: 'Sun' },
-  { id: 'mercury', label: 'Mercury' },
-  { id: 'venus', label: 'Venus' },
-  { id: 'earth', label: 'Earth' },
-  { id: 'mars', label: 'Mars' },
-  { id: 'jupiter', label: 'Jupiter' },
-  { id: 'saturn', label: 'Saturn' },
-  { id: 'uranus', label: 'Uranus' },
-  { id: 'neptune', label: 'Neptune' }
-]
+const bodies = computed(() => [
+  { id: 'sun', label: t('planet.sun') },
+  { id: 'mercury', label: t('planet.mercury') },
+  { id: 'venus', label: t('planet.venus') },
+  { id: 'earth', label: t('planet.earth') },
+  { id: 'mars', label: t('planet.mars') },
+  { id: 'jupiter', label: t('planet.jupiter') },
+  { id: 'saturn', label: t('planet.saturn') },
+  { id: 'uranus', label: t('planet.uranus') },
+  { id: 'neptune', label: t('planet.neptune') }
+])
 </script>
 
 <style scoped>
@@ -122,7 +121,10 @@ const bodies = [
   border: 1px solid rgba(100, 150, 255, 0.3);
   border-radius: 16px 0 0 16px;
   padding: 24px 20px;
-  min-width: 200px;
+  width: 220px;
+  min-width: 220px;
+  max-width: 220px;
+  box-sizing: border-box;
 }
 
 .panel-title {
@@ -143,16 +145,23 @@ const bodies = [
 }
 
 .planet-button {
+  display: flex;
+  align-items: center;
   width: 100%;
-  padding: 11px 16px;
+  padding: 10px 12px;
   background: rgba(40, 50, 100, 0.5);
   color: #ddd;
   border: 1px solid rgba(100, 150, 255, 0.3);
   border-radius: 10px;
-  font-size: 15px;
+  font-size: 14px;
   cursor: pointer;
   transition: all 0.25s ease;
   text-align: left;
+
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-sizing: border-box;
 }
 
 .planet-button:hover {
