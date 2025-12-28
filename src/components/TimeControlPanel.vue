@@ -1,32 +1,48 @@
 <template>
-  <div class="time-panel">
-    <div class="panel">
-      <div class="panel-title">{{ t('control.speed') }}</div>
+  <!-- wrapper: hidden to left when closed, slides in when open -->
+  <div class="panel-wrapper" :class="{ 'is-open': isOpen }" @click.stop>
+    <!-- Toggle Button on the left edge (arrow points right when closed) -->
+    <button
+      class="toggle-button"
+      @click.stop="togglePanel"
+      :style="{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)' }"
+      aria-label="toggle time panel"
+    >
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <path d="M9 6L15 12L9 18" />
+      </svg>
+    </button>
 
-      <div class="slider-wrap" ref="wrap" @mousedown.prevent="startDrag($event)" @touchstart.prevent="startDrag($event)">
-        <div class="slider-track" ref="track" @click.stop="onTrackClick($event)"></div>
+    <!-- panel content (was .time-panel/.panel before) -->
+    <div class="panel-content">
+      <div class="panel">
+        <div class="panel-title">{{ t('control.speed') }}</div>
 
-        <!-- preset markers (inclusive of endpoints now) -->
-        <button
-          class="preset"
-          v-for="p in presets"
-          :key="p.val"
-          :style="{ bottom: (mapped(p.norm) * 100) + '%' }"
-          @click.stop="setByPos(p.norm)"
-          :title="p.label"
-          aria-label="preset"
-        >
-          <span class="preset-dot"></span>
-        </button>
+        <div class="slider-wrap" ref="wrap" @mousedown.prevent="startDrag($event)" @touchstart.prevent="startDrag($event)">
+          <div class="slider-track" ref="track" @click.stop="onTrackClick($event)"></div>
 
-        <!-- knob: arrow placed to the left of the track -->
-        <div class="knob" :style="{ bottom: (mapped(pos) * 100) + '%' }" ref="knob" @mousedown.stop.prevent="startDrag($event)" @touchstart.stop.prevent="startDrag($event)">
-          <div class="knob-arrow" aria-hidden="true"></div>
+          <!-- preset markers (inclusive of endpoints now) -->
+          <button
+            class="preset"
+            v-for="p in presets"
+            :key="p.val"
+            :style="{ bottom: (mapped(p.norm) * 100) + '%' }"
+            @click.stop="setByPos(p.norm)"
+            :title="p.label"
+            aria-label="preset"
+          >
+            <span class="preset-dot"></span>
+          </button>
+
+          <!-- knob: arrow placed to the left of the track -->
+          <div class="knob" :style="{ bottom: (mapped(pos) * 100) + '%' }" ref="knob" @mousedown.stop.prevent="startDrag($event)" @touchstart.stop.prevent="startDrag($event)">
+            <div class="knob-arrow" aria-hidden="true"></div>
+          </div>
         </div>
-      </div>
 
-      <!-- current numeric display -->
-      <div class="current">×{{ formattedMultiplier }}</div>
+        <!-- current numeric display -->
+        <div class="current">×{{ formattedMultiplier }}</div>
+      </div>
     </div>
   </div>
 </template>
@@ -36,6 +52,12 @@ import { ref, computed, onBeforeUnmount } from 'vue'
 import { t } from '../utils/i18n.js'
 
 const emit = defineEmits(['speed-change'])
+
+// NEW: open state for left-side collapsible panel
+const isOpen = ref(false)
+function togglePanel() {
+  isOpen.value = !isOpen.value
+}
 
 // slider state: pos in [0,1], 0 => bottom (x1), 1 => top (1,000,000)
 const pos = ref(0) // default at bottom => real time
@@ -171,20 +193,57 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-/* panel that contains the slider + current readout */
-.time-panel {
+/* wrapper that slides in/out from left */
+.panel-wrapper {
   position: absolute;
-  top: 20%;
-  left: 20px;
+  top: 50%;
+  left: 0;
+  transform: translateX(-100%) translateY(-50%);
   z-index: 120;
+  display: flex;
+  transition: transform 0.45s cubic-bezier(0.25, 0.8, 0.25, 1);
+  align-items: center;
   pointer-events: auto;
 }
 
-/* visible panel - make relative so title can be absolutely positioned */
+.panel-wrapper.is-open {
+  transform: translateX(0) translateY(-50%);
+}
+
+/* toggle button (anchored to right edge of wrapper so it stays visible when hidden) */
+.toggle-button {
+  position: absolute;
+  right: -48px; /* sticks outside the left edge when wrapper is translated */
+  top: 50%;
+  transform: translateY(-50%);
+  width: 48px;
+  height: 96px;
+  background: rgba(18, 22, 40, 0.95);
+  border: 1px solid rgba(100, 150, 255, 0.4);
+  border-left: none;
+  border-radius: 0 12px 12px 0;
+  color: #88ccff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  box-shadow: 4px 4px 20px rgba(0, 0, 0, 0.6);
+}
+.toggle-button:hover { background: rgba(40, 60, 120, 0.95); color: #fff; }
+
+/* panel content (holds the old .panel) */
+.panel-content {
+  background: transparent;
+  border-radius: 12px;
+  box-sizing: border-box;
+}
+
+/* visible panel - compact card */
 .panel {
-  position: relative;                /* NEW: allow absolute title */
+  position: relative;
   background: rgba(18, 22, 40, 0.85);
-  padding: 12px;                     /* compact base padding */
+  padding: 12px;
   padding-bottom: 12px;
   border-radius: 12px;
   border: 1px solid rgba(100, 150, 255, 0.08);
@@ -197,10 +256,10 @@ onBeforeUnmount(() => {
   box-sizing: border-box;
 }
 
-/* panel title: absolute and moved up so it never collides with top preset */
+/* panel title */
 .panel-title {
   position: absolute;
-  top: 8px;                          /* moved up */
+  top: 8px;
   left: 50%;
   transform: translateX(-50%);
   color: #cfe8ff;
@@ -208,11 +267,11 @@ onBeforeUnmount(() => {
   font-weight: 700;
   user-select: none;
   pointer-events: none;
-  z-index: 30;                        /* ensure it's above presets */
+  z-index: 30;
   margin: 0;
 }
 
-/* vertical slider area - push slider down so top endpoint is inside panel */
+/* slider area */
 .slider-wrap {
   position: relative;
   width: 56px;
@@ -221,15 +280,14 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   user-select: none;
-  padding-top: 48px;                  /* NEW: extra top space to avoid title overlap */
+  padding-top: 48px;
   padding-bottom: 8px;
 }
 
-/* visible track: inset from top/bottom to match slider-wrap padding */
 .slider-track {
   position: absolute;
   left: 50%;
-  top: 48px;    /* align with slider-wrap padding-top */
+  top: 48px;
   bottom: 8px;
   transform: translateX(-50%);
   width: 8px;
@@ -240,14 +298,10 @@ onBeforeUnmount(() => {
   border: 1px solid rgba(255,255,255,0.03);
 }
 
-/* knob: positioned left of the vertical track so the arrow points right */
+/* knob & arrow */
 .knob {
   position: absolute;
-  /* place knob to the left of the centered track:
-     track is centered at 50%, track half-width ~4px,
-     shift left by about 40px so knob sits left of track */
   left: calc(50% - 40px);
-  /* vertically center relative to bottom position */
   transform: translateY(-50%);
   width: 36px;
   height: 24px;
@@ -257,11 +311,10 @@ onBeforeUnmount(() => {
   cursor: grab;
   touch-action: none;
   pointer-events: auto;
-  z-index: 60; /* ensure knob above presets */
+  z-index: 60;
 }
 .knob:active { cursor: grabbing; }
 
-/* arrow shape using clip-path for clear right-pointing arrow */
 .knob-arrow {
   width: 28px;
   height: 16px;
@@ -273,16 +326,14 @@ onBeforeUnmount(() => {
   border: 1px solid rgba(255,255,255,0.06);
   transition: transform .08s ease;
 }
-
-/* small hover/press feedback */
 .knob:hover .knob-arrow { transform: translateX(2px); }
 .knob:active .knob-arrow { transform: translateX(4px); }
 
-/* preset markers - centered ON the track */
+/* presets */
 .preset {
   position: absolute;
   left: 50%;
-  transform: translate(-50%, -50%); /* center the dot exactly at position */
+  transform: translate(-50%, -50%);
   background: transparent;
   border: none;
   cursor: pointer;
@@ -293,7 +344,7 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   pointer-events: auto;
-  z-index: 20; /* below knob but above track */
+  z-index: 20;
 }
 .preset-dot {
   width: 10px;
