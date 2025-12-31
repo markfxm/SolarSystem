@@ -115,6 +115,10 @@ onMounted(async () => {
     timeController,
     onHoverNameChange: name => {
       hoveredPlanetName.value = name
+    },
+    onSelectionChange: name => {
+      // keep nav panel selection in sync; empty string -> clear selection
+      selectedPlanetId.value = name || null
     }
   })
 

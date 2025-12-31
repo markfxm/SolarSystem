@@ -5,7 +5,8 @@ export function createInteractions({
   planets,
   planetNames,
   timeController,
-  onHoverNameChange
+  onHoverNameChange,
+  onSelectionChange // ← NEW: callback to notify selection changes
 }) {
   const {
     camera,
@@ -89,6 +90,14 @@ export function createInteractions({
     flyStartMs = performance.now()
     flyTargetBody = body
     flyCameraOffset = cameraPos.clone().sub(body.position)
+
+    // Mark selection immediately so the panel can reflect the state
+    selectedObject = body
+    try {
+      onSelectionChange?.(body.userData?.name ?? '')
+    } catch (e) {
+      // noop
+    }
 
     isFlying = true
     isTracking = true
@@ -299,6 +308,13 @@ export function createInteractions({
     isFlying = false
     flyTargetBody = null
     flyCameraOffset = null
+
+    // Notify host that selection was cleared
+    try {
+      onSelectionChange?.('')
+    } catch (e) {
+      // noop
+    }
 
     // Restore controls immediately if we saved state
     if (prevControlsState) {
