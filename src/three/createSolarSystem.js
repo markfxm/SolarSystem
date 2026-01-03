@@ -46,6 +46,12 @@ export async function createSolarSystem(scene) {
     new THREE.MeshBasicMaterial({ map: sunTexture })
   )
   sun.userData.name = 'sun'
+
+  // realistic solar rotation (approx. 25.38 days -> hours)
+  // rotation speed in rad/s = 2π / (hours * 3600)
+  const SUN_ROTATION_HOURS = 25.38 * 24 // ~25.38 days
+  sun.userData.rotationSpeed = (2 * Math.PI) / (SUN_ROTATION_HOURS * 3600)
+
   scene.add(sun)
 
   // Planet factory

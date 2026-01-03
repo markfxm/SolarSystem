@@ -101,9 +101,11 @@ onMounted(async () => {
 
   solar = await createSolarSystem(engine.scene)
 
+  // pass the sun mesh as an extra rotating object so it spins with real speed
   timeController = createTimeController(
     solar.planetObjects,
-    solar.orbitScale
+    solar.orbitScale,
+    [solar.sun]
   )
 
   sunController = createSunController(solar.planets)

@@ -1,11 +1,10 @@
 import { computeD, computeElements, computePosition } from '../utils/Astronomy.js'
 
-export function createTimeController(planetObjects, orbitScale) {
+export function createTimeController(planetObjects, orbitScale, extraRotating = []) {
   let speedMode = 'real'
   let speedMultiplier = 1
   let baseD = 0
   let isFrozen = false
-
 
   function setRealTime() {
     speedMode = 'real'
@@ -20,31 +19,43 @@ export function createTimeController(planetObjects, orbitScale) {
   }
 
   function update(deltaSeconds) {
-  if (isFrozen) return
+    if (isFrozen) return
 
-  let d
-  if (speedMode === 'real') {
-    d = computeD(new Date())
-  } else {
-    if (baseD === 0) baseD = computeD(new Date())
-    baseD += deltaSeconds * speedMultiplier / 86400
-    d = baseD
+    let d
+    if (speedMode === 'real') {
+      d = computeD(new Date())
+    } else {
+      if (baseD === 0) baseD = computeD(new Date())
+      baseD += deltaSeconds * speedMultiplier / 86400
+      d = baseD
+    }
+
+    updatePositions(d, deltaSeconds)
   }
 
-  updatePositions(d, deltaSeconds)
-}
-
-
   function updatePositions(d, deltaSeconds = 0) {
+    // 旋转缩放因子：real 模式为 1，否则使用 speedMultiplier
+    const spinMultiplier = (speedMode === 'real') ? 1 : speedMultiplier
+
     Object.entries(planetObjects).forEach(([name, mesh]) => {
       const el = computeElements(name, d)
       const pos = computePosition(el, orbitScale)
       mesh.position.set(pos.x, pos.y, pos.z)
 
       if (deltaSeconds) {
-        mesh.rotation.y += mesh.userData.rotationSpeed * deltaSeconds
+        // 将真实自转速度乘以缩放因子
+        mesh.rotation.y += (mesh.userData.rotationSpeed || 0) * deltaSeconds * spinMultiplier
       }
     })
+
+    // rotate any extra objects (e.g. the Sun) with same scaling
+    if (deltaSeconds && Array.isArray(extraRotating)) {
+      for (const obj of extraRotating) {
+        if (obj && obj.userData && obj.userData.rotationSpeed) {
+          obj.rotation.y += obj.userData.rotationSpeed * deltaSeconds * spinMultiplier
+        }
+      }
+    }
   }
 
   function freeze() {
@@ -54,7 +65,6 @@ export function createTimeController(planetObjects, orbitScale) {
   function unfreeze() {
     isFrozen = false
   }
-
 
   return {
     setRealTime,
