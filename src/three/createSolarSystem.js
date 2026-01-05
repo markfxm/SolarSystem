@@ -23,6 +23,45 @@ const sizes = {
 const loadTexture = (path) =>
   new Promise(resolve => new THREE.TextureLoader().load(path, resolve))
 
+function createSaturnRing(saturn) {
+    const ringGroup = new THREE.Group();
+    const baseRadius = sizes.saturn * sizeScale;
+
+    const ringSegments = [
+        { inner: baseRadius + 2, outer: baseRadius + 5, particles: 20000 },
+        { inner: baseRadius + 6, outer: baseRadius + 10, particles: 30000 },
+        { inner: baseRadius + 11, outer: baseRadius + 12, particles: 10000 }
+    ];
+
+    ringSegments.forEach(segment => {
+        const ringGeo = new THREE.BufferGeometry();
+        const vertices = [];
+
+        for (let i = 0; i < segment.particles; i++) {
+            const theta = Math.random() * 2 * Math.PI;
+            const r = segment.inner + Math.random() * (segment.outer - segment.inner);
+            const x = r * Math.cos(theta);
+            const z = r * Math.sin(theta);
+            const y = (Math.random() - 0.5) * 0.4; // Make the ring thinner
+            vertices.push(x, y, z);
+        }
+
+        ringGeo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+        const ringMat = new THREE.PointsMaterial({
+            color: 0x8A8A8A,
+            size: 0.1,
+            transparent: true,
+            opacity: 0.7
+        });
+
+        const ring = new THREE.Points(ringGeo, ringMat);
+        ringGroup.add(ring);
+    });
+
+    ringGroup.rotation.x = -0.4 * Math.PI;
+    saturn.add(ringGroup);
+}
+
 export async function createSolarSystem(scene) {
   const [
     dayTexture, sunTexture,
@@ -75,6 +114,8 @@ export async function createSolarSystem(scene) {
   const saturn  = createPlanet(sizes.saturn  * sizeScale, saturnTex,  'saturn')
   const uranus  = createPlanet(sizes.uranus  * sizeScale, uranusTex,  'uranus')
   const neptune = createPlanet(sizes.neptune * sizeScale, neptuneTex, 'neptune')
+
+  createSaturnRing(saturn)
 
   const planets = [
     sun, mercury, venus, earth, mars, jupiter, saturn, uranus, neptune
