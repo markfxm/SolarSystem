@@ -23,7 +23,7 @@ const sizes = {
 const loadTexture = (path) =>
   new Promise(resolve => new THREE.TextureLoader().load(path, resolve))
 
-function createSaturnRing(saturn) {
+function createSaturnRing(saturn, ringTexture) {
     const ringGroup = new THREE.Group();
     const baseRadius = sizes.saturn * sizeScale;
 
@@ -48,10 +48,11 @@ function createSaturnRing(saturn) {
 
         ringGeo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
         const ringMat = new THREE.PointsMaterial({
-            color: 0x8A8A8A,
-            size: 0.1,
+            size: 0.3, 
             transparent: true,
-            opacity: 0.7
+            opacity: 0.8,
+            map: ringTexture,
+            blending: THREE.AdditiveBlending
         });
 
         const ring = new THREE.Points(ringGeo, ringMat);
@@ -66,7 +67,8 @@ export async function createSolarSystem(scene) {
   const [
     dayTexture, sunTexture,
     mercuryTex, venusTex, marsTex,
-    jupiterTex, saturnTex, uranusTex, neptuneTex
+    jupiterTex, saturnTex, uranusTex, neptuneTex,
+    ringTex
   ] = await Promise.all([
     loadTexture('/earth_day.jpg'),
     loadTexture('/sun.jpg'),
@@ -76,7 +78,8 @@ export async function createSolarSystem(scene) {
     loadTexture('/jupiter.jpg'),
     loadTexture('/saturn.jpg'),
     loadTexture('/uranus.jpg'),
-    loadTexture('/neptune.jpg')
+    loadTexture('/neptune.jpg'),
+    loadTexture('/earth_bump.png')
   ])
 
   // Sun
@@ -115,7 +118,7 @@ export async function createSolarSystem(scene) {
   const uranus  = createPlanet(sizes.uranus  * sizeScale, uranusTex,  'uranus')
   const neptune = createPlanet(sizes.neptune * sizeScale, neptuneTex, 'neptune')
 
-  createSaturnRing(saturn)
+  createSaturnRing(saturn, ringTex)
 
   const planets = [
     sun, mercury, venus, earth, mars, jupiter, saturn, uranus, neptune
