@@ -1,50 +1,37 @@
 import { computeD, computeElements, computePosition } from '../utils/Astronomy.js'
 
 export function createTimeController(planetObjects, orbitScale, extraRotating = []) {
-  let speedMode = 'real'
   let speedMultiplier = 1
-  let baseD = 0
+  let currentD = computeD(new Date()) // Initialize once at start
   let isFrozen = false
 
   function setRealTime() {
-    speedMode = 'real'
     speedMultiplier = 1
-    baseD = computeD(new Date())
-    updatePositions(baseD)
   }
 
   function setFastSpeed(multiplier = 500000) {
-    speedMode = 'fast'
     speedMultiplier = multiplier
   }
 
   function update(deltaSeconds) {
     if (isFrozen) return
 
-    let d
-    if (speedMode === 'real') {
-      d = computeD(new Date())
-    } else {
-      if (baseD === 0) baseD = computeD(new Date())
-      baseD += deltaSeconds * speedMultiplier / 86400
-      d = baseD
-    }
+    // Always accumulate time based on speed multiplier
+    // 86400 seconds in a day
+    currentD += deltaSeconds * speedMultiplier / 86400
 
-    updatePositions(d, deltaSeconds)
+    updatePositions(currentD, deltaSeconds)
   }
 
   function updatePositions(d, deltaSeconds = 0) {
-    // 旋转缩放因子：real 模式为 1，否则使用 speedMultiplier
-    const spinMultiplier = (speedMode === 'real') ? 1 : speedMultiplier
-
     Object.entries(planetObjects).forEach(([name, mesh]) => {
       const el = computeElements(name, d)
       const pos = computePosition(el, orbitScale)
       mesh.position.set(pos.x, pos.y, pos.z)
 
       if (deltaSeconds) {
-        // 将真实自转速度乘以缩放因子
-        mesh.rotation.y += (mesh.userData.rotationSpeed || 0) * deltaSeconds * spinMultiplier
+        // Rotation speed scaler: always use speedMultiplier
+        mesh.rotation.y += (mesh.userData.rotationSpeed || 0) * deltaSeconds * speedMultiplier
       }
     })
 
@@ -52,7 +39,7 @@ export function createTimeController(planetObjects, orbitScale, extraRotating = 
     if (deltaSeconds && Array.isArray(extraRotating)) {
       for (const obj of extraRotating) {
         if (obj && obj.userData && obj.userData.rotationSpeed) {
-          obj.rotation.y += obj.userData.rotationSpeed * deltaSeconds * spinMultiplier
+          obj.rotation.y += obj.userData.rotationSpeed * deltaSeconds * speedMultiplier
         }
       }
     }
@@ -66,11 +53,18 @@ export function createTimeController(planetObjects, orbitScale, extraRotating = 
     isFrozen = false
   }
 
+  function resetTime() {
+    speedMultiplier = 1
+    currentD = computeD(new Date())
+    updatePositions(currentD)
+  }
+
   return {
     setRealTime,
     setFastSpeed,
     update,
     freeze,
-    unfreeze
+    unfreeze,
+    resetTime
   }
 }

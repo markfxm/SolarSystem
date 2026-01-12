@@ -42,6 +42,10 @@
 
         <!-- current numeric display -->
         <div class="current">×{{ formattedMultiplier }}</div>
+
+        <button class="reset-btn" @click.stop="$emit('reset')">
+          {{ t('control.reset') }}
+        </button>
       </div>
     </div>
   </div>
@@ -189,6 +193,15 @@ function setByPos(p) {
 
 onBeforeUnmount(() => {
   removeMoveListeners()
+})
+
+function resetVisuals() {
+  pos.value = 0
+  isOpen.value = false // Optional: close panel on reset? Maybe keep it open. Let's keep it open.
+}
+
+defineExpose({
+  resetVisuals
 })
 </script>
 
@@ -357,9 +370,33 @@ onBeforeUnmount(() => {
 
 /* current display */
 .current {
-  color: #fff;
+  color: #cfe8ff;
   font-weight: 700;
   font-size: 13px;
   user-select: none;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.5px;
+}
+
+.reset-btn {
+  width: 100%;
+  margin-top: 4px;
+  padding: 6px 0;
+  background: rgba(30,30,40,0.5);
+  border: 1px solid rgba(120,160,255,0.2);
+  border-radius: 6px;
+  color: #aaddee;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.reset-btn:hover {
+  background: rgba(60,80,180,0.6);
+  border-color: rgba(120,160,255,0.5);
+  color: #fff;
+}
+.reset-btn:active {
+  transform: scale(0.96);
 }
 </style>

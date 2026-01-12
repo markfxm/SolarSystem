@@ -27,7 +27,9 @@
     />
 
     <TimeControlPanel
+      ref="timePanel"
       @speed-change="onSpeedChange"
+      @reset="onReset"
     />
 
   </div>
@@ -45,10 +47,10 @@ import { t, currentLang } from '../utils/i18n.js'
 import { createEngine } from '../three/engine.js'
 import { createSolarSystem } from '../three/createSolarSystem.js'
 import { createTimeController } from '../three/timeController.js'
-import { createSunController } from '../three/sunController.js'
 import { createInteractions } from '../three/interactions.js'
 
 const container = shallowRef(null)
+const timePanel = ref(null)
 
 const hoveredPlanetName = ref('')
 const selectedPlanetId = ref(null)
@@ -94,6 +96,20 @@ function onSpeedChange(mult) {
   }
 }
 
+function onReset() {
+  if (!timeController) return
+  timeController.resetTime()
+  // Force reset the slider component if needed? 
+  // Ideally TimeControlPanel should update itself if we pass props back, 
+  // but for now the panel emits speed-change when slider moves, so reset logic might need to be two-way.
+  // Actually, timeController.resetTime() resets internal state.
+  // The panel slider position also needs to be reset visually.
+  const panelRef = timePanel.value
+  if (panelRef && panelRef.resetVisuals) {
+    panelRef.resetVisuals()
+  }
+}
+
 onMounted(async () => {
   clockTimer = startClock()
 
@@ -107,8 +123,6 @@ onMounted(async () => {
     solar.orbitScale,
     [solar.sun]
   )
-
-  sunController = createSunController(solar.planets)
 
   interactions = createInteractions({
     engine,
@@ -126,7 +140,6 @@ onMounted(async () => {
 
   engine.start(delta => {
     timeController.update(delta)
-    sunController.update()
     interactions.update(delta) // <-- pass delta here
   })
 })

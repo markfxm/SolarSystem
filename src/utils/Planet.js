@@ -4,10 +4,18 @@ import * as THREE from 'three';
 const vertexShader = `
   varying vec2 vUv;
   varying vec3 vNormal;
+  varying vec3 vWorldPosition; // Pass world pos to fragment
+
   void main() {
     vUv = uv;
-    vNormal = normalize(normalMatrix * normal);
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    // Rotate normal to world space
+    vNormal = normalize(mat3(modelMatrix) * normal);
+    
+    // Calculate world position
+    vec4 worldPos = modelMatrix * vec4(position, 1.0);
+    vWorldPosition = worldPos.xyz;
+    
+    gl_Position = projectionMatrix * viewMatrix * worldPos;
   }
 `;
 
@@ -16,19 +24,26 @@ const vertexShader = `
 
 const fragmentShader = `
   uniform sampler2D dayTexture;
-  uniform vec3 sunDirection;
+  // uniform vec3 sunDirection; // REMOVED: computed in shader now
   varying vec2 vUv;
   varying vec3 vNormal;
+  varying vec3 vWorldPosition;
 
   // ←←←  NEW: Easy brightness controls
   // Balanced & beautiful (my personal favorite)
   const float directBoost  = 1.5;     // how much brighter the sun-lit side gets
-  const float ambientLevel = 0.45;    // base ambient light level
-  const float extraFill    = 0.4;     // extra fill light to avoid black shadows
+  const float ambientLevel = 0.15;    // Reduced ambient to make shadow side distinct
+  const float extraFill    = 0.1;     // Reduced fill
   
   void main() {
     vec3 dayColor   = texture2D(dayTexture, vUv).rgb;
-    vec3 lightDir   = normalize(sunDirection);
+
+    // Sun is always at (0,0,0) in World Space
+    // Light direction is from Sun(0,0,0) towards 'vWorldPosition' ? 
+    // No, light direction vector for dot product should be pointing TOWARDS the light source.
+    // So lightDir = normalize(SunPos - vWorldPosition) = normalize(vec3(0.0) - vWorldPosition);
+    vec3 lightDir   = normalize(-vWorldPosition);
+
     float cosAngle  = dot(vNormal, lightDir);
 
     // Direct sunlight (boosted)
@@ -51,7 +66,7 @@ export function createUnifiedPlanet(radius, dayTexture, scene, isEarth = false) 
   const material = new THREE.ShaderMaterial({
     uniforms: {
       dayTexture: { value: dayTexture },
-      sunDirection: { value: new THREE.Vector3(1, 0, 0) }  // will be updated globally
+      // sunDirection removed
     },
     vertexShader,
     fragmentShader

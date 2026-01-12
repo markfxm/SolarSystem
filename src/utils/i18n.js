@@ -9,7 +9,8 @@ const dict = {
       real: 'Real Time',
       fast: '×500000 Speed',
       speed: 'Speed',
-      home: 'Home'
+      home: 'Home',
+      reset: 'Reset'
     },
     planet: {
       sun: 'Sun',
@@ -29,7 +30,8 @@ const dict = {
       real: '实时',
       fast: '×500000 倍速',
       speed: '速度',
-      home: '主页'
+      home: '主页',
+      reset: '归位'
     },
     planet: {
       sun: '太阳',

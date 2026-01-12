@@ -24,42 +24,42 @@ const loadTexture = (path) =>
   new Promise(resolve => new THREE.TextureLoader().load(path, resolve))
 
 function createSaturnRing(saturn) {
-    const ringGroup = new THREE.Group();
-    const baseRadius = sizes.saturn * sizeScale;
+  const ringGroup = new THREE.Group();
+  const baseRadius = sizes.saturn * sizeScale;
 
-    const ringSegments = [
-        { inner: baseRadius + 2, outer: baseRadius + 5, particles: 20000 },
-        { inner: baseRadius + 6, outer: baseRadius + 10, particles: 30000 },
-        { inner: baseRadius + 11, outer: baseRadius + 12, particles: 10000 }
-    ];
+  const ringSegments = [
+    { inner: baseRadius + 2, outer: baseRadius + 5, particles: 20000 },
+    { inner: baseRadius + 6, outer: baseRadius + 10, particles: 30000 },
+    { inner: baseRadius + 11, outer: baseRadius + 12, particles: 10000 }
+  ];
 
-    ringSegments.forEach(segment => {
-        const ringGeo = new THREE.BufferGeometry();
-        const vertices = [];
+  ringSegments.forEach(segment => {
+    const ringGeo = new THREE.BufferGeometry();
+    const vertices = [];
 
-        for (let i = 0; i < segment.particles; i++) {
-            const theta = Math.random() * 2 * Math.PI;
-            const r = segment.inner + Math.random() * (segment.outer - segment.inner);
-            const x = r * Math.cos(theta);
-            const z = r * Math.sin(theta);
-            const y = (Math.random() - 0.5) * 0.4; // Make the ring thinner
-            vertices.push(x, y, z);
-        }
+    for (let i = 0; i < segment.particles; i++) {
+      const theta = Math.random() * 2 * Math.PI;
+      const r = segment.inner + Math.random() * (segment.outer - segment.inner);
+      const x = r * Math.cos(theta);
+      const z = r * Math.sin(theta);
+      const y = (Math.random() - 0.5) * 0.4; // Make the ring thinner
+      vertices.push(x, y, z);
+    }
 
-        ringGeo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-        const ringMat = new THREE.PointsMaterial({
-            color: 0x8A8A8A,
-            size: 0.1,
-            transparent: true,
-            opacity: 0.7
-        });
-
-        const ring = new THREE.Points(ringGeo, ringMat);
-        ringGroup.add(ring);
+    ringGeo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+    const ringMat = new THREE.PointsMaterial({
+      color: 0x8A8A8A,
+      size: 0.1,
+      transparent: true,
+      opacity: 0.7
     });
 
-    ringGroup.rotation.x = -0.4 * Math.PI;
-    saturn.add(ringGroup);
+    const ring = new THREE.Points(ringGeo, ringMat);
+    ringGroup.add(ring);
+  });
+
+  ringGroup.rotation.x = -0.4 * Math.PI;
+  saturn.add(ringGroup);
 }
 
 export async function createSolarSystem(scene) {
@@ -85,6 +85,8 @@ export async function createSolarSystem(scene) {
     new THREE.MeshBasicMaterial({ map: sunTexture })
   )
   sun.userData.name = 'sun'
+  // Fix Sun Orientation: Align local Y (spin axis) with Orbit Normal (Z)
+  sun.rotation.x = Math.PI / 2;
 
   // realistic solar rotation (approx. 25.38 days -> hours)
   // rotation speed in rad/s = 2π / (hours * 3600)
@@ -98,6 +100,20 @@ export async function createSolarSystem(scene) {
     const planet = createUnifiedPlanet(size, tex, scene, isEarth)
     planet.userData.name = name
 
+    // FIX ORINETATION:
+    // Textures map (0,0) to left/center. SphereGeometry wraps it nicely.
+    // By default Three.js spheres have poles on Y axis.
+    // Our orbit is XY plane. We want North Pole to be +Z direction.
+    // So we rotate +90 degrees around X.
+    planet.rotation.x = Math.PI / 2;
+
+    if (isEarth) {
+      // Earth Axial Tilt: ~23.5 degrees
+      // We are now +Z up. We want to tilt 23.5 degrees away.
+      // Subtracting rotates "back" towards +Y (assuming X axis is Right).
+      planet.rotation.x -= (23.5 * Math.PI / 180);
+    }
+
     const elements = computeElements(name, 0)
     const orbit = createEllipticalOrbit(elements, orbitScale, 512, 0xd4aaff, 0.92)
     scene.add(orbit)
@@ -107,12 +123,12 @@ export async function createSolarSystem(scene) {
 
   // Planets
   const mercury = createPlanet(sizes.mercury * sizeScale, mercuryTex, 'mercury')
-  const venus   = createPlanet(sizes.venus   * sizeScale, venusTex,   'venus')
-  const earth   = createPlanet(sizes.earth   * sizeScale, dayTexture, 'earth', true)
-  const mars    = createPlanet(sizes.mars    * sizeScale, marsTex,    'mars')
+  const venus = createPlanet(sizes.venus * sizeScale, venusTex, 'venus')
+  const earth = createPlanet(sizes.earth * sizeScale, dayTexture, 'earth', true)
+  const mars = createPlanet(sizes.mars * sizeScale, marsTex, 'mars')
   const jupiter = createPlanet(sizes.jupiter * sizeScale, jupiterTex, 'jupiter')
-  const saturn  = createPlanet(sizes.saturn  * sizeScale, saturnTex,  'saturn')
-  const uranus  = createPlanet(sizes.uranus  * sizeScale, uranusTex,  'uranus')
+  const saturn = createPlanet(sizes.saturn * sizeScale, saturnTex, 'saturn')
+  const uranus = createPlanet(sizes.uranus * sizeScale, uranusTex, 'uranus')
   const neptune = createPlanet(sizes.neptune * sizeScale, neptuneTex, 'neptune')
 
   createSaturnRing(saturn)
