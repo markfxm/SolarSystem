@@ -11,7 +11,7 @@ export function createEngine(container) {
     45,
     window.innerWidth / window.innerHeight,
     0.1,
-    20000
+    200000
   )
   camera.position.set(0, 300, 1200)
 
@@ -27,7 +27,7 @@ export function createEngine(container) {
   controls.dampingFactor = 0.08
   controls.rotateSpeed = 0.6
   controls.minDistance = 50
-  controls.maxDistance = 10000
+  controls.maxDistance = 25000
 
   const defaultMinDistance = controls.minDistance
   const defaultMaxDistance = controls.maxDistance

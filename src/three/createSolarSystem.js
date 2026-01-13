@@ -4,20 +4,20 @@ import { createNebula } from '../utils/Nebula.js'
 import { computeElements, computePosition, getRotationSpeed } from '../utils/Astronomy.js'
 import { createEllipticalOrbit } from '../utils/EllipticalOrbit.js'
 
-const orbitScale = 45
+const orbitScale = 260
 const sizeScale = 0.6
-const SUN_RADIUS = 10
+const SUN_RADIUS = 70
 
 const sizes = {
   sun: SUN_RADIUS,
-  mercury: 1.8,
-  venus: 3.0,
+  mercury: 1.19,
+  venus: 2.94,
   earth: 3.1,
-  mars: 1.8,
-  jupiter: 16,
-  saturn: 14,
-  uranus: 6,
-  neptune: 6
+  mars: 1.65,
+  jupiter: 34.75,
+  saturn: 29.30,
+  uranus: 12.43,
+  neptune: 12.03
 }
 
 const loadTexture = (path) =>
@@ -58,7 +58,7 @@ function createSaturnRing(saturn) {
     ringGroup.add(ring);
   });
 
-  ringGroup.rotation.x = -0.4 * Math.PI;
+  // ringGroup.rotation.x = -0.4 * Math.PI; // Removed artificial tilt
   saturn.add(ringGroup);
 }
 
@@ -114,6 +114,10 @@ export async function createSolarSystem(scene) {
       planet.rotation.x -= (23.5 * Math.PI / 180);
     }
 
+    if (name === 'saturn') {
+      planet.rotation.x -= (26.73 * Math.PI / 180);
+    }
+
     const elements = computeElements(name, 0)
     const orbit = createEllipticalOrbit(elements, orbitScale, 512, 0xd4aaff, 0.92)
     scene.add(orbit)
@@ -156,11 +160,11 @@ export async function createSolarSystem(scene) {
   // Stars
   const starGeo = new THREE.BufferGeometry()
   const vertices = []
-  for (let i = 0; i < 800; i++) {
+  for (let i = 0; i < 15000; i++) {
     vertices.push(
-      (Math.random() - 0.5) * 8000,
-      (Math.random() - 0.5) * 8000,
-      (Math.random() - 0.5) * 8000
+      (Math.random() - 0.5) * 200000,
+      (Math.random() - 0.5) * 200000,
+      (Math.random() - 0.5) * 200000
     )
   }
   starGeo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3))
