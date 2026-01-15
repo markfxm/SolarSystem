@@ -8,7 +8,6 @@
     <button
       class="toggle-button"
       @click="togglePanel"
-      :style="{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)' }"
     >
       <svg
         width="24"
@@ -17,6 +16,7 @@
         fill="none"
         stroke="currentColor"
         stroke-width="2.5"
+        :style="{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.3s ease' }"
       >
         <path d="M15 18L9 12L15 6" />
       </svg>
@@ -78,7 +78,7 @@ const bodies = computed(() => [
 <style scoped>
 .panel-wrapper {
   position: absolute;
-  top: 50%;
+  top: 53%;
   right: 0;
   transform: translateX(100%) translateY(-50%);
   z-index: 100;

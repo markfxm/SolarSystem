@@ -5,10 +5,17 @@
     <button
       class="toggle-button"
       @click.stop="togglePanel"
-      :style="{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)' }"
       aria-label="toggle time panel"
     >
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+      <svg 
+        width="24" 
+        height="24" 
+        viewBox="0 0 24 24" 
+        fill="none" 
+        stroke="currentColor" 
+        stroke-width="2.5"
+        :style="{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.3s ease' }"
+      >
         <path d="M9 6L15 12L9 18" />
       </svg>
     </button>
@@ -209,7 +216,7 @@ defineExpose({
 /* wrapper that slides in/out from left */
 .panel-wrapper {
   position: absolute;
-  top: 50%;
+  top: 55%;
   left: 0;
   transform: translateX(-100%) translateY(-50%);
   z-index: 120;

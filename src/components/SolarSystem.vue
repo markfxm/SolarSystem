@@ -20,6 +20,13 @@
     <!-- Language Panel -->
     <LanguagePanel />
 
+    <!-- Tour/Info Panel -->
+    <TourPanel
+      v-if="selectedPlanetId"
+      :planetName="selectedPlanetId"
+      @close="onPanelClose"
+    />
+
     <!-- Navigation Panel -->
     <PlanetNavigationPanel
       :selectedBody="selectedPlanetId"
@@ -41,6 +48,7 @@ import { ref, shallowRef, onMounted, onUnmounted, computed } from 'vue'
 import PlanetNavigationPanel from './PlanetNavigationPanel.vue'
 import TimeControlPanel from './TimeControlPanel.vue'
 import LanguagePanel from './LanguagePanel.vue'
+import TourPanel from './TourPanel.vue'
 
 import { t, currentLang } from '../utils/i18n.js'
 
@@ -85,6 +93,11 @@ function startClock() {
 function onPlanetSelected(id) {
   selectedPlanetId.value = id
   interactions?.focusPlanetById(id)
+}
+
+function onPanelClose() {
+  // interactions?.goHome()
+  selectedPlanetId.value = null
 }
 
 function onSpeedChange(mult) {

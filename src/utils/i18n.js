@@ -22,6 +22,12 @@ const dict = {
       saturn: 'Saturn',
       uranus: 'Uranus',
       neptune: 'Neptune'
+    },
+    tour: {
+      radius: 'Radius',
+      temp: 'Temp',
+      orbit: 'Orbit',
+      did_you_know: 'Did you know?'
     }
   },
   zh: {
@@ -43,6 +49,12 @@ const dict = {
       saturn: '土星',
       uranus: '天王星',
       neptune: '海王星'
+    },
+    tour: {
+      radius: '半径',
+      temp: '温度',
+      orbit: '轨道',
+      did_you_know: '你知道吗？'
     }
   }
 }
