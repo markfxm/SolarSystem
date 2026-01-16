@@ -248,16 +248,6 @@ export function createInteractions({
         selectedObject.position
       )
     }
-
-    // Always update the rotation of the selected object using deltaSeconds
-    if (selectedObject) {
-      const rotSpeed = selectedObject.userData.rotationSpeed || 0
-      selectedObject.rotation.y += rotSpeed * deltaSeconds
-      // ensure visibility
-      if (!selectedObject.visible) {
-        selectedObject.visible = true
-      }
-    }
   }
 
   // Called when OrbitControls emits 'start'

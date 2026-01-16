@@ -76,19 +76,19 @@ const planetsData = {
 };
 
 export function computeD(date) {
-  let Y = date.getUTCFullYear();
-  let M = date.getUTCMonth() + 1;
-  let D = date.getUTCDate();
-  let hours = date.getUTCHours() / 24;
-  let minutes = date.getUTCMinutes() / 1440;
-  let seconds = date.getUTCSeconds() / 86400;
-
-  if (M < 3) {
-    Y--;
-    M += 12;
-  }
-
-  return 367 * Y - Math.floor(7 * (Y + Math.floor((M + 9) / 12)) / 4) + Math.floor(275 * M / 9) + D + hours + minutes + seconds - 730530;
+  // Days since J2000.0 (Jan 1.5, 2000)
+  // Date.UTC(2000, 0, 1, 12) is J2000.0
+  const j2000 = Date.UTC(2000, 0, 1, 12);
+  const current = Date.UTC(
+    date.getUTCFullYear(),
+    date.getUTCMonth(),
+    date.getUTCDate(),
+    date.getUTCHours(),
+    date.getUTCMinutes(),
+    date.getUTCSeconds(),
+    date.getUTCMilliseconds()
+  );
+  return (current - j2000) / 86400000;
 }
 
 function rev(x) {
@@ -169,4 +169,29 @@ export function computePosition(elements, scale = 10) {
 export function getRotationSpeed(planetName) {
   const data = planetsData[planetName];
   return (2 * Math.PI) / (data.rotationPeriodHours * 3600); // rad/s
+}
+
+/**
+ * Returns the absolute rotation of the planet (rad) at time d
+ * calibrated for Earth's geography.
+ */
+export function computeRotation(planetName, d) {
+  if (planetName === 'earth') {
+    // Greenwich Sidereal Time formula: GST = 280.4606 + 360.98564736 * d
+    // This is the angle of the Prime Meridian from the Vernal Equinox (+X axis).
+    const gstDegrees = 280.4606 + 360.98564736 * d;
+
+    // Convert to radians.
+    // Standard Three.js Sphere mapping: u=0.5 (center) is at world angle rot.y + PI.
+    // We want world_angle = GST (in radians).
+    // So rot.y + PI = GST_rad => rot.y = GST_rad - PI.
+    return (gstDegrees * Math.PI / 180) - Math.PI;
+  }
+
+  const data = planetsData[planetName];
+  if (data) {
+    // For other planets, simplified d-based rotation
+    return (getRotationSpeed(planetName) * d * 86400);
+  }
+  return 0;
 }

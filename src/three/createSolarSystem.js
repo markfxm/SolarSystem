@@ -23,97 +23,14 @@ const sizes = {
 const loadTexture = (path) =>
   new Promise(resolve => new THREE.TextureLoader().load(path, resolve))
 
-function createSaturnRing(saturn) {
+async function createSaturnRing(saturn) {
   const baseRadius = sizes.saturn * sizeScale;
-
-  // Real Saturn ring ratios (relative to planet radius):
-  // Inner D Ring start: 1.11
-  // Outer F Ring end: 2.33
   const innerRadius = baseRadius * 1.11;
   const outerRadius = baseRadius * 2.33;
 
-  const canvas = document.createElement('canvas');
-  canvas.width = 2048; // Significantly increased for fine ringlets
-  canvas.height = 1;
-  const ctx = canvas.getContext('2d');
-  const gradient = ctx.createLinearGradient(0, 0, 2048, 0);
+  const ringAlpha = await loadTexture('/hq/8k_saturn_ring_alpha.png');
 
-  // Gradient Stops Calculation (normalized 0..1 for range 1.11 - 2.33):
-  // D-Ring (1.11 - 1.235): 0.0 - 0.10
-  // C-Ring (1.235 - 1.525): 0.10 - 0.34
-  // B-Ring (1.525 - 1.95): 0.34 - 0.69
-  // Cassini (1.95 - 1.98): 0.69 - 0.71
-  // A-Ring (1.98 - 2.27): 0.71 - 0.95 (Encke Gap at ~0.90)
-  // F-Ring (2.27 - 2.33): 0.95 - 1.00
-
-  // D Ring
-  gradient.addColorStop(0.0, 'rgba(40, 40, 40, 0.0)');
-  gradient.addColorStop(0.1, 'rgba(60, 60, 60, 0.15)');
-
-  // C Ring
-  gradient.addColorStop(0.1, 'rgba(70, 70, 70, 0.25)');
-  gradient.addColorStop(0.34, 'rgba(120, 115, 105, 0.4)');
-
-  // B Ring (Dense & Icy)
-  gradient.addColorStop(0.34, 'rgba(210, 200, 180, 0.85)');
-  gradient.addColorStop(0.5, 'rgba(255, 253, 245, 1.0)');
-  gradient.addColorStop(0.69, 'rgba(210, 200, 180, 0.95)');
-
-  // Cassini Division
-  gradient.addColorStop(0.69, 'rgba(0, 0, 0, 0.0)');
-  gradient.addColorStop(0.71, 'rgba(0, 0, 0, 0.0)');
-
-  // A Ring with Encke Gap
-  gradient.addColorStop(0.71, 'rgba(180, 170, 150, 0.85)');
-  gradient.addColorStop(0.89, 'rgba(190, 180, 160, 0.8)');
-  gradient.addColorStop(0.90, 'rgba(0, 0, 0, 0.0)'); // Encke Gap start
-  gradient.addColorStop(0.91, 'rgba(0, 0, 0, 0.0)'); // Encke Gap end
-  gradient.addColorStop(0.92, 'rgba(170, 160, 140, 0.75)');
-  gradient.addColorStop(0.95, 'rgba(130, 120, 110, 0.45)');
-
-  // Gap to F Ring
-  gradient.addColorStop(0.95, 'rgba(0,0,0,0)');
-  gradient.addColorStop(0.97, 'rgba(0,0,0,0)');
-
-  // F Ring
-  gradient.addColorStop(0.98, 'rgba(180, 180, 180, 0.4)');
-  gradient.addColorStop(1.0, 'rgba(0, 0, 0, 0.0)');
-
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, 2048, 1);
-
-  // --- RINGLET SIMULATION ---
-  // Apply high-frequency procedural noise over the gradient to create the look of thousands of ringlets
-  const imgData = ctx.getImageData(0, 0, 2048, 1);
-  const data = imgData.data;
-  for (let i = 0; i < 2048; i++) {
-    // Basic ringlet modulation: 
-    // Uses sine wave + random noise to create varying density bands
-    const noise = 0.85 + Math.random() * 0.15; // Random flicker
-    const ringletPattern = 0.9 + 0.1 * Math.sin(i * 0.5); // Finer bands
-    const microPattern = 0.95 + 0.05 * Math.sin(i * 5.0); // Micro bands
-
-    const factor = noise * ringletPattern * microPattern;
-
-    data[i * 4 + 0] *= factor; // R
-    data[i * 4 + 1] *= factor; // G
-    data[i * 4 + 2] *= factor; // B
-    data[i * 4 + 3] *= factor; // A (also modulates transparency for better depth)
-  }
-  ctx.putImageData(imgData, 0, 0);
-
-  const ringTex = new THREE.CanvasTexture(canvas);
-  // Important: RingGeometry UVs map 'r' to 'y' and 'theta' to 'x' usually?
-  // Actually, standard RingGeometry maps inner-to-outer to the V coordinate (y) 
-  // and circumference to U coordinate (x).
-  // I'll adjust the canvas orientation or mapping.
-
-  // Create geometry
   const ringGeo = new THREE.RingGeometry(innerRadius, outerRadius, 128);
-
-  // Correct UV mapping for RingGeometry:
-  // v = (r - inner) / (outer - inner)
-  // We want the texture gradient to be mapped to the radial distance.
   const pos = ringGeo.attributes.position;
   const uv = ringGeo.attributes.uv;
   const v3 = new THREE.Vector3();
@@ -122,46 +39,41 @@ function createSaturnRing(saturn) {
     v3.fromBufferAttribute(pos, i);
     const r = v3.length();
     const v = (r - innerRadius) / (outerRadius - innerRadius);
-    uv.setXY(i, v, 0); // Map radial distance to U (since our canvas is 512x1)
+    uv.setXY(i, v, 0);
   }
 
   const ringMat = new THREE.MeshStandardMaterial({
-    map: ringTex,
-    emissive: 0xffffff,
-    emissiveMap: ringTex,
-    emissiveIntensity: 0.15, // Slight glow to simulate ice reflectivity
+    map: ringAlpha,
+    alphaMap: ringAlpha,
     transparent: true,
     side: THREE.DoubleSide,
-    roughness: 0.3, // Smoother for more specular-like highlight
+    emissive: 0xffffff,
+    emissiveIntensity: 0.15,
+    roughness: 0.3,
     metalness: 0.0,
   });
 
   const ringMesh = new THREE.Mesh(ringGeo, ringMat);
-  // Orientation Fix:
-  // Planet geometry has poles on Y axis.
-  // RingGeometry is created in XY plane (Normal = Z).
-  // We want the ring to lie on the Planet's Equator (XZ plane).
-  // Therefore, we must rotate the Ring 90 degrees around X to align its Normal with the Planet's Y axis.
   ringMesh.rotation.x = -Math.PI / 2;
-
   saturn.add(ringMesh);
 }
 
 export async function createSolarSystem(scene) {
   const [
-    dayTexture, sunTexture,
+    dayTexture, nightTexture, sunTexture,
     mercuryTex, venusTex, marsTex,
     jupiterTex, saturnTex, uranusTex, neptuneTex
   ] = await Promise.all([
-    loadTexture('/earth_day.jpg'),
-    loadTexture('/sun.jpg'),
-    loadTexture('/mercury.jpg'),
-    loadTexture('/venus.jpg'),
-    loadTexture('/mars.jpg'),
-    loadTexture('/jupiter.jpg'),
-    loadTexture('/saturn.jpg'),
-    loadTexture('/uranus.jpg'),
-    loadTexture('/neptune.jpg')
+    loadTexture('/hq/8k_earth_daymap.jpg'),
+    loadTexture('/hq/8k_earth_nightmap.jpg'),
+    loadTexture('/hq/8k_sun.jpg'),
+    loadTexture('/hq/8k_mercury.jpg'),
+    loadTexture('/hq/8k_venus.jpg'),
+    loadTexture('/hq/8k_mars.jpg'),
+    loadTexture('/hq/8k_jupiter.jpg'),
+    loadTexture('/hq/8k_saturn.jpg'),
+    loadTexture('/hq/2k_uranus.jpg'),
+    loadTexture('/hq/2k_neptune.jpg')
   ])
 
   // Sun
@@ -181,8 +93,8 @@ export async function createSolarSystem(scene) {
   scene.add(sun)
 
   // Planet factory
-  const createPlanet = (size, tex, name, isEarth = false) => {
-    const planet = createUnifiedPlanet(size, tex, scene, isEarth)
+  const createPlanet = (size, tex, name, isEarth = false, extraTex = null) => {
+    const planet = createUnifiedPlanet(size, tex, scene, isEarth, extraTex)
     planet.userData.name = name
 
     // FIX ORINETATION:
@@ -213,14 +125,14 @@ export async function createSolarSystem(scene) {
   // Planets
   const mercury = createPlanet(sizes.mercury * sizeScale, mercuryTex, 'mercury')
   const venus = createPlanet(sizes.venus * sizeScale, venusTex, 'venus')
-  const earth = createPlanet(sizes.earth * sizeScale, dayTexture, 'earth', true)
+  const earth = createPlanet(sizes.earth * sizeScale, dayTexture, 'earth', true, nightTexture)
   const mars = createPlanet(sizes.mars * sizeScale, marsTex, 'mars')
   const jupiter = createPlanet(sizes.jupiter * sizeScale, jupiterTex, 'jupiter')
   const saturn = createPlanet(sizes.saturn * sizeScale, saturnTex, 'saturn')
   const uranus = createPlanet(sizes.uranus * sizeScale, uranusTex, 'uranus')
   const neptune = createPlanet(sizes.neptune * sizeScale, neptuneTex, 'neptune')
 
-  createSaturnRing(saturn)
+  await createSaturnRing(saturn)
 
   const planets = [
     sun, mercury, venus, earth, mars, jupiter, saturn, uranus, neptune

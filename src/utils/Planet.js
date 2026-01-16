@@ -24,49 +24,55 @@ const vertexShader = `
 
 const fragmentShader = `
   uniform sampler2D dayTexture;
-  // uniform vec3 sunDirection; // REMOVED: computed in shader now
+  uniform sampler2D nightTexture;
+  uniform bool useNight;
   varying vec2 vUv;
   varying vec3 vNormal;
   varying vec3 vWorldPosition;
 
-  // ←←←  NEW: Easy brightness controls
-  // Balanced & beautiful (my personal favorite)
-  const float directBoost  = 1.5;     // how much brighter the sun-lit side gets
-  const float ambientLevel = 0.15;    // Reduced ambient to make shadow side distinct
-  const float extraFill    = 0.1;     // Reduced fill
+  const float directBoost  = 1.5;
+  const float ambientLevel = 0.15;
+  const float extraFill    = 0.1;
   
   void main() {
     vec3 dayColor   = texture2D(dayTexture, vUv).rgb;
+    vec3 nightColor = useNight ? texture2D(nightTexture, vUv).rgb : vec3(0.0);
 
-    // Sun is always at (0,0,0) in World Space
-    // Light direction is from Sun(0,0,0) towards 'vWorldPosition' ? 
-    // No, light direction vector for dot product should be pointing TOWARDS the light source.
-    // So lightDir = normalize(SunPos - vWorldPosition) = normalize(vec3(0.0) - vWorldPosition);
     vec3 lightDir   = normalize(-vWorldPosition);
-
     float cosAngle  = dot(vNormal, lightDir);
 
-    // Direct sunlight (boosted)
+    // Day side: cosAngle > 0
+    // Night side: cosAngle < 0
     float direct    = max(0.0, cosAngle) * directBoost;
-
-    // Soft ambient + extra fill so nothing is black
     float ambient   = ambientLevel + extraFill;
 
-    float intensity = direct + ambient;
-    vec3 color      = dayColor * intensity;
+    // Blend day and night color
+    // Use a smooth transition for the terminator
+    float mixFactor = smoothstep(-0.2, 0.2, cosAngle);
+    
+    vec3 baseColor  = mix(nightColor, dayColor, mixFactor);
+    vec3 color      = baseColor * (direct + ambient);
+
+    // If it's night, add the city lights (nightColor) with higher intensity
+    // but only on the dark side.
+    if (useNight) {
+        float nightIntensity = smoothstep(0.2, -0.2, cosAngle);
+        color += nightColor * nightIntensity * 2.0; 
+    }
 
     gl_FragColor = vec4(color, 1.0);
   }
 `;
 
 // Reuse the exact same shader for ALL planets (including Earth)
-export function createUnifiedPlanet(radius, dayTexture, scene, isEarth = false) {
+export function createUnifiedPlanet(radius, dayTexture, scene, isEarth = false, nightTexture = null) {
   const geometry = new THREE.SphereGeometry(radius, 64, 64);
 
   const material = new THREE.ShaderMaterial({
     uniforms: {
       dayTexture: { value: dayTexture },
-      // sunDirection removed
+      nightTexture: { value: nightTexture || new THREE.Texture() },
+      useNight: { value: !!nightTexture },
     },
     vertexShader,
     fragmentShader

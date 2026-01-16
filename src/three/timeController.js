@@ -1,4 +1,4 @@
-import { computeD, computeElements, computePosition } from '../utils/Astronomy.js'
+import { computeD, computeElements, computePosition, computeRotation } from '../utils/Astronomy.js'
 
 export function createTimeController(planetObjects, orbitScale, extraRotating = []) {
   let speedMultiplier = 1
@@ -29,17 +29,15 @@ export function createTimeController(planetObjects, orbitScale, extraRotating = 
       const pos = computePosition(el, orbitScale)
       mesh.position.set(pos.x, pos.y, pos.z)
 
-      if (deltaSeconds) {
-        // Rotation speed scaler: always use speedMultiplier
-        mesh.rotation.y += (mesh.userData.rotationSpeed || 0) * deltaSeconds * speedMultiplier
-      }
+      // Use absolute rotation based on d
+      mesh.rotation.y = computeRotation(name, d)
     })
 
-    // rotate any extra objects (e.g. the Sun) with same scaling
-    if (deltaSeconds && Array.isArray(extraRotating)) {
+    // rotate any extra objects (e.g. the Sun)
+    if (Array.isArray(extraRotating)) {
       for (const obj of extraRotating) {
-        if (obj && obj.userData && obj.userData.rotationSpeed) {
-          obj.rotation.y += obj.userData.rotationSpeed * deltaSeconds * speedMultiplier
+        if (obj && obj.userData && obj.userData.name) {
+          obj.rotation.y = computeRotation(obj.userData.name, d)
         }
       }
     }
