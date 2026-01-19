@@ -57,12 +57,18 @@ export function createTimeController(planetObjects, orbitScale, extraRotating = 
     updatePositions(currentD)
   }
 
+  function getSimulationDate() {
+    const j2000 = Date.UTC(2000, 0, 1, 12)
+    return new Date(j2000 + currentD * 86400000)
+  }
+
   return {
     setRealTime,
     setFastSpeed,
     update,
     freeze,
     unfreeze,
-    resetTime
+    resetTime,
+    getSimulationDate
   }
 }

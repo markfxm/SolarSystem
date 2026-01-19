@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { createUnifiedPlanet } from '../utils/Planet.js'
 import { createNebula } from '../utils/Nebula.js'
-import { computeElements, computePosition, getRotationSpeed } from '../utils/Astronomy.js'
+import { computeElements, computePosition, getRotationSpeed, computeD } from '../utils/Astronomy.js'
 import { createEllipticalOrbit } from '../utils/EllipticalOrbit.js'
 
 const orbitScale = 260
@@ -149,7 +149,7 @@ export async function createSolarSystem(scene) {
 
   // Initial positions
   Object.keys(planetObjects).forEach(name => {
-    const el = computeElements(name, new Date())
+    const el = computeElements(name, computeD(new Date()))
     const pos = computePosition(el, orbitScale)
     planetObjects[name].position.set(pos.x, pos.y, pos.z)
   })

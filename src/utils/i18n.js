@@ -7,6 +7,8 @@ const dict = {
     nav_title: 'Solar System',
     control: {
       real: 'Real Time',
+      realTime: 'Real Time',
+      simTime: 'Sim Time',
       fast: '×500000 Speed',
       speed: 'Speed',
       home: 'Home',
@@ -34,6 +36,8 @@ const dict = {
     nav_title: '太阳系',
     control: {
       real: '实时',
+      realTime: '当前时间',
+      simTime: '模拟时间',
       fast: '×500000 倍速',
       speed: '速度',
       home: '主页',

@@ -4,7 +4,16 @@
 
     <!-- HUD -->
     <div class="hud">
-      <div class="time">{{ currentTime }}</div>
+      <div class="time-container">
+        <div class="time-real">
+          <span class="label">{{ t('control.realTime') || 'Real Time' }}:</span>
+          {{ currentTime }}
+        </div>
+        <div class="time-sim" v-if="isSimulating">
+          <span class="label">{{ t('control.simTime') || 'Sim Time' }}:</span>
+          {{ simulationTime }}
+        </div>
+      </div>
       <button
         class="home-btn"
         @click="interactions?.goHome()"
@@ -63,6 +72,8 @@ const timePanel = ref(null)
 const hoveredPlanetName = ref('')
 const selectedPlanetId = ref(null)
 const currentTime = ref('')
+const simulationTime = ref('')
+const isSimulating = ref(false)
 
 let engine
 let solar
@@ -103,14 +114,17 @@ function onPanelClose() {
 function onSpeedChange(mult) {
   if (!timeController) return
   if (mult === 1) {
+    isSimulating.value = true
     timeController.setRealTime()
   } else {
+    isSimulating.value = true
     timeController.setFastSpeed(mult)
   }
 }
 
 function onReset() {
   if (!timeController) return
+  isSimulating.value = false
   timeController.resetTime()
   // Force reset the slider component if needed? 
   // Ideally TimeControlPanel should update itself if we pass props back, 
@@ -151,9 +165,22 @@ onMounted(async () => {
     }
   })
 
+  let frameCount = 0
   engine.start(delta => {
-    timeController.update(delta)
-    interactions.update(delta) // <-- pass delta here
+    if (timeController) timeController.update(delta)
+    if (interactions) interactions.update(delta)
+
+    // Update simulation time display from controller
+    // Throttle: update only every 10 frames to avoid toLocaleString perf hit
+    frameCount++
+    if (frameCount % 10 === 0 && timeController) {
+      try {
+        const simDate = timeController.getSimulationDate()
+        simulationTime.value = simDate.toLocaleString()
+      } catch (e) {
+        console.warn('Error updating simulation time', e)
+      }
+    }
   })
 })
 
@@ -191,10 +218,38 @@ onUnmounted(() => {
   gap: 8px;
 }
 
-.time {
-  font-size: 14px;
-  opacity: 0.85;
-  pointer-events: none;
+.time-container {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+.time-real, .time-sim {
+  font-size: 13px;
+  font-weight: 500;
+  color: #fff;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.time-real {
+  opacity: 0.7;
+}
+
+.time-sim {
+  font-size: 15px;
+  color: #88ccff;
+  font-weight: 600;
+}
+
+.label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.6;
 }
 
 /* Home 按钮左对齐并可点击 */
