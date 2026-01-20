@@ -30,6 +30,20 @@ const dict = {
       temp: 'Temp',
       orbit: 'Orbit',
       did_you_know: 'Did you know?'
+    },
+    stellar: {
+      btn: 'Stellar Snapshot',
+      title: 'Stellar Snapshot',
+      desc: 'Pick a significant date to see the planets align.',
+      dateLabel: 'Select Date',
+      capture: 'Capture 4K Snapshot',
+      capturing: 'Capturing...',
+      tip: 'The UI will be hidden for high-res capture.',
+      download: 'Download Snapshot',
+      save: 'Save to Device',
+      discard: 'Discard & Retake',
+      review: 'Review your snapshot',
+      enlarge: 'Enlarge View'
     }
   },
   zh: {
@@ -59,6 +73,20 @@ const dict = {
       temp: '温度',
       orbit: '轨道',
       did_you_know: '你知道吗？'
+    },
+    stellar: {
+      btn: '星空快照',
+      title: '星空瞬间',
+      desc: '选择一个特殊的日子，查看那一刻的行星排列。',
+      dateLabel: '选择日期',
+      capture: '捕捉 4K 高度快照',
+      capturing: '正在捕捉...',
+      tip: '快照时 UI 将自动隐藏。',
+      download: '下载快照',
+      save: '保存到设备',
+      discard: '放弃并重拍',
+      review: '预览你的星空瞬间',
+      enlarge: '放大查看'
     }
   }
 }

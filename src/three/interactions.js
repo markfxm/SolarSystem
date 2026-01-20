@@ -22,6 +22,7 @@ export function createInteractions({
 
   let hoveredObject = null
   let selectedObject = null
+  let isEnabled = true
 
   // Fly / tracking state
   let isFlying = false
@@ -152,6 +153,7 @@ export function createInteractions({
   ───────────────────────────── */
 
   function onMouseMove(event) {
+    if (!isEnabled) return
     mouse.x = (event.clientX / window.innerWidth) * 2 - 1
     mouse.y = -(event.clientY / window.innerHeight) * 2 + 1
 
@@ -173,6 +175,7 @@ export function createInteractions({
   }
 
   function onClick() {
+    if (!isEnabled) return
     if (!hoveredObject) return
 
     startFlyTo(hoveredObject)
@@ -252,6 +255,7 @@ export function createInteractions({
 
   // Called when OrbitControls emits 'start'
   function onControlsStart() {
+    if (!isEnabled) return
     // User started interacting manually -> stop automatic tracking so controls take over
     if (isTracking) {
       isTracking = false
@@ -262,6 +266,7 @@ export function createInteractions({
 
   // Additional DOM-level detection for manual interaction (covers pointer/touch)
   function onUserInteractionStart() {
+    if (!isEnabled) return
     if (isTracking) {
       isTracking = false
     }
@@ -361,6 +366,10 @@ export function createInteractions({
     update,
     dispose,
     focusPlanetById,
-    goHome
+    goHome,
+    setEnabled: (val) => {
+      isEnabled = val
+      if (controls) controls.enabled = val
+    }
   }
 }

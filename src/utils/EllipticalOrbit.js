@@ -1,5 +1,8 @@
 // src/utils/EllipticalOrbit.js
 import * as THREE from 'three';
+import { Line2 } from 'three/examples/jsm/lines/Line2.js';
+import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js';
+import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
 
 /**
  * Creates a perfect elliptical orbit line that EXACTLY matches your computePosition() function
@@ -66,18 +69,29 @@ export function createEllipticalOrbit(elements, scale, segments = 512, color = 0
     const y = xOrb * sinN + yOrb * cosI * cosN;
     const z = yOrb * sinI;
 
-    points.push(new THREE.Vector3(x * scale, y * scale, z * scale));
+    points.push(x * scale, y * scale, z * scale);
   }
 
-  const geometry = new THREE.BufferGeometry().setFromPoints(points);
-  const material = new THREE.LineBasicMaterial({
-    color,
+  const geometry = new LineGeometry();
+  geometry.setPositions(points);
+
+  const material = new LineMaterial({
+    color: new THREE.Color(color).getHex(),
+    linewidth: 1.2, // pixels
     transparent: true,
-    opacity,
-    depthWrite: false // prevents z-fighting with planets
+    opacity: opacity,
+    dashed: false,
+    alphaToCoverage: true,
+    depthWrite: false,
+    worldUnits: false // important for constant pixel width
   });
 
-  const orbitLine = new THREE.Line(geometry, material);
+  // Set resolution later in SolarSystem.vue
+  material.resolution.set(window.innerWidth, window.innerHeight);
+
+  const orbitLine = new Line2(geometry, material);
+  orbitLine.computeLineDistances();
   orbitLine.userData.isOrbit = true;
+
   return orbitLine;
 }

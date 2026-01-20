@@ -62,6 +62,12 @@ export function createTimeController(planetObjects, orbitScale, extraRotating = 
     return new Date(j2000 + currentD * 86400000)
   }
 
+  function setDate(date) {
+    if (!(date instanceof Date)) return
+    currentD = computeD(date)
+    updatePositions(currentD)
+  }
+
   return {
     setRealTime,
     setFastSpeed,
@@ -69,6 +75,8 @@ export function createTimeController(planetObjects, orbitScale, extraRotating = 
     freeze,
     unfreeze,
     resetTime,
-    getSimulationDate
+    resetTime,
+    getSimulationDate,
+    setDate
   }
 }

@@ -26,8 +26,31 @@
       </div>
     </div>
 
+    <!-- Top Center Actions -->
+    <div class="top-center-actions">
+      <button 
+        class="stellar-btn"
+        @click="openStellarModal"
+      >
+        ✨ {{ t('stellar.btn') }}
+      </button>
+    </div>
+
     <!-- Language Panel -->
     <LanguagePanel />
+
+    <!-- Stellar Moment Modal -->
+    <StellarMomentModal
+      v-if="showStellarModal"
+      :currentDate="captureDate"
+      :isCapturing="isCapturing"
+      :capturedImage="capturedImage"
+      @close="closeStellarModal"
+      @preview="onStellarPreview"
+      @capture="onStellarCapture"
+      @download="onStellarDownload"
+      @discard="onStellarDiscard"
+    />
 
     <!-- Tour/Info Panel -->
     <TourPanel
@@ -58,8 +81,10 @@ import PlanetNavigationPanel from './PlanetNavigationPanel.vue'
 import TimeControlPanel from './TimeControlPanel.vue'
 import LanguagePanel from './LanguagePanel.vue'
 import TourPanel from './TourPanel.vue'
+import StellarMomentModal from './StellarMomentModal.vue'
 
 import { t, currentLang } from '../utils/i18n.js'
+import { captureHighRes, downloadImage } from '../utils/ScreenshotEngine.js'
 
 import { createEngine } from '../three/engine.js'
 import { createSolarSystem } from '../three/createSolarSystem.js'
@@ -74,6 +99,10 @@ const selectedPlanetId = ref(null)
 const currentTime = ref('')
 const simulationTime = ref('')
 const isSimulating = ref(false)
+const showStellarModal = ref(false)
+const isCapturing = ref(false)
+const captureDate = ref(new Date())
+const capturedImage = ref('')
 
 let engine
 let solar
@@ -114,12 +143,21 @@ function onPanelClose() {
 function onSpeedChange(mult) {
   if (!timeController) return
   if (mult === 1) {
-    isSimulating.value = true
+    isSimulating.value = false // Hide sim time for real-time
     timeController.setRealTime()
   } else {
     isSimulating.value = true
     timeController.setFastSpeed(mult)
   }
+}
+
+function updateOrbitResolution(w, h) {
+  if (!engine?.scene) return
+  engine.scene.traverse(obj => {
+    if (obj.userData?.isOrbit && obj.material?.resolution) {
+      obj.material.resolution.set(w, h)
+    }
+  })
 }
 
 function onReset() {
@@ -135,6 +173,84 @@ function onReset() {
   if (panelRef && panelRef.resetVisuals) {
     panelRef.resetVisuals()
   }
+}
+
+function openStellarModal() {
+  if (timeController) {
+    captureDate.value = timeController.getSimulationDate()
+    timeController.freeze() // Freeze time when choosing a moment
+  }
+  if (interactions) interactions.setEnabled(false) // Disable background interaction
+  showStellarModal.value = true
+}
+
+function closeStellarModal() {
+  showStellarModal.value = false
+  capturedImage.value = ''
+  if (timeController) {
+    timeController.setRealTime() // Jump back to real current time
+    timeController.unfreeze()
+  }
+  isSimulating.value = false // Hide sim time HUD as we are back to real-time
+  if (interactions) interactions.setEnabled(true) // Re-enable interaction
+}
+
+function onStellarPreview(date) {
+  if (timeController) {
+    timeController.setDate(date)
+    // isSimulating.value = true // REMOVED: Don't show sim time HUD for snapshot preview
+    captureDate.value = date
+  }
+}
+
+async function onStellarCapture() {
+  if (!engine) return
+  isCapturing.value = true
+
+  // Wait a frame to let UI update (show 'Capturing...')
+  await new Promise(r => requestAnimationFrame(r))
+  await new Promise(r => setTimeout(r, 100)) // slight buffer
+
+  const uiElements = document.querySelectorAll('.hud, .language-panel, .tour-panel, .planet-nav-panel, .time-control-panel, .stellar-modal-overlay')
+  
+  try {
+    // 1. Hide UI
+    uiElements.forEach(el => el.style.visibility = 'hidden')
+
+    // Update orbit resolution for 4K
+    updateOrbitResolution(3840, 2160)
+    
+    // 2. Capture
+    const dataUrl = await captureHighRes(
+      engine.renderer,
+      engine.scene,
+      engine.camera,
+      3840,
+      2160
+    )
+    
+    if (dataUrl) {
+      capturedImage.value = dataUrl
+    }
+  } catch (e) {
+    console.error('Capture failed', e)
+  } finally {
+    // Restore orbit resolution to screen size
+    updateOrbitResolution(window.innerWidth, window.innerHeight)
+    // Restore UI
+    uiElements.forEach(el => el.style.visibility = '')
+    isCapturing.value = false
+  }
+}
+
+function onStellarDownload() {
+  if (capturedImage.value) {
+    downloadImage(capturedImage.value, `stellar-moment-${captureDate.value.toISOString().slice(0,10)}.png`)
+  }
+}
+
+function onStellarDiscard() {
+  capturedImage.value = ''
 }
 
 onMounted(async () => {
@@ -181,6 +297,9 @@ onMounted(async () => {
         console.warn('Error updating simulation time', e)
       }
     }
+  })
+  window.addEventListener('resize', () => {
+    updateOrbitResolution(window.innerWidth, window.innerHeight)
   })
 })
 
@@ -245,6 +364,23 @@ onUnmounted(() => {
   font-weight: 600;
 }
 
+.top-center-actions {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.top-actions-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+}
+
 .label {
   font-size: 11px;
   text-transform: uppercase;
@@ -277,5 +413,35 @@ onUnmounted(() => {
   margin-top: 6px;
   font-size: 20px;
   font-weight: 600;
+}
+
+.stellar-btn {
+  pointer-events: auto;
+  padding: 8px 16px;
+  font-size: 13px;
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 600;
+  color: #fff;
+  background: rgba(180, 150, 100, 0.2);
+  border: 1px solid rgba(255, 200, 100, 0.25);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+}
+
+.stellar-btn:hover {
+  background: rgba(50, 60, 110, 0.9);
+  transform: translateY(-2px);
+  border-color: rgba(100, 180, 255, 0.6);
+  box-shadow: 0 6px 20px rgba(0, 100, 255, 0.3);
+}
+
+.stellar-btn:active {
+  transform: translateY(1px);
 }
 </style>
