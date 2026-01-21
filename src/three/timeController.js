@@ -75,7 +75,6 @@ export function createTimeController(planetObjects, orbitScale, extraRotating = 
     freeze,
     unfreeze,
     resetTime,
-    resetTime,
     getSimulationDate,
     setDate
   }

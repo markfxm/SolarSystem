@@ -90,6 +90,7 @@ import { createEngine } from '../three/engine.js'
 import { createSolarSystem } from '../three/createSolarSystem.js'
 import { createTimeController } from '../three/timeController.js'
 import { createInteractions } from '../three/interactions.js'
+import { AestheticSnapshotManager } from '../utils/AestheticSnapshot.js'
 
 const container = shallowRef(null)
 const timePanel = ref(null)
@@ -188,8 +189,8 @@ function closeStellarModal() {
   showStellarModal.value = false
   capturedImage.value = ''
   if (timeController) {
-    timeController.setRealTime() // Jump back to real current time
-    timeController.unfreeze()
+    timeController.resetTime() // Jump back to real current time and set speed to 1x
+    timeController.unfreeze()  // Resume motion
   }
   isSimulating.value = false // Hide sim time HUD as we are back to real-time
   if (interactions) interactions.setEnabled(true) // Re-enable interaction
@@ -203,24 +204,35 @@ function onStellarPreview(date) {
   }
 }
 
-async function onStellarCapture() {
+async function onStellarCapture(date) {
   if (!engine) return
   isCapturing.value = true
 
-  // Wait a frame to let UI update (show 'Capturing...')
+  // Ensure scene is aligned to the capture date if provided
+  if (date instanceof Date && timeController) {
+    timeController.setDate(date)
+    captureDate.value = date
+  }
+
+  // Wait a frame to let UI update (show 'Capturing...') and scene update
   await new Promise(r => requestAnimationFrame(r))
-  await new Promise(r => setTimeout(r, 100)) // slight buffer
+  await new Promise(r => setTimeout(r, 100)) // slight buffer for heavy scenes
 
   const uiElements = document.querySelectorAll('.hud, .language-panel, .tour-panel, .planet-nav-panel, .time-control-panel, .stellar-modal-overlay')
   
+  const aesthetic = new AestheticSnapshotManager(engine.scene, engine.camera, solar.planetObjects)
+
   try {
     // 1. Hide UI
     uiElements.forEach(el => el.style.visibility = 'hidden')
 
-    // Update orbit resolution for 4K
+    // 2. Apply Aesthetic Transformation
+    aesthetic.apply(date)
+    
+    // Update orbit resolution for 4K (for any Line2 if present, though we used Line for aesthetic)
     updateOrbitResolution(3840, 2160)
     
-    // 2. Capture
+    // 3. Capture
     const dataUrl = await captureHighRes(
       engine.renderer,
       engine.scene,
@@ -235,6 +247,8 @@ async function onStellarCapture() {
   } catch (e) {
     console.error('Capture failed', e)
   } finally {
+    // Restore scene state
+    aesthetic.restore()
     // Restore orbit resolution to screen size
     updateOrbitResolution(window.innerWidth, window.innerHeight)
     // Restore UI

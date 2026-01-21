@@ -1,6 +1,9 @@
 import { ref } from 'vue'
 
-export const currentLang = ref('en')
+const SAVED_LANG_KEY = 'preferredLanguage'
+const defaultLang = localStorage.getItem(SAVED_LANG_KEY) || 'en'
+
+export const currentLang = ref(defaultLang)
 
 const dict = {
   en: {
@@ -79,7 +82,7 @@ const dict = {
       title: '星空瞬间',
       desc: '选择一个特殊的日子，查看那一刻的行星排列。',
       dateLabel: '选择日期',
-      capture: '捕捉 4K 高度快照',
+      capture: '捕捉 4K 高清快照',
       capturing: '正在捕捉...',
       tip: '快照时 UI 将自动隐藏。',
       download: '下载快照',
@@ -102,5 +105,8 @@ export function t(path) {
 }
 
 export function setLang(lang) {
-  if (dict[lang]) currentLang.value = lang
+  if (dict[lang]) {
+    currentLang.value = lang
+    localStorage.setItem(SAVED_LANG_KEY, lang)
+  }
 }

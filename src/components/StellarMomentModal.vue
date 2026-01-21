@@ -144,18 +144,7 @@ onMounted(() => {
 })
 
 function onManualDateChange() {
-  const y = parseInt(year.value)
-  const m = parseInt(month.value)
-  const d = parseInt(day.value)
-
-  if (isNaN(y) || isNaN(m) || isNaN(d)) return
-  if (m < 1 || m > 12 || d < 1 || d > 31) return
-
-  const dateObj = new Date(y, m - 1, d, 12, 0, 0)
-  // Check valid date (e.g. avoid Feb 31)
-  if (dateObj.getFullYear() === y && dateObj.getMonth() === m - 1 && dateObj.getDate() === d) {
-    emit('preview', dateObj)
-  }
+  // We no longer emit 'preview' here to avoid live background movement
 }
 
 function handleInput(field) {
@@ -182,7 +171,19 @@ function handleArrow(field, dir, e) {
 }
 
 function onCapture() {
-  emit('capture')
+  const y = parseInt(year.value)
+  const m = parseInt(month.value)
+  const d = parseInt(day.value)
+
+  if (isNaN(y) || isNaN(m) || isNaN(d)) return
+  
+  const dateObj = new Date(y, m - 1, d, 12, 0, 0)
+  // Check valid date (e.g. avoid Feb 31)
+  if (dateObj.getFullYear() === y && dateObj.getMonth() === m - 1 && dateObj.getDate() === d) {
+    emit('capture', dateObj)
+  } else {
+    emit('capture', dateObj)
+  }
 }
 </script>
 
@@ -322,6 +323,11 @@ input::-webkit-inner-spin-button {
   cursor: pointer;
 }
 
+.actions {
+  display: flex;
+  justify-content: center;
+}
+
 .capture-btn {
   width: 100%;
   padding: 14px;
@@ -334,11 +340,6 @@ input::-webkit-inner-spin-button {
   cursor: pointer;
   transition: transform 0.2s, opacity 0.2s, box-shadow 0.2s;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-}
-
-.actions {
-  display: flex;
-  justify-content: center;
 }
 
 .capture-btn:hover:not(:disabled) {
