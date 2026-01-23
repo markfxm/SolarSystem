@@ -70,13 +70,32 @@
           <div class="preview-container">
             <h3>{{ t('stellar.review') }}</h3>
             <div class="image-wrapper">
-              <img :src="capturedImage" class="preview-img" alt="Snapshot Preview" />
+              <img :src="displayImage" class="preview-img" alt="Snapshot Preview" />
               <button class="zoom-btn" @click="showFull = true" :title="t('stellar.enlarge')">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
               </button>
             </div>
             <div class="preview-actions">
-              <button class="download-btn-confirm" @click="$emit('download')" :title="t('stellar.save')">
+              <button 
+                class="style-btn" 
+                @click="toggleStyle" 
+                :class="{ active: posterStyle === 'cinematic' }"
+                :disabled="isProcessing"
+                :title="posterStyle === 'raw' ? 'Create Poster' : 'Show Original'"
+              >
+                 <!-- Wand Icon -->
+                 <svg v-if="!isProcessing" xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                   <path d="M15 4V2"/>
+                   <path d="M15 16v-2"/>
+                   <path d="M8 9h2"/>
+                   <path d="M20 9h2"/>
+                   <path d="M17.8 11.8 19 13"/>
+                   <path d="M15 9l-1-1"/>
+                   <path d="M15 19l6-6a2 2 0 0 0-3-3l-6 6a2 2 0 0 0 3 3z"/>
+                 </svg>
+                 <span v-else class="spinner"></span>
+              </button>
+              <button class="download-btn-confirm" @click="$emit('download', displayImage)" :title="t('stellar.save')">
                 <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
               </button>
               <button class="discard-btn" @click="$emit('discard')" :title="t('stellar.discard')">
@@ -89,18 +108,36 @@
     </div>
 
     <!-- Full Screen Lightbox -->
-    <div v-if="showFull" class="lightbox-overlay" @click="showFull = false">
-      <div class="lightbox-content" @click.stop>
-        <img :src="capturedImage" alt="Full Preview" />
-        <button class="lightbox-close" @click="showFull = false">×</button>
+    <div v-if="showFull" class="lightbox-overlay" @click="closeLightbox">
+      <div 
+        class="lightbox-content" 
+        @click.stop
+        @wheel.passive="handleWheel"
+        @pointerdown="startPan"
+        @pointermove="doPan"
+        @pointerup="stopPan"
+        @pointerleave="stopPan"
+        :style="{ cursor: isDragging ? 'grabbing' : (zoomScale > 1 ? 'grab' : 'default') }"
+      >
+        <img 
+          :src="displayImage" 
+          alt="Full Preview" 
+          :style="{ 
+            transform: `translate(${translateX}px, ${translateY}px) scale(${zoomScale})`,
+            transition: isDragging ? 'none' : 'transform 0.15s ease-out'
+          }"
+          draggable="false"
+        />
+        <button class="lightbox-close" @click="closeLightbox">×</button>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { t } from '../utils/i18n.js'
+import { createCinematicPoster } from '../utils/PosterEngine.js'
 
 const props = defineProps({
   currentDate: {
@@ -124,9 +161,92 @@ const month = ref(1)
 const day = ref(1)
 const showFull = ref(false)
 
+// Poster Style Logic
+const posterStyle = ref('raw') // 'raw' | 'cinematic'
+const processedImage = ref('')
+const isProcessing = ref(false)
+
 const yearInput = ref(null)
 const monthInput = ref(null)
 const dayInput = ref(null)
+
+watch(() => props.capturedImage, () => {
+  processedImage.value = ''
+  posterStyle.value = 'raw'
+})
+
+const displayImage = computed(() => {
+  if (posterStyle.value === 'cinematic' && processedImage.value) {
+    return processedImage.value
+  }
+  return props.capturedImage
+})
+
+// Zoom & Pan Logic
+const zoomScale = ref(1)
+const translateX = ref(0)
+const translateY = ref(0)
+const isDragging = ref(false)
+let startX = 0
+let startY = 0
+
+function handleWheel(e) {
+  const delta = e.deltaY > 0 ? 0.9 : 1.1
+  const newScale = Math.max(1, Math.min(zoomScale.value * delta, 10))
+  
+  // If zooming out to 1, reset translation
+  if (newScale === 1) {
+    translateX.value = 0
+    translateY.value = 0
+  }
+  
+  zoomScale.value = newScale
+}
+
+function startPan(e) {
+  if (zoomScale.value <= 1) return
+  isDragging.value = true
+  startX = e.clientX - translateX.value
+  startY = e.clientY - translateY.value
+  e.target.setPointerCapture(e.pointerId)
+}
+
+function doPan(e) {
+  if (!isDragging.value) return
+  translateX.value = e.clientX - startX
+  translateY.value = e.clientY - startY
+}
+
+function stopPan(e) {
+  isDragging.value = false
+}
+
+function closeLightbox() {
+  showFull.value = false
+  // Reset Zoom/Pan
+  zoomScale.value = 1
+  translateX.value = 0
+  translateY.value = 0
+}
+
+async function toggleStyle() {
+  if (posterStyle.value === 'raw') {
+    if (!processedImage.value) {
+      isProcessing.value = true
+      try {
+        const dateObj = new Date(year.value, month.value - 1, day.value)
+        processedImage.value = await createCinematicPoster(props.capturedImage, dateObj)
+      } catch (e) {
+        console.error(e)
+      } finally {
+        isProcessing.value = false
+      }
+    }
+    posterStyle.value = 'cinematic'
+  } else {
+    posterStyle.value = 'raw'
+  }
+}
 
 function focusYear() { yearInput.value?.focus() }
 function focusMonth() { monthInput.value?.focus() }
@@ -373,7 +493,7 @@ input::-webkit-inner-spin-button {
   background: #000;
   border-radius: 8px;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.5);
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
   position: relative;
 }
@@ -428,17 +548,22 @@ input::-webkit-inner-spin-button {
 .lightbox-content {
   position: relative;
   width: 90vw;
-  height: 90vh;
+  max-width: 90vw;
+  max-height: 90vh;
+  aspect-ratio: 16 / 9;
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
+  background: #000;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 0 50px rgba(0,0,0,1);
 }
 
 .lightbox-content img {
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
-  box-shadow: 0 0 50px rgba(0,0,0,1);
 }
 
 .lightbox-close {
@@ -520,7 +645,51 @@ input::-webkit-inner-spin-button {
   color: #fff;
 }
 
-.download-btn-confirm:active, .discard-btn:active {
+.style-btn {
+  width: 50px;
+  height: 42px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.style-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: translateY(-2px);
+}
+
+.style-btn.active {
+  background: rgba(136, 204, 255, 0.2);
+  border-color: #88ccff;
+  color: #88ccff;
+  box-shadow: 0 0 10px rgba(136, 204, 255, 0.2);
+}
+
+.style-btn:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.download-btn-confirm:active, .discard-btn:active, .style-btn:active {
   transform: translateY(1px);
 }
 </style>

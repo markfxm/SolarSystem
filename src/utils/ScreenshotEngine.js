@@ -30,10 +30,17 @@ export async function captureHighRes(renderer, scene, camera, width = 3840, heig
         renderer.render(scene, camera)
 
         // 3. Get Data URL
-        // We can't use toBlob here easily because we need to await it, 
-        // and we want to restore state immediately. 
-        // toDataURL is synchronous for WebGLRenderer usually, which is fine for this flow.
-        const dataUrl = renderer.domElement.toDataURL('image/png', 1.0)
+        // To add a border, we draw the renderer's canvas onto a 2D canvas
+        const canvas = document.createElement('canvas')
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext('2d')
+
+        // Draw the rendered scene
+        ctx.drawImage(renderer.domElement, 0, 0)
+
+
+        const dataUrl = canvas.toDataURL('image/png', 1.0)
 
         // 4. Restore State
         camera.aspect = originalAspect
