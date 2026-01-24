@@ -1,4 +1,4 @@
-export async function createCinematicPoster(sourceDataUrl, dateObj) {
+export async function createCinematicPoster(sourceDataUrl, dateObj, format = '16:9') {
     return new Promise((resolve, reject) => {
         const img = new Image()
         img.crossOrigin = "Anonymous"
@@ -9,19 +9,26 @@ export async function createCinematicPoster(sourceDataUrl, dateObj) {
                 const margin = 120
                 const footerHeight = 400
 
-                // Calculate height first based on content
-                const contentHeight = img.height + margin + footerHeight
+                // Minimum required dimensions to fit content
+                const minW = img.width + (margin * 2)
+                const minH = img.height + margin + footerHeight
 
-                // Enforce 16:9 Aspect Ratio
-                // Target Width based on Height (16/9 = 1.777...)
-                let canvasHeight = contentHeight
-                let canvasWidth = Math.ceil(contentHeight * (16 / 9))
+                // Determine Target Aspect Ratio
+                let targetAR = 16 / 9
+                if (format === '9:16') targetAR = 9 / 16
+                if (format === '1:1') targetAR = 1
 
-                // If by chance the image is super wide and calculate width is too small, respect image width
-                // (Unlikely for standard 16:9 input, but good for safety)
-                if (canvasWidth < img.width + (margin * 2)) {
-                    canvasWidth = img.width + (margin * 2)
-                    canvasHeight = Math.ceil(canvasWidth * (9 / 16))
+                let canvasWidth, canvasHeight
+
+                // Universal Fit Logic
+                // If content shape is "wider" than target shape, width is the constraint.
+                // If content shape is "taller" than target shape, height is the constraint.
+                if (minW / minH > targetAR) {
+                    canvasWidth = minW
+                    canvasHeight = Math.ceil(minW / targetAR)
+                } else {
+                    canvasHeight = minH
+                    canvasWidth = Math.ceil(minH * targetAR)
                 }
 
                 const canvas = document.createElement('canvas')
@@ -34,18 +41,29 @@ export async function createCinematicPoster(sourceDataUrl, dateObj) {
                 ctx.fillStyle = '#000000'
                 ctx.fillRect(0, 0, canvasWidth, canvasHeight)
 
-                // 3. Draw Image
+                // 3. Layout Calculations (Vertical Centering)
+                // Content = Image + Gap + Footer Text Area
+                // We approximated footerHeight before, but let's be precise for centering.
+                // Title (80px) + Gap (110px) + Date (40px) + Gap (70px) + Tech (24px) ~ 350px total text block
+                const textBlockHeight = 350
+                const gapImageToText = 80
+                const totalContentHeight = img.height + gapImageToText + textBlockHeight
+
+                // Determine starting Y to center content vertically
+                // For 16:9, we might prefer the margin look, but for 9:16/1:1 centering is critical.
+                // Let's apply centering for all to keep it balanced.
+                let startY = (canvasHeight - totalContentHeight) / 2
+
+                // Safety: Don't go above top margin if canvas is tight
+                if (startY < margin) startY = margin
+
+                // 4. Draw Image
                 // Center the image horizontally
                 const imgX = (canvasWidth - img.width) / 2
-                ctx.drawImage(img, imgX, margin)
+                ctx.drawImage(img, imgX, startY)
 
-                // 4. Draw Border around the image (Removed for seamless look)
-                // ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)'
-                // ctx.lineWidth = 2
-                // ctx.strokeRect(imgX, margin, img.width, img.height)
-
-                // 5. Typography (The "Poster" feel)
-                const footerY = margin + img.height + 80
+                // 5. Typography
+                const footerY = startY + img.height + gapImageToText
                 const centerX = canvasWidth / 2
 
                 ctx.textAlign = 'center'
