@@ -46,7 +46,14 @@ const dict = {
       save: 'Save to Device',
       discard: 'Discard & Retake',
       review: 'Review your snapshot',
-      enlarge: 'Enlarge View'
+      enlarge: 'Enlarge View',
+      ratio: '1. Select Ratio',
+      theme: '2. Select Theme',
+      generate: 'Apply Art Style',
+      theme_cinematic: 'Cinematic',
+      theme_blueprint: 'Blueprint',
+      theme_vintage: 'Vintage',
+      theme_golden: 'Golden Record'
     }
   },
   zh: {
@@ -89,7 +96,14 @@ const dict = {
       save: '保存到设备',
       discard: '放弃并重拍',
       review: '预览你的星空瞬间',
-      enlarge: '放大查看'
+      enlarge: '放大查看',
+      ratio: '1. 选择比例',
+      theme: '2. 选择主题',
+      generate: '生成艺术海报',
+      theme_cinematic: '电影感',
+      theme_blueprint: '蓝图',
+      theme_vintage: '复古',
+      theme_golden: '黄金唱片'
     }
   }
 }

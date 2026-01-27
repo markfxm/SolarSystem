@@ -67,21 +67,85 @@
         </template>
 
         <template v-else>
-          <div class="preview-container">
-            <h3>{{ t('stellar.review') }}</h3>
-            <div class="image-wrapper" :style="{ aspectRatio: posterStyle === 'cinematic' ? (posterFormat.replace(':', '/')) : '16/9' }">
-              <div v-if="showFormatSelector" class="format-selector-overlay">
-                <div class="format-card" @click="setFormat('16:9')">
-                  <div class="ratio-box r-16-9">16:9</div>
-                </div>
-                <div class="format-card" @click="setFormat('9:16')">
-                  <div class="ratio-box r-9-16">9:16</div>
-                </div>
-                <div class="format-card" @click="setFormat('1:1')">
-                  <div class="ratio-box r-1-1">1:1</div>
+          <div v-if="showFormatSelector" class="selection-container">
+            <div class="format-options">
+              <div class="selector-section">
+                <h4>{{ t('stellar.ratio') || '1. Select Ratio' }}</h4>
+                <div class="ratio-list">
+                  <div class="format-card" :class="{ active: posterFormat === '16:9' }" @click="setFormat('16:9')">
+                    <div class="ratio-box r-16-9">16:9</div>
+                  </div>
+                  <div class="format-card" :class="{ active: posterFormat === '9:16' }" @click="setFormat('9:16')">
+                    <div class="ratio-box r-9-16">9:16</div>
+                  </div>
+                  <div class="format-card" :class="{ active: posterFormat === '1:1' }" @click="setFormat('1:1')">
+                    <div class="ratio-box r-1-1">1:1</div>
+                  </div>
                 </div>
               </div>
 
+              <div class="selector-section">
+                <h4>{{ t('stellar.theme') || '2. Select Theme' }}</h4>
+                <div class="theme-list">
+                  <button 
+                    class="theme-btn" 
+                    :class="{ active: posterTheme === 'cinematic' }"
+                    @click="posterTheme = 'cinematic'"
+                    title="Cinematic"
+                  >
+                    <div class="theme-preview-outer">
+                      <div class="theme-preview cinematic"></div>
+                    </div>
+                    <span class="theme-label">{{ t('stellar.theme_cinematic') }}</span>
+                  </button>
+                  <button 
+                    class="theme-btn" 
+                    :class="{ active: posterTheme === 'blueprint' }"
+                    @click="posterTheme = 'blueprint'"
+                    title="Blueprint"
+                  >
+                    <div class="theme-preview-outer">
+                      <div class="theme-preview blueprint"></div>
+                    </div>
+                    <span class="theme-label">{{ t('stellar.theme_blueprint') }}</span>
+                  </button>
+                  <button 
+                    class="theme-btn" 
+                    :class="{ active: posterTheme === 'vintage' }"
+                    @click="posterTheme = 'vintage'"
+                    title="Vintage"
+                  >
+                    <div class="theme-preview-outer">
+                      <div class="theme-preview vintage"></div>
+                    </div>
+                    <span class="theme-label">{{ t('stellar.theme_vintage') }}</span>
+                  </button>
+                  <button 
+                    class="theme-btn" 
+                    :class="{ active: posterTheme === 'golden' }"
+                    @click="posterTheme = 'golden'"
+                    title="Golden Record"
+                  >
+                    <div class="theme-preview-outer">
+                      <div class="theme-preview golden"></div>
+                    </div>
+                    <span class="theme-label">{{ t('stellar.theme_golden') }}</span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="selection-actions">
+                <button class="cancel-btn" @click="showFormatSelector = false">{{ t('control.reset') || 'Cancel' }}</button>
+                <button class="confirm-poster-btn" @click="generatePoster">
+                  {{ t('stellar.generate') || 'Apply Art Style' }}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div v-else class="preview-container">
+            <h3>{{ t('stellar.review') }}</h3>
+            <div class="image-wrapper" :style="{ aspectRatio: posterStyle === 'poster' ? (posterFormat.replace(':', '/')) : '16/9' }">
               <img :src="displayImage" class="preview-img" alt="Snapshot Preview" />
               
               <div v-if="isProcessing" class="processing-overlay">
@@ -89,7 +153,7 @@
                 <span>Creating Art...</span>
               </div>
 
-              <button v-if="!showFormatSelector && !isProcessing" class="zoom-btn" @click="showFull = true" :title="t('stellar.enlarge')">
+              <button v-if="!isProcessing" class="zoom-btn" @click="showFull = true" :title="t('stellar.enlarge')">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
               </button>
             </div>
@@ -113,9 +177,10 @@
                    <path d="M15 19l6-6a2 2 0 0 0-3-3l-6 6a2 2 0 0 0 3 3z"/>
                  </svg>
               </button>
+
               
               <button 
-                v-if="posterStyle === 'cinematic' || showFormatSelector"
+                v-if="posterStyle === 'poster' || showFormatSelector"
                 class="style-btn" 
                 @click="resetToRaw" 
                 title="Back to Original"
@@ -145,7 +210,11 @@
         @pointermove="doPan"
         @pointerup="stopPan"
         @pointerleave="stopPan"
-        :style="{ cursor: isDragging ? 'grabbing' : (zoomScale > 1 ? 'grab' : 'default') }"
+        :style="{ 
+          cursor: isDragging ? 'grabbing' : (zoomScale > 1 ? 'grab' : 'default'),
+          aspectRatio: posterFormat.replace(':', '/'),
+          width: `min(80vw, 80vh * ${posterFormat.split(':')[0] / posterFormat.split(':')[1]})`
+        }"
       >
         <img 
           :src="displayImage" 
@@ -156,8 +225,8 @@
           }"
           draggable="false"
         />
-        <button class="lightbox-close" @click="closeLightbox">×</button>
       </div>
+      <button class="lightbox-close" @click="closeLightbox" title="Close">×</button>
     </div>
   </div>
 </template>
@@ -165,7 +234,7 @@
 <script setup>
 import { ref, onMounted, computed, watch } from 'vue'
 import { t } from '../utils/i18n.js'
-import { createCinematicPoster } from '../utils/PosterEngine.js'
+import { createPoster } from '../utils/PosterEngine.js'
 
 const props = defineProps({
   currentDate: {
@@ -190,8 +259,9 @@ const day = ref(1)
 const showFull = ref(false)
 
 // Poster Style Logic
-const posterStyle = ref('raw') // 'raw' | 'cinematic'
+const posterStyle = ref('raw') // 'raw' | 'poster'
 const posterFormat = ref('16:9') // '16:9' | '9:16' | '1:1'
+const posterTheme = ref('cinematic') // 'cinematic' | 'blueprint' | 'vintage'
 const showFormatSelector = ref(false)
 const processedImage = ref('')
 const isProcessing = ref(false)
@@ -206,7 +276,7 @@ watch(() => props.capturedImage, () => {
 })
 
 const displayImage = computed(() => {
-  if (posterStyle.value === 'cinematic' && processedImage.value) {
+  if (posterStyle.value === 'poster' && processedImage.value) {
     return processedImage.value
   }
   return props.capturedImage
@@ -274,32 +344,39 @@ function openFormatSelector() {
 }
 
 function resetToRaw() {
-  posterStyle.value = 'raw'
-  showFormatSelector.value = false
+  if (posterStyle.value === 'poster' && !showFormatSelector.value) {
+    posterStyle.value = 'raw' 
+    showFormatSelector.value = true
+  } else {
+    posterStyle.value = 'raw'
+    showFormatSelector.value = false
+  }
 }
 
 async function setFormat(fmt) {
   posterFormat.value = fmt
-  posterStyle.value = 'cinematic'
-  showFormatSelector.value = false // Hide selector, show result
+}
 
-  // Check cache
-  if (processedCache.value[fmt]) {
-    processedImage.value = processedCache.value[fmt]
+async function generatePoster() {
+  showFormatSelector.value = false 
+  posterStyle.value = 'poster'
+  const cacheKey = `${posterFormat.value}_${posterTheme.value}`
+  
+  if (processedCache.value[cacheKey]) {
+    processedImage.value = processedCache.value[cacheKey]
     return
   }
 
   isProcessing.value = true
   try {
     const dateObj = new Date(year.value, month.value - 1, day.value)
-    // Pass format to engine
-    const result = await createCinematicPoster(props.capturedImage, dateObj, fmt)
+    const result = await createPoster(props.capturedImage, dateObj, posterFormat.value, posterTheme.value)
     processedImage.value = result
-    processedCache.value[fmt] = result
+    processedCache.value[cacheKey] = result
   } catch (e) {
     console.error(e)
     posterStyle.value = 'raw'
-    showFormatSelector.value = true // Go back to selector on error
+    showFormatSelector.value = true
   } finally {
     isProcessing.value = false
   }
@@ -607,10 +684,9 @@ input::-webkit-inner-spin-button {
 
 .lightbox-content {
   position: relative;
-  width: 90vw;
-  max-width: 90vw;
-  max-height: 90vh;
-  aspect-ratio: 16 / 9;
+  /* width and aspect-ratio set inline */
+  max-width: 80vw;
+  max-height: 80vh;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -618,6 +694,7 @@ input::-webkit-inner-spin-button {
   background: #000;
   border: 1px solid rgba(255, 255, 255, 0.5);
   box-shadow: 0 0 50px rgba(0,0,0,1);
+  transition: all 0.3s ease;
 }
 
 .lightbox-content img {
@@ -641,13 +718,31 @@ input::-webkit-inner-spin-button {
   opacity: 0.6;
 }
 
+.lightbox-close {
+  position: absolute;
+  top: 30px;
+  right: 30px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 42px;
+  font-weight: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  z-index: 3100;
+  line-height: 1;
+  opacity: 0.5;
+}
+
 .lightbox-close:hover {
   opacity: 1;
   transform: scale(1.1);
-}
-
-.lightbox-close:focus {
-  outline: none;
 }
 
 .lightbox-close:active {
@@ -655,26 +750,145 @@ input::-webkit-inner-spin-button {
 }
 
 
-.format-selector-overlay {
-  position: absolute;
-  top: 0; 
-  left: 0;
+.selection-container {
   width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.85);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 20px;
-  z-index: 20;
-  animation: fadeIn 0.2s ease;
+  animation: fadeIn 0.3s ease;
 }
 
-.format-card {
+.format-options {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  align-items: center;
+  width: 100%;
+}
+
+.selector-section {
+  width: 100%;
+  text-align: center;
+}
+
+.selector-section h4 {
+  margin: 0 0 16px 0;
+  font-size: 13px;
+  color: #88ccff;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 600;
+}
+
+.ratio-list {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+.theme-list {
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+}
+
+.theme-btn {
   display: flex;
   flex-direction: column;
   align-items: center;
+  gap: 12px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.3s ease;
+  min-width: 80px; /* Ensure space for labels */
+  outline: none; /* Remove focus ring */
+}
+
+.theme-preview-outer {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  display: flex;
+  align-items: center;
   justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.theme-btn.active .theme-preview-outer {
+  border-color: #0071e3; /* characteristic selection blue */
+}
+
+.theme-preview {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.theme-preview.cinematic { background: #000000; }
+.theme-preview.blueprint { background: #001a33; }
+.theme-preview.vintage { background: #3d3428; }
+.theme-preview.golden { background: #5c4a1b; }
+
+
+.theme-label {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 500;
+  white-space: nowrap;
+  text-align: center;
+}
+
+.theme-btn.active .theme-label {
+  color: #fff;
+  font-weight: 600;
+}
+
+.selection-actions {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+  margin-top: 8px;
+}
+
+.cancel-btn {
+  flex: 1;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.6);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.confirm-poster-btn {
+  flex: 2;
+  padding: 12px;
+  border-radius: 12px;
+  border: none;
+  background: linear-gradient(135deg, #2b5876 0%, #4e4376 100%);
+  color: #fff;
+  font-weight: 600;
+  font-size: 15px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.cancel-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.confirm-poster-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(78, 67, 118, 0.3);
+}
+
+.format-card {
   cursor: pointer;
   transition: transform 0.2s ease;
 }
@@ -684,15 +898,29 @@ input::-webkit-inner-spin-button {
 }
 
 .ratio-box {
-  border: 2px solid rgba(255, 255, 255, 0.5);
+  border: 2px solid rgba(255, 255, 255, 0.2);
   display: flex;
   align-items: center;
   justify-content: center;
   color: #fff;
   font-weight: bold;
-  font-size: 14px;
-  background: rgba(255, 255, 255, 0.1);
+  font-size: 11px;
+  background: rgba(255, 255, 255, 0.03);
   transition: all 0.2s ease;
+}
+
+.format-card.active .ratio-box, 
+.format-card:hover .ratio-box {
+  border-color: #88ccff;
+  color: #88ccff;
+  background: rgba(136, 204, 255, 0.1);
+}
+
+.format-card.active .ratio-box, 
+.format-card:hover .ratio-box {
+  border-color: #88ccff;
+  color: #88ccff;
+  background: rgba(136, 204, 255, 0.15);
 }
 
 .format-card:hover .ratio-box {
@@ -818,44 +1046,6 @@ input::-webkit-inner-spin-button {
   transform: translateY(1px);
 }
 
-.format-controls {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-}
-
-.format-btn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 8px;
-  padding: 8px 12px;
-  color: rgba(255, 255, 255, 0.6);
-  cursor: pointer;
-  transition: all 0.2s ease;
-  min-width: 60px;
-}
-
-.format-btn:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.15);
-  transform: translateY(-2px);
-  color: #fff;
-}
-
-.format-btn.active {
-  background: rgba(136, 204, 255, 0.2);
-  border-color: #88ccff;
-  color: #88ccff;
-  box-shadow: 0 0 10px rgba(136, 204, 255, 0.2);
-}
-
-.format-btn:disabled {
-  opacity: 0.5;
-  cursor: wait;
-}
 
 /* Icons for formats */
 .icon-16-9 {
