@@ -62,6 +62,11 @@
           </div>
 
           <div class="tips">
+            <p v-if="currentChart" class="astrology-preview">
+              ☀️ {{ t('planet.sun') }}: 
+              <strong>{{ t(`zodiac_names`)[currentChart.sun.index] }}</strong> 
+              {{ AstrologyService.formatDegree(currentChart.sun.degree) }}
+            </p>
             <p>💡 {{ t('stellar.tip') }}</p>
           </div>
         </template>
@@ -235,6 +240,7 @@
 import { ref, onMounted, computed, watch } from 'vue'
 import { t } from '../utils/i18n.js'
 import { createPoster } from '../utils/PosterEngine.js'
+import { AstrologyService } from '../utils/AstrologyService.js'
 
 const props = defineProps({
   currentDate: {
@@ -265,6 +271,17 @@ const posterTheme = ref('cinematic') // 'cinematic' | 'blueprint' | 'vintage'
 const showFormatSelector = ref(false)
 const processedImage = ref('')
 const isProcessing = ref(false)
+const chartData = ref(null)
+
+const currentChart = computed(() => {
+  if (!year.value || !month.value || !day.value) return null
+  try {
+    const d = new Date(parseInt(year.value), parseInt(month.value) - 1, parseInt(day.value))
+    return AstrologyService.calculateGeocentricChart(d)
+  } catch (e) {
+    return null
+  }
+})
 
 const yearInput = ref(null)
 const monthInput = ref(null)
@@ -1082,5 +1099,19 @@ input::-webkit-inner-spin-button {
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin-left: 8px;
+}
+.astrology-preview {
+  background: rgba(212, 170, 255, 0.1);
+  border: 1px solid rgba(212, 170, 255, 0.2);
+  padding: 10px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  color: #d4aaff;
+  font-size: 14px;
+}
+
+.astrology-preview strong {
+  color: #fff;
+  margin: 0 4px;
 }
 </style>

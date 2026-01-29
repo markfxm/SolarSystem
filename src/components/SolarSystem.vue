@@ -21,6 +21,14 @@
         {{ t('control.home') }}
       </button>
 
+      <button
+        class="zodiac-toggle-btn"
+        :class="{ active: showZodiac }"
+        @click="toggleZodiac"
+      >
+        {{ t('control.zodiac') }}
+      </button>
+
       <div v-if="hoveredPlanetName" class="hover-name">
         {{ hoveredPlanetName }}
       </div>
@@ -75,7 +83,7 @@
 </template>
 
 <script setup>
-import { ref, shallowRef, onMounted, onUnmounted, computed } from 'vue'
+import { ref, shallowRef, onMounted, onUnmounted, computed, watch } from 'vue'
 
 import PlanetNavigationPanel from './PlanetNavigationPanel.vue'
 import TimeControlPanel from './TimeControlPanel.vue'
@@ -104,6 +112,7 @@ const showStellarModal = ref(false)
 const isCapturing = ref(false)
 const captureDate = ref(new Date())
 const capturedImage = ref('')
+const showZodiac = ref(false)
 
 let engine
 let solar
@@ -139,6 +148,13 @@ function onPlanetSelected(id) {
 function onPanelClose() {
   // interactions?.goHome()
   selectedPlanetId.value = null
+}
+
+function toggleZodiac() {
+  showZodiac.value = !showZodiac.value
+  if (solar && solar.zodiacRing) {
+    solar.zodiacRing.visible = showZodiac.value
+  }
 }
 
 function onSpeedChange(mult) {
@@ -277,7 +293,7 @@ onMounted(async () => {
 
   engine = createEngine(container.value)
 
-  solar = await createSolarSystem(engine.scene)
+  solar = await createSolarSystem(engine.scene, t('zodiac_names'))
 
   // pass the sun mesh as an extra rotating object so it spins with real speed
   timeController = createTimeController(
@@ -319,6 +335,13 @@ onMounted(async () => {
   })
   window.addEventListener('resize', () => {
     updateOrbitResolution(window.innerWidth, window.innerHeight)
+  })
+
+  // Watch for language changes to update Zodiac names
+  watch(currentLang, () => {
+    if (solar && solar.zodiacRing) {
+      solar.zodiacRing.updateLabels(t('zodiac_names'))
+    }
   })
 })
 
@@ -424,6 +447,32 @@ onUnmounted(() => {
 }
 .home-btn:hover {
   background: rgba(60,100,220,0.9);
+  transform: translateY(-2px);
+}
+
+.zodiac-toggle-btn {
+  margin-top: 0;
+  align-self: flex-start;
+  pointer-events: auto;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  background: rgba(30,30,40,0.9);
+  border: 1px solid rgba(212,170,255,0.35);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all .18s ease;
+}
+
+.zodiac-toggle-btn.active {
+  background: rgba(212,170,255,0.25);
+  border-color: rgba(212,170,255,0.8);
+  box-shadow: 0 0 15px rgba(212,170,255,0.3);
+}
+
+.zodiac-toggle-btn:hover {
+  background: rgba(212,170,255,0.4);
   transform: translateY(-2px);
 }
 

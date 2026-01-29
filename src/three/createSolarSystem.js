@@ -3,6 +3,7 @@ import { createUnifiedPlanet } from '../utils/Planet.js'
 import { createNebula } from '../utils/Nebula.js'
 import { computeElements, computePosition, getRotationSpeed, computeD } from '../utils/Astronomy.js'
 import { createEllipticalOrbit } from '../utils/EllipticalOrbit.js'
+import { createZodiacRing } from '../utils/ZodiacRing.js'
 
 const orbitScale = 260
 const sizeScale = 0.6
@@ -58,7 +59,7 @@ async function createSaturnRing(saturn) {
   saturn.add(ringMesh);
 }
 
-export async function createSolarSystem(scene) {
+export async function createSolarSystem(scene, zodiacNames = []) {
   const [
     dayTexture, nightTexture, sunTexture,
     mercuryTex, venusTex, marsTex,
@@ -173,5 +174,10 @@ export async function createSolarSystem(scene) {
   scene.add(createNebula(new THREE.Vector3(0, 0, -1500)))
   scene.add(new THREE.AmbientLight(0x404040, 0.6))
 
-  return { sun, planets, planetObjects, orbitScale }
+  // Zodiac Ring (at the edge of the system)
+  const zodiacRing = createZodiacRing(orbitScale * 35, zodiacNames) // Larger than Neptune
+  zodiacRing.visible = false // Hide by default
+  scene.add(zodiacRing)
+
+  return { sun, planets, planetObjects, orbitScale, zodiacRing }
 }

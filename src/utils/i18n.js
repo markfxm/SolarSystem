@@ -15,7 +15,8 @@ const dict = {
       fast: '×500000 Speed',
       speed: 'Speed',
       home: 'Home',
-      reset: 'Reset'
+      reset: 'Reset',
+      zodiac: 'Zodiac Ring'
     },
     planet: {
       sun: 'Sun',
@@ -28,6 +29,10 @@ const dict = {
       uranus: 'Uranus',
       neptune: 'Neptune'
     },
+    zodiac_names: [
+      'Aries', 'Taurus', 'Gemini', 'Cancer', 'Leo', 'Virgo',
+      'Libra', 'Scorpio', 'Sagittarius', 'Capricorn', 'Aquarius', 'Pisces'
+    ],
     tour: {
       radius: 'Radius',
       temp: 'Temp',
@@ -65,7 +70,8 @@ const dict = {
       fast: '×500000 倍速',
       speed: '速度',
       home: '主页',
-      reset: '归位'
+      reset: '归位',
+      zodiac: '十二宫环'
     },
     planet: {
       sun: '太阳',
@@ -78,6 +84,10 @@ const dict = {
       uranus: '天王星',
       neptune: '海王星'
     },
+    zodiac_names: [
+      '白羊座', '金牛座', '双子座', '巨蟹座', '狮子座', '处女座',
+      '天秤座', '天蝎座', '射手座', '摩羯座', '水瓶座', '双鱼座'
+    ],
     tour: {
       radius: '半径',
       temp: '温度',
