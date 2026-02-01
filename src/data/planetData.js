@@ -12,6 +12,18 @@ export const PLANET_DATA = {
             temp: "5,500°C (Surface)",
             orbit: "N/A"
         },
+        moon: {
+            displayName: "The Moon",
+            description: "Earth's loyal companion. It stabilizes our planet's wobble and creates tides. It's tidally locked, meaning we always see the same face. It's also the only other celestial body humans have set foot on.",
+            facts: [
+                "It is slowly moving away from Earth (3.8cm/year).",
+                "There is no 'dark side', only a 'far side'.",
+                "Footprints left by astronauts will last millions of years."
+            ],
+            radius: "1,737 km",
+            temp: "-130°C to 120°C",
+            orbit: "27.3 Days"
+        },
         mercury: {
             displayName: "Mercury",
             description: "The speed demon. It orbits faster than any other planet but rotates so slowly that one 'day' lasts two years. Also, it has no atmosphere, so if you visited, you'd be speechless.",
@@ -121,6 +133,18 @@ export const PLANET_DATA = {
             radius: "696,340 km",
             temp: "5,500°C (表面)",
             orbit: "N/A"
+        },
+        moon: {
+            displayName: "月球",
+            description: "地球的忠实伴侣。它稳定了我们星球的摆动并引起潮汐。它被潮汐锁定，意味着我们永远只能看到同一面。这也是人类唯一踏足过的地外天体。",
+            facts: [
+                "它正在慢慢远离地球（每年3.8厘米）。",
+                "没有“暗面”，只有“远背面”。",
+                "宇航员留下的脚印将保留数百万年。"
+            ],
+            radius: "1,737 km",
+            temp: "-130°C 至 120°C",
+            orbit: "27.3 天"
         },
         mercury: {
             displayName: "水星",

@@ -130,7 +130,8 @@ const planetNames = computed(() => ({
   jupiter: t('planet.jupiter'),
   saturn: t('planet.saturn'),
   uranus: t('planet.uranus'),
-  neptune: t('planet.neptune')
+  neptune: t('planet.neptune'),
+  moon: t('planet.moon')
 }))
 
 function startClock() {
@@ -299,12 +300,15 @@ onMounted(async () => {
   timeController = createTimeController(
     solar.planetObjects,
     solar.orbitScale,
-    [solar.sun]
+    [solar.sun, solar.moon], // Moon also rotates
+    solar.moon,
+    solar.moonOrbit,
+    solar.MOON_ORBIT_RADIUS
   )
 
   interactions = createInteractions({
     engine,
-    planets: solar.planets,
+    planets: [...solar.planets, solar.moon],
     planetNames,
     timeController,
     onHoverNameChange: name => {

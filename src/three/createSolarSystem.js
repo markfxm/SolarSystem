@@ -6,7 +6,7 @@ import { createEllipticalOrbit } from '../utils/EllipticalOrbit.js'
 import { createZodiacRing } from '../utils/ZodiacRing.js'
 
 const orbitScale = 260
-const sizeScale = 0.6
+const sizeScale = 1.2
 const SUN_RADIUS = 70
 
 const sizes = {
@@ -179,5 +179,34 @@ export async function createSolarSystem(scene, zodiacNames = []) {
   zodiacRing.visible = false // Hide by default
   scene.add(zodiacRing)
 
-  return { sun, planets, planetObjects, orbitScale, zodiacRing }
+
+  // Moon
+  const moonTex = await loadTexture('/hq/8k_moon.jpg');
+  const moon = createUnifiedPlanet(sizes.earth * sizeScale * 0.27, moonTex, scene);
+  moon.userData.name = 'moon';
+  moon.rotation.x = Math.PI / 2; // consistent with other planets
+
+  // Moon orbit visualization
+  // Use createEllipticalOrbit to match other planets style (Line2, thickness, etc.)
+  // We need to pass the Moon's elements. Since the Moon's orbit precesses efficiently, 
+  // we compute elements for the CURRENT date so the initial orbit is accurate.
+  const MOON_ORBIT_RADIUS = 14;
+  const currentD = computeD(new Date());
+  const moonEl = computeElements('moon', currentD);
+
+  // Override 'a' with our visual radius because createEllipticalOrbit uses 'a' from elements for size
+  // We need it to be 1 * MOON_ORBIT_RADIUS effectively
+  const visualMoonEl = { ...moonEl, a: 1 };
+
+  const moonGrid = createEllipticalOrbit(
+    visualMoonEl,
+    MOON_ORBIT_RADIUS, // Scale factor
+    128,               // Segments
+    0x888888,          // Color (Greyish)
+    0.5                // Opacity
+  );
+  scene.add(moonGrid);
+
+  // Return moon and moonOrbit
+  return { sun, planets, planetObjects, orbitScale, zodiacRing, moon, moonOrbit: moonGrid, MOON_ORBIT_RADIUS }
 }

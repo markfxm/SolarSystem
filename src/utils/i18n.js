@@ -27,7 +27,8 @@ const dict = {
       jupiter: 'Jupiter',
       saturn: 'Saturn',
       uranus: 'Uranus',
-      neptune: 'Neptune'
+      neptune: 'Neptune',
+      moon: 'Moon'
     },
     zodiac_names: [
       'Aries', 'Taurus', 'Gemini', 'Cancer', 'Leo', 'Virgo',
@@ -82,7 +83,8 @@ const dict = {
       jupiter: '木星',
       saturn: '土星',
       uranus: '天王星',
-      neptune: '海王星'
+      neptune: '海王星',
+      moon: '月球'
     },
     zodiac_names: [
       '白羊座', '金牛座', '双子座', '巨蟹座', '狮子座', '处女座',

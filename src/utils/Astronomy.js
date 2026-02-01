@@ -72,6 +72,15 @@ const planetsData = {
     w: [272.8461, -6.027e-6],
     M: [260.2471, 0.005995147],
     rotationPeriodHours: 16.11
+  },
+  moon: {
+    a: 0.00257, // Real semi-major axis in AU (not used for visual scale, but for physics if needed)
+    e: [0.0549, 0],
+    i: [5.145, 0],
+    N: [125.08, -0.0529538083], // Nodal precession ~ -19 deg/year
+    w: [318.15, 0.1643573223],  // Apsidal precession ~ +40 deg/year
+    M: [115.3654, 13.0649929509],
+    rotationPeriodHours: 655.7 // 27.32 days * 24
   }
 };
 
@@ -135,7 +144,7 @@ export function computePosition(elements, scale = 10) {
   const sinV = Math.sqrt(1 - e * e) * Math.sin(E) / (1 - e * Math.cos(E));
   const v = Math.atan2(sinV, cosV);
 
-  // Distance from Sun
+  // Distance from Sun (or primary body)
   const r = a * (1 - e * Math.cos(E));
 
   // Argument of latitude
@@ -185,7 +194,17 @@ export function computeRotation(planetName, d) {
     // Standard Three.js Sphere mapping: u=0.5 (center) is at world angle rot.y + PI.
     // We want world_angle = GST (in radians).
     // So rot.y + PI = GST_rad => rot.y = GST_rad - PI.
-    return (gstDegrees * Math.PI / 180) - Math.PI;
+    // CALIBRATION: To align Asia (~120E) to face the sun at ~12:00 local time (UTC+8).
+    // Current observation says it's off. adding 3.3 radians aligns it roughly for visual check.
+    return (gstDegrees * Math.PI / 180) - Math.PI + 3.3;
+  }
+
+  if (planetName === 'moon') {
+    // Moon is tidally locked, same rotation period as orbital period ~27.32 days
+    // However, it faces Earth, not a fixed direction in space.
+    // Ideally it rotates once per orbit.
+    // Simple approx:
+    return (d / 27.321661) * 2 * Math.PI;
   }
 
   const data = planetsData[planetName];
@@ -194,4 +213,17 @@ export function computeRotation(planetName, d) {
     return (getRotationSpeed(planetName) * d * 86400);
   }
   return 0;
+}
+
+export function computeMoonPosition(d) {
+  // Use accurate Keplerian elements for the Moon relative to Earth
+  const el = computeElements('moon', d);
+
+  // We want a normalized direction vector for the visual scaler to use.
+  // The real 'a' is 0.00257 AU, which is too small for our visual logic.
+  // We force 'a' to 1 so the result is effectively on a unit sphere (eccentricity aside),
+  // which allows timeController to apply the visual radius (MOON_ORBIT_RADIUS).
+  el.a = 1;
+
+  return computePosition(el, 1);
 }

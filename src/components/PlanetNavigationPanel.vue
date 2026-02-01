@@ -67,6 +67,7 @@ const bodies = computed(() => [
   { id: 'mercury', label: t('planet.mercury') },
   { id: 'venus', label: t('planet.venus') },
   { id: 'earth', label: t('planet.earth') },
+  { id: 'moon', label: t('planet.moon') },
   { id: 'mars', label: t('planet.mars') },
   { id: 'jupiter', label: t('planet.jupiter') },
   { id: 'saturn', label: t('planet.saturn') },
