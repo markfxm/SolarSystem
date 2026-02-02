@@ -22,13 +22,13 @@ export class AestheticSnapshotManager {
         this.config = {
             baseRadius: 220,    // Mercury distance
             radiusStep: 140,    // Distance between subsequent orbits
-            sunScale: 1.8,      // Sun multiplier
+            sunScale: 2.5,      // Sun multiplier
             cameraPos: new THREE.Vector3(0, 0, 4200), // Directly looking from +Z (Top-down)
             fov: 35,
             orbitThickness: 2.2,
             orbitColor: 0x66ccff,
             orbitOpacity: 0.85,
-            targetVisualSize: 50 // Target radius in world units
+            targetVisualSize: 25 // Target radius in world units
         }
 
         // Base radii from createSolarSystem.js to normalize scaling
