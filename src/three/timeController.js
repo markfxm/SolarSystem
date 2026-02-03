@@ -27,6 +27,7 @@ export function createTimeController(planetObjects, orbitScale, extraRotating = 
     let earthPos = null;
 
     Object.entries(planetObjects).forEach(([name, mesh]) => {
+      if (name === 'sun') return; // Sun stays at origin
       const el = computeElements(name, d)
       const pos = computePosition(el, orbitScale)
       mesh.position.set(pos.x, pos.y, pos.z)

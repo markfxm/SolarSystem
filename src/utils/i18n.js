@@ -60,6 +60,29 @@ const dict = {
       theme_blueprint: 'Blueprint',
       theme_vintage: 'Vintage',
       theme_golden: 'Golden Record'
+    },
+    aspect: {
+      conjunction: 'Conjunction',
+      opposition: 'Opposition',
+      trine: 'Trine',
+      square: 'Square',
+      sextile: 'Sextile'
+    },
+    transit: {
+      positions: 'Celestial positions',
+      active_aspects: 'Active Aspects'
+    },
+    insight: {
+      vibe: 'Cosmic Vibe',
+      fire: 'Action & Passion',
+      earth: 'Stability & Growth',
+      air: 'Ideas & Social',
+      water: 'Feeling & Intuition',
+      tip_conjunction: 'Fused energy: Intense focus',
+      tip_opposition: 'Tension: Needs balance',
+      tip_trine: 'Harmony: Talents flowing',
+      tip_square: 'Challenge: Growth through friction',
+      tip_sextile: 'Opportunity: Creative spark'
     }
   },
   zh: {
@@ -116,6 +139,29 @@ const dict = {
       theme_blueprint: '蓝图',
       theme_vintage: '复古',
       theme_golden: '黄金唱片'
+    },
+    aspect: {
+      conjunction: '合相',
+      opposition: '对冲',
+      trine: '三分相',
+      square: '四分相',
+      sextile: '六分相'
+    },
+    transit: {
+      positions: '行星位置',
+      active_aspects: '当前相位'
+    },
+    insight: {
+      vibe: '宇宙能量',
+      fire: '行动与热忱',
+      earth: '务实与积淀',
+      air: '灵感与交流',
+      water: '情感与直觉',
+      tip_conjunction: '能量融合：极度聚焦',
+      tip_opposition: '拉扯对抗：寻找平衡',
+      tip_trine: '顺遂和谐：天赋流淌',
+      tip_square: '摩擦挑战：磨练成长',
+      tip_sextile: '潜在机遇：创意火花'
     }
   }
 }

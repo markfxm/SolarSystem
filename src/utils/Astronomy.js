@@ -1,6 +1,9 @@
 import * as THREE from 'three';
 
 const planetsData = {
+  sun: {
+    rotationPeriodHours: 25.38 * 24
+  },
   mercury: {
     a: 0.387098,
     e: [0.205635, 5.59e-10],
@@ -106,8 +109,11 @@ function rev(x) {
 
 export function computeElements(planetName, d) {
   const data = planetsData[planetName];
+  if (!data || !data.e) {
+    return { a: 1, e: 0, i: 0, N: 0, w: 0, M: 0 };
+  }
   return {
-    a: data.a, // Uranus and Neptune have linear terms, but apply if specified
+    a: data.a,
     e: data.e[0] + data.e[1] * d,
     i: data.i[0] + data.i[1] * d,
     N: data.N[0] + data.N[1] * d,
@@ -177,6 +183,7 @@ export function computePosition(elements, scale = 10) {
 
 export function getRotationSpeed(planetName) {
   const data = planetsData[planetName];
+  if (!data || !data.rotationPeriodHours) return 0;
   return (2 * Math.PI) / (data.rotationPeriodHours * 3600); // rad/s
 }
 

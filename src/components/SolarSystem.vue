@@ -79,6 +79,16 @@
       @reset="onReset"
     />
 
+    <TransitPanel
+      :visible="showTransitPanel"
+      :chart="currentChart"
+      :aspects="activeAspects"
+      :elementBalance="elementBalance"
+      :dominantElement="dominantElement"
+      @focus-planet="handleFocusPlanet"
+      @close="showTransitPanel = false"
+    />
+
   </div>
 </template>
 
@@ -90,6 +100,7 @@ import TimeControlPanel from './TimeControlPanel.vue'
 import LanguagePanel from './LanguagePanel.vue'
 import TourPanel from './TourPanel.vue'
 import StellarMomentModal from './StellarMomentModal.vue'
+import TransitPanel from './TransitPanel.vue'
 
 import { t, currentLang } from '../utils/i18n.js'
 import { captureHighRes, downloadImage } from '../utils/ScreenshotEngine.js'
@@ -99,6 +110,7 @@ import { createSolarSystem } from '../three/createSolarSystem.js'
 import { createTimeController } from '../three/timeController.js'
 import { createInteractions } from '../three/interactions.js'
 import { AestheticSnapshotManager } from '../utils/AestheticSnapshot.js'
+import { AstrologyService } from '../utils/AstrologyService.js'
 
 const container = shallowRef(null)
 const timePanel = ref(null)
@@ -112,7 +124,12 @@ const showStellarModal = ref(false)
 const isCapturing = ref(false)
 const captureDate = ref(new Date())
 const capturedImage = ref('')
-const showZodiac = ref(false)
+const showZodiac = ref(false) // Controls 3D features (Ring, Lines, Auras)
+const showTransitPanel = ref(false) // Controls UI Panel
+const currentChart = ref({})
+const activeAspects = ref([])
+const elementBalance = ref({ fire: 0, earth: 0, air: 0, water: 0 })
+const dominantElement = ref('none')
 
 let engine
 let solar
@@ -151,10 +168,21 @@ function onPanelClose() {
   selectedPlanetId.value = null
 }
 
+function handleFocusPlanet(name) {
+  if (interactions) {
+    interactions.focusPlanetById(name)
+  }
+}
+
 function toggleZodiac() {
   showZodiac.value = !showZodiac.value
+  showTransitPanel.value = showZodiac.value // Open panel when mode starts, but they can close it later
+  
   if (solar && solar.zodiacRing) {
     solar.zodiacRing.visible = showZodiac.value
+  }
+  if (solar && solar.aspectsManager) {
+    solar.aspectsManager.setVisible(showZodiac.value)
   }
 }
 
@@ -172,7 +200,7 @@ function onSpeedChange(mult) {
 function updateOrbitResolution(w, h) {
   if (!engine?.scene) return
   engine.scene.traverse(obj => {
-    if (obj.userData?.isOrbit && obj.material?.resolution) {
+    if (obj.material?.resolution) {
       obj.material.resolution.set(w, h)
     }
   })
@@ -335,6 +363,23 @@ onMounted(async () => {
       } catch (e) {
         console.warn('Error updating simulation time', e)
       }
+    }
+
+    if (showZodiac.value && solar?.aspectsManager && timeController) {
+      const date = timeController.getSimulationDate()
+      const chart = AstrologyService.calculateGeocentricChart(date)
+      const aspects = AstrologyService.calculateAspects(chart)
+      const vibe = AstrologyService.calculateElementBalance(chart)
+      
+      currentChart.value = chart
+      activeAspects.value = aspects
+      elementBalance.value = vibe.balance
+      dominantElement.value = vibe.dominant
+      
+      solar.aspectsManager.update(aspects)
+      solar.auraManager.update(chart, vibe.dominant, showZodiac.value)
+    } else if (solar?.auraManager) {
+      solar.auraManager.hideAll()
     }
   })
   window.addEventListener('resize', () => {

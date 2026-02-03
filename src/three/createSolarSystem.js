@@ -3,11 +3,15 @@ import { createUnifiedPlanet } from '../utils/Planet.js'
 import { createNebula } from '../utils/Nebula.js'
 import { computeElements, computePosition, getRotationSpeed, computeD } from '../utils/Astronomy.js'
 import { createEllipticalOrbit } from '../utils/EllipticalOrbit.js'
-import { createZodiacRing } from '../utils/ZodiacRing.js'
+import { createZodiacRing } from '../utils/ZodiacRing.js';
+import { AspectLinesManager } from '../utils/AspectLines.js';
+import { AuraManager } from '../utils/AuraManager.js';
 
 const orbitScale = 260
 const sizeScale = 1.2
 const SUN_RADIUS = 70
+const MOON_ORBIT_RADIUS = 14; // Keep this constant as it was already defined
+const ZODIAC_RADIUS = orbitScale * 35; // Define ZODIAC_RADIUS based on existing orbitScale
 
 const sizes = {
   sun: SUN_RADIUS,
@@ -83,6 +87,7 @@ export async function createSolarSystem(scene, zodiacNames = []) {
     new THREE.MeshBasicMaterial({ map: sunTexture })
   )
   sun.userData.name = 'sun'
+  sun.name = 'sun'
   // Fix Sun Orientation: Align local Y (spin axis) with Orbit Normal (Z)
   sun.rotation.x = Math.PI / 2;
 
@@ -140,7 +145,7 @@ export async function createSolarSystem(scene, zodiacNames = []) {
   ]
 
   const planetObjects = {
-    mercury, venus, earth, mars,
+    sun, mercury, venus, earth, mars,
     jupiter, saturn, uranus, neptune
   }
 
@@ -150,6 +155,7 @@ export async function createSolarSystem(scene, zodiacNames = []) {
 
   // Initial positions
   Object.keys(planetObjects).forEach(name => {
+    if (name === 'sun') return; // Skip sun as it is at (0,0,0)
     const el = computeElements(name, computeD(new Date()))
     const pos = computePosition(el, orbitScale)
     planetObjects[name].position.set(pos.x, pos.y, pos.z)
@@ -175,9 +181,9 @@ export async function createSolarSystem(scene, zodiacNames = []) {
   scene.add(new THREE.AmbientLight(0x404040, 0.6))
 
   // Zodiac Ring (at the edge of the system)
-  const zodiacRing = createZodiacRing(orbitScale * 35, zodiacNames) // Larger than Neptune
-  zodiacRing.visible = false // Hide by default
-  scene.add(zodiacRing)
+  const zodiacRing = createZodiacRing(ZODIAC_RADIUS, zodiacNames); // Larger than Neptune
+  zodiacRing.visible = false; // Hide by default
+  scene.add(zodiacRing);
 
 
   // Moon
@@ -188,9 +194,8 @@ export async function createSolarSystem(scene, zodiacNames = []) {
 
   // Moon orbit visualization
   // Use createEllipticalOrbit to match other planets style (Line2, thickness, etc.)
-  // We need to pass the Moon's elements. Since the Moon's orbit precesses efficiently, 
+  // We need to pass the Moon's elements. Since the Moon's orbit precesses efficiently,
   // we compute elements for the CURRENT date so the initial orbit is accurate.
-  const MOON_ORBIT_RADIUS = 14;
   const currentD = computeD(new Date());
   const moonEl = computeElements('moon', currentD);
 
@@ -198,15 +203,33 @@ export async function createSolarSystem(scene, zodiacNames = []) {
   // We need it to be 1 * MOON_ORBIT_RADIUS effectively
   const visualMoonEl = { ...moonEl, a: 1 };
 
-  const moonGrid = createEllipticalOrbit(
+  const moonOrbit = createEllipticalOrbit(
     visualMoonEl,
     MOON_ORBIT_RADIUS, // Scale factor
     128,               // Segments
     0x888888,          // Color (Greyish)
     0.5                // Opacity
   );
-  scene.add(moonGrid);
+  scene.add(moonOrbit);
+
+  // 5. Aspects Manager
+  const aspectsManager = new AspectLinesManager(scene, planetObjects);
+
+  // 6. Aura Manager
+  const auraManager = new AuraManager(scene, planetObjects);
 
   // Return moon and moonOrbit
-  return { sun, planets, planetObjects, orbitScale, zodiacRing, moon, moonOrbit: moonGrid, MOON_ORBIT_RADIUS }
+  return {
+    scene,
+    planets,
+    planetObjects,
+    sun,
+    moon,
+    moonOrbit,
+    MOON_ORBIT_RADIUS,
+    orbitScale, // Use the existing orbitScale constant
+    zodiacRing,
+    aspectsManager,
+    auraManager
+  };
 }

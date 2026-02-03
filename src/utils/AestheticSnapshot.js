@@ -22,12 +22,12 @@ export class AestheticSnapshotManager {
         this.config = {
             baseRadius: 220,    // Mercury distance
             radiusStep: 140,    // Distance between subsequent orbits
-            sunScale: 2.5,      // Sun multiplier
+            sunScale: 1.8,      // Adjusted to 1.8 for optimal balance in snapshots
             cameraPos: new THREE.Vector3(0, 0, 4200), // Directly looking from +Z (Top-down)
             fov: 35,
-            orbitThickness: 2.2,
-            orbitColor: 0x66ccff,
-            orbitOpacity: 0.85,
+            orbitThickness: 2.8, // Slightly thicker
+            orbitColor: 0x00eeff, // Brighter cyan
+            orbitOpacity: 0.9,   // More solid
             targetVisualSize: 25 // Target radius in world units
         }
 
@@ -123,6 +123,8 @@ export class AestheticSnapshotManager {
         const d = (date.getTime() - j2000) / 86400000
 
         Object.entries(this.planetObjects).forEach(([name, mesh]) => {
+            if (name === 'sun') return; // Skip sun in planetary loop
+
             // Save state
             this.originalStates.set(mesh, {
                 position: mesh.position.clone(),
@@ -160,7 +162,13 @@ export class AestheticSnapshotManager {
         // 4. Transform Sun
         const sun = this.scene.getObjectByName('sun')
         if (sun) {
-            this.originalStates.set(sun, { scale: sun.scale.clone(), position: sun.position.clone() })
+            if (!this.originalStates.has(sun)) {
+                this.originalStates.set(sun, {
+                    scale: sun.scale.clone(),
+                    position: sun.position.clone(),
+                    visible: sun.visible
+                })
+            }
             const sScale = this.config.sunScale
             sun.scale.set(sScale, sScale, sScale)
             sun.position.set(0, 0, 0)
