@@ -62,15 +62,16 @@
 
     <!-- Tour/Info Panel -->
     <TourPanel
-      v-if="selectedPlanetId"
-      :planetName="selectedPlanetId"
-      @close="onPanelClose"
+      v-if="infoPlanetId"
+      :planetName="infoPlanetId"
+      @close="onInfoPanelClose"
     />
 
     <!-- Navigation Panel -->
     <PlanetNavigationPanel
       :selectedBody="selectedPlanetId"
       @select="onPlanetSelected"
+      @info="onShowInfo"
     />
 
     <TimeControlPanel
@@ -117,6 +118,7 @@ const timePanel = ref(null)
 
 const hoveredPlanetName = ref('')
 const selectedPlanetId = ref(null)
+const infoPlanetId = ref(null)
 const currentTime = ref('')
 const simulationTime = ref('')
 const isSimulating = ref(false)
@@ -163,9 +165,12 @@ function onPlanetSelected(id) {
   interactions?.focusPlanetById(id)
 }
 
-function onPanelClose() {
-  // interactions?.goHome()
-  selectedPlanetId.value = null
+function onShowInfo(id) {
+  infoPlanetId.value = id
+}
+
+function onInfoPanelClose() {
+  infoPlanetId.value = null
 }
 
 function handleFocusPlanet(name) {

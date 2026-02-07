@@ -178,6 +178,12 @@ export function createInteractions({
     if (!isEnabled) return
     if (!hoveredObject) return
 
+    // If we are already viewing a planet (selectedObject is set),
+    // prevent clicking on OTHER planets to avoid accidental jumps (e.g. to Sun).
+    if (selectedObject && hoveredObject !== selectedObject) {
+      return
+    }
+
     startFlyTo(hoveredObject)
   }
 

@@ -6,6 +6,12 @@
     </div>
     
     <div class="panel-content">
+      <!-- NEW: Cosmic Archetype Section -->
+       <div class="archetype-section" v-if="archetypeKey">
+         <div class="archetype-label">{{ t('transit.archetype') }}</div>
+         <div class="archetype-value">{{ t('archetype.' + archetypeKey) }}</div>
+       </div>
+
       <!-- NEW: Cosmic Insight Section -->
       <div class="insight-section" v-if="dominantElement !== 'none'">
         <div class="vibe-header">
@@ -21,31 +27,66 @@
         </div>
       </div>
 
-      <div class="section">
-        <h4>{{ t('transit.positions') || 'Positions' }}</h4>
-        <div class="planet-list">
-          <div v-for="(data, id) in chart" :key="id" 
-               class="planet-item clickable"
-               @click="$emit('focus-planet', id)">
-            <span class="p-name">{{ t('planet.' + id) }}</span>
-            <span class="p-sign">{{ t('zodiac_names')[data.index] }}</span>
-            <span class="p-deg">{{ formatDegree(data.degree) }}</span>
-          </div>
+
+      <!-- NEW: Cosmic Report Section (User Manual Style) -->
+      <div class="report-section">
+        <div class="report-title">{{ t('report.title') }}</div>
+        
+        <div class="guidance-block">
+            <div class="g-label">🚀 {{ t('planet.sun') }}</div>
+            <div class="g-text">{{ guidance.sun }}</div>
+        </div>
+
+        <div class="guidance-block">
+            <div class="g-label">❤️ {{ t('planet.moon') }}</div>
+            <div class="g-text">{{ guidance.moon }}</div>
+        </div>
+
+        <div class="guidance-block" v-if="guidance.strategy">
+            <div class="g-label">⚔️ {{ t('transit.active_aspects') }}</div>
+            <div class="g-text">{{ guidance.strategy }}</div>
         </div>
       </div>
 
-      <div class="section" v-if="aspects.length > 0">
-        <h4>{{ t('transit.active_aspects') || 'Active Aspects' }}</h4>
-        <div class="aspect-list">
-          <div v-for="(item, idx) in aspects" :key="idx" class="aspect-item">
-            <span class="a-names">
-              <span>{{ t('planet.' + item.p1) }} & {{ t('planet.' + item.p2) }}</span>
-              <span class="a-type" :style="{ color: getColor(item.aspect.color) }">
-                {{ t(item.aspect.label) }}
-              </span>
-            </span>
-            <span class="a-tip">{{ t('insight.tip_' + item.aspect.type.toLowerCase()) }}</span>
-          </div>
+      <!-- Toggle Details -->
+      <div class="toggle-btn" @click="showDetails = !showDetails">
+        {{ showDetails ? t('report.toggle_hide') : t('report.toggle_show') }}
+        <span :class="{ rotated: showDetails }">▼</span>
+      </div>
+
+      <div v-if="showDetails" class="details-container">
+        <div class="section">
+            <h4>{{ t('transit.positions') || 'Positions' }}</h4>
+            <div class="planet-list">
+            <div v-for="(data, id) in chart" :key="id" 
+                class="planet-item clickable"
+                @click="$emit('focus-planet', id)">
+                <div class="planet-row-main">
+                <span class="p-name">{{ t('planet.' + id) }}</span>
+                <span class="p-sign">{{ t('zodiac_names')[data.index] }}</span>
+                <span class="p-deg">{{ formatDegree(data.degree) }}</span>
+                </div>
+                <div class="planet-row-desc">
+                <span class="p-meaning">{{ t('planet_meaning.' + id) }}</span>
+                <span class="p-keyword">{{ t('sign_keywords.' + data.signId) }}</span>
+                </div>
+            </div>
+            </div>
+        </div>
+
+        <div class="section" v-if="aspects.length > 0">
+            <h4>{{ t('transit.active_aspects') || 'Active Aspects' }}</h4>
+            <div class="aspect-list">
+            <div v-for="(item, idx) in aspects" :key="idx" class="aspect-item">
+                <span class="a-names">
+                <span>{{ t('planet.' + item.p1) }} & {{ t('planet.' + item.p2) }}</span>
+                <span class="a-type" :style="{ color: getColor(item.aspect.color) }">
+                    {{ t(item.aspect.label) }}
+                </span>
+                </span>
+                <span class="a-tip">{{ t('insight.tip_' + item.aspect.type.toLowerCase()) }}</span>
+            </div>
+            </div>
         </div>
       </div>
     </div>
@@ -53,7 +94,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { t } from '../utils/i18n.js'
 import { AstrologyService } from '../utils/AstrologyService.js'
 
@@ -67,7 +108,36 @@ const props = defineProps({
 
 defineEmits(['close', 'focus-planet'])
 
+const showDetails = ref(false)
 const planetCount = computed(() => Object.keys(props.chart).length || 1)
+
+const archetypeKey = computed(() => {
+    if (!props.chart || !props.chart.sun) return null;
+    return AstrologyService.getArchetype(props.chart.sun.signId, props.dominantElement);
+})
+
+const majorAspect = computed(() => {
+    return AstrologyService.getMajorAspect(props.aspects);
+})
+
+const guidance = computed(() => {
+    if (!props.chart || !props.chart.sun || !props.chart.moon) return { sun: '', moon: '', strategy: '' };
+    
+    // Get raw keys
+    const keys = AstrologyService.getCosmicGuidance(props.chart, majorAspect.value);
+    
+    // Translate
+    const strategyVars = keys.strategyKey ? {
+        p1: t(`planet.${keys.p1}`),
+        p2: t(`planet.${keys.p2}`)
+    } : null;
+
+    return {
+        sun: t(`guidance.sun.${keys.sunKey}`),
+        moon: t(`guidance.moon_deep.${keys.moonKey}`),
+        strategy: keys.strategyKey ? t(`guidance.strategy.${keys.strategyKey}`, strategyVars) : t('report.no_aspect')
+    };
+})
 
 function formatDegree(deg) {
   return AstrologyService.formatDegree(deg)
@@ -79,8 +149,77 @@ function getColor(hex) {
 </script>
 
 <style scoped>
+/* Report Styles */
+.report-section {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 16px;
+  border-left: 3px solid #d4aaff;
+}
+
+.report-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: #d4aaff;
+  margin-bottom: 6px;
+  font-weight: 600;
+  letter-spacing: 1px;
+}
+
+.report-text p {
+  font-size: 13px;
+  line-height: 1.5;
+  color: #eee;
+  margin: 0 0 8px 0;
+}
+.report-text p:last-child { margin-bottom: 0; }
+
+.guidance-block {
+    margin-bottom: 12px;
+}
+.guidance-block:last-child { margin-bottom: 0; }
+
+.g-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.5);
+    margin-bottom: 2px;
+    letter-spacing: 0.5px;
+}
+
+.g-text {
+    font-size: 13px;
+    line-height: 1.4;
+    color: #fff;
+    font-weight: 500;
+}
+
+.toggle-btn {
+  text-align: center;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  padding: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  transition: color 0.2s;
+}
+.toggle-btn:hover { color: #fff; }
+.toggle-btn span { display: inline-block; transition: transform 0.3s; margin-left: 4px; font-size: 10px; }
+.toggle-btn span.rotated { transform: rotate(180deg); }
+
+.details-container {
+    animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
 .transit-panel {
   position: absolute;
+
   top: 80px;
   right: -320px;
   width: 280px;
@@ -130,6 +269,32 @@ function getColor(hex) {
   flex: 1;
 }
 
+/* Archetype Styles */
+.archetype-section {
+    background: linear-gradient(135deg, rgba(136, 204, 255, 0.1), rgba(212, 170, 255, 0.1));
+    margin: -16px -16px 10px -16px;
+    padding: 20px 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    text-align: center;
+}
+
+.archetype-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.6);
+    letter-spacing: 1.5px;
+    margin-bottom: 6px;
+}
+
+.archetype-value {
+    font-size: 20px;
+    font-weight: 800;
+    background: linear-gradient(to right, #ffffff, #d4aaff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 0 20px rgba(212, 170, 255, 0.4);
+}
+
 .section {
   margin-bottom: 24px;
 }
@@ -150,13 +315,14 @@ function getColor(hex) {
 }
 
 .planet-item {
-  display: grid;
-  grid-template-columns: 80px 100px 1fr;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
   font-size: 14px;
-  align-items: center;
-  padding: 6px 8px;
+  padding: 8px 10px;
   border-radius: 6px;
   transition: all 0.2s;
+  background: rgba(255,255,255,0.02);
 }
 .planet-item.clickable { cursor: pointer; }
 .planet-item.clickable:hover { 
@@ -164,14 +330,35 @@ function getColor(hex) {
   transform: translateX(4px);
 }
 
+.planet-row-main {
+  display: grid;
+  grid-template-columns: 80px 1fr auto;
+  align-items: center;
+}
+
+.planet-row-desc {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+  margin-top: 2px;
+}
+
 .p-name { color: #88ccff; font-weight: 600; }
 .p-sign { color: #fff; font-weight: 500; }
 .p-deg { color: #aaa; text-align: right; font-family: monospace; }
+.p-meaning { font-style: italic; }
+.p-keyword { 
+    background: rgba(255, 255, 255, 0.1); 
+    padding: 1px 6px; 
+    border-radius: 4px; 
+    color: #d4aaff; 
+}
 
 /* Insight Styles */
 .insight-section {
   background: rgba(255, 255, 255, 0.03);
-  margin: -16px -16px 20px -16px;
+  margin: 0px -16px 20px -16px; /* Adjusted margin to sit below archetype */
   padding: 20px 16px;
   border-bottom: 1px solid rgba(255,255,255,0.05);
 }
