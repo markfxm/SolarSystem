@@ -10,7 +10,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['close'])
+const emit = defineEmits(['close', 'land'])
 
 const planet = computed(() => {
   const langData = PLANET_DATA[currentLang.value] || PLANET_DATA['en']
@@ -70,26 +70,32 @@ function stopResize() {
 
         <div class="stats-grid">
           <div class="stat-item">
-            <span class="label">{{ t('tour.radius') }}</span>
+            <span class="label">{{ t('info.radius') }}</span>
             <span class="value">{{ planet.radius }}</span>
           </div>
           <div class="stat-item">
-            <span class="label">{{ t('tour.temp') }}</span>
+            <span class="label">{{ t('info.temp') }}</span>
             <span class="value">{{ planet.temp }}</span>
           </div>
           <div class="stat-item">
-            <span class="label">{{ t('tour.orbit') }}</span>
+            <span class="label">{{ t('info.orbit') }}</span>
             <span class="value">{{ planet.orbit }}</span>
           </div>
         </div>
 
         <div class="facts-section">
-          <h3>{{ t('tour.did_you_know') }}</h3>
+          <h3>{{ t('info.did_you_know') }}</h3>
           <ul>
             <li v-for="(fact, index) in planet.facts" :key="index">
               {{ fact }}
             </li>
           </ul>
+        </div>
+
+        <div v-if="planetName === 'mars'" class="actions-section">
+          <button class="land-btn" @click="$emit('land')">
+            🚀 {{ t('info.land_btn') }}
+          </button>
         </div>
       </div>
     </div>
@@ -235,6 +241,36 @@ function stopResize() {
   font-size: 14px;
   color: #e5e7eb;
   line-height: 1.5;
+}
+
+.actions-section {
+  margin-top: 24px;
+  display: flex;
+  justify-content: center;
+}
+
+.land-btn {
+  width: 100%;
+  padding: 12px;
+  background: linear-gradient(135deg, #e11d48 0%, #be123c 100%);
+  border: none;
+  border-radius: 12px;
+  color: white;
+  font-weight: 700;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(225, 29, 72, 0.3);
+}
+
+.land-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(225, 29, 72, 0.5);
+  filter: brightness(1.1);
+}
+
+.land-btn:active {
+  transform: translateY(0);
 }
 
 /* Animation */

@@ -43,14 +43,19 @@ export function createEngine(container) {
   // Clock
   const clock = new THREE.Clock()
 
+  let activeScene = scene
+  let activeCamera = camera
+
   // Animation loop
   function start(update) {
     function animate() {
       requestAnimationFrame(animate)
       const delta = clock.getDelta()
       update(delta)
-      controls.update()
-      renderer.render(scene, camera)
+      if (activeCamera === camera) {
+        controls.update()
+      }
+      renderer.render(activeScene, activeCamera)
     }
     animate()
   }
@@ -69,6 +74,10 @@ export function createEngine(container) {
     start,
     dispose,
     defaultMinDistance,
-    defaultMaxDistance
+    defaultMaxDistance,
+    setActiveScene: (s, c) => {
+      activeScene = s || scene
+      activeCamera = c || camera
+    }
   }
 }
