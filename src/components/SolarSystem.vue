@@ -16,12 +16,13 @@
       </div>
       <button
         class="home-btn"
-        @click="interactions?.goHome()"
+        @click="onHomeClick"
       >
         {{ t('control.home') }}
       </button>
 
       <button
+        v-if="!isSurfaceMode"
         class="zodiac-toggle-btn"
         :class="{ active: showZodiac }"
         @click="toggleZodiac"
@@ -35,7 +36,7 @@
     </div>
 
     <!-- Top Center Actions -->
-    <div class="top-center-actions">
+    <div class="top-center-actions" v-if="!isSurfaceMode">
       <button 
         class="stellar-btn"
         @click="openStellarModal"
@@ -69,12 +70,16 @@
 
     <!-- Navigation Panel -->
     <PlanetNavigationPanel
+      v-if="!isSurfaceMode"
       :selectedBody="selectedPlanetId"
+      :isNearPlanet="isNearPlanet"
       @select="onPlanetSelected"
       @info="onShowInfo"
+      @land="onLandOnPlanet"
     />
 
     <TimeControlPanel
+      v-if="!isSurfaceMode"
       ref="timePanel"
       @speed-change="onSpeedChange"
       @reset="onReset"
@@ -90,6 +95,13 @@
       @close="showTransitPanel = false"
     />
 
+    <PlanetSurface
+      :isVisible="isSurfaceMode"
+      :planetId="selectedPlanetId"
+      :planetName="planetNames[selectedPlanetId] || selectedPlanetId"
+      @exit="onHomeClick"
+    />
+
   </div>
 </template>
 
@@ -102,6 +114,7 @@ import LanguagePanel from './LanguagePanel.vue'
 import TourPanel from './TourPanel.vue'
 import StellarMomentModal from './StellarMomentModal.vue'
 import TransitPanel from './TransitPanel.vue'
+import PlanetSurface from './PlanetSurface.vue'
 
 import { t, currentLang } from '../utils/i18n.js'
 import { captureHighRes, downloadImage } from '../utils/ScreenshotEngine.js'
@@ -132,6 +145,8 @@ const currentChart = ref({})
 const activeAspects = ref([])
 const elementBalance = ref({ fire: 0, earth: 0, air: 0, water: 0 })
 const dominantElement = ref('none')
+const isNearPlanet = ref(false) // Track if camera is near selected planet (for showing LAND button)
+const isSurfaceMode = ref(false) // ← NEW: Track if we are on surface HUD
 
 let engine
 let solar
@@ -161,7 +176,15 @@ function startClock() {
 }
 
 function onPlanetSelected(id) {
+  // If we're on Mars surface, exit surface mode first
+  if (isSurfaceMode.value && interactions) {
+    console.log('Exiting surface because of planet selection...')
+    interactions.exitSurface()
+    isSurfaceMode.value = false
+  }
+  
   selectedPlanetId.value = id
+  isNearPlanet.value = false // Reset until we arrive
   interactions?.focusPlanetById(id)
 }
 
@@ -177,6 +200,25 @@ function handleFocusPlanet(name) {
   if (interactions) {
     interactions.focusPlanetById(name)
   }
+}
+
+function onLandOnPlanet(planetId) {
+  console.log(`🚀 Landing on ${planetId}!`)
+  if (interactions) {
+    interactions.landOnPlanet(planetId)
+    isSurfaceMode.value = true
+  }
+}
+
+function onHomeClick() {
+  console.log('Home click - isSurfaceMode:', isSurfaceMode.value)
+  // Explicitly exit surface state in both Three.js and Vue
+  if (interactions?.exitSurface) interactions.exitSurface()
+  isSurfaceMode.value = false
+  
+  isNearPlanet.value = false
+  selectedPlanetId.value = null
+  interactions?.goHome()
 }
 
 function toggleZodiac() {
@@ -350,6 +392,13 @@ onMounted(async () => {
     onSelectionChange: name => {
       // keep nav panel selection in sync; empty string -> clear selection
       selectedPlanetId.value = name || null
+    },
+    onArrival: (planetId) => {
+      // Called when camera finishes flying to a planet
+      console.log(`Arrived at ${planetId}`)
+      if (planetId === 'mars') {
+        isNearPlanet.value = true // Show LAND button for Mars
+      }
     }
   })
 
@@ -431,6 +480,7 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: flex-start; /* 左对齐 */
   gap: 8px;
+  z-index: 1000; /* Ensure on top of PlanetSurface overlay */
 }
 
 .time-container {

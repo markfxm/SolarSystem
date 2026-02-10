@@ -88,6 +88,7 @@ export async function createSolarSystem(scene, zodiacNames = []) {
   )
   sun.userData.name = 'sun'
   sun.name = 'sun'
+  sun.userData.isSun = true
   // Fix Sun Orientation: Align local Y (spin axis) with Orbit Normal (Z)
   sun.rotation.x = Math.PI / 2;
 
@@ -102,6 +103,7 @@ export async function createSolarSystem(scene, zodiacNames = []) {
   const createPlanet = (size, tex, name, isEarth = false, extraTex = null) => {
     const planet = createUnifiedPlanet(size, tex, scene, isEarth, extraTex)
     planet.userData.name = name
+    planet.userData.isPlanet = true
 
     // FIX ORINETATION:
     // Textures map (0,0) to left/center. SphereGeometry wraps it nicely.
@@ -123,6 +125,7 @@ export async function createSolarSystem(scene, zodiacNames = []) {
 
     const elements = computeElements(name, 0)
     const orbit = createEllipticalOrbit(elements, orbitScale, 512, 0xd4aaff, 0.92)
+    orbit.userData.isOrbit = true
     scene.add(orbit)
 
     return planet
@@ -172,12 +175,16 @@ export async function createSolarSystem(scene, zodiacNames = []) {
     )
   }
   starGeo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3))
-  scene.add(new THREE.Points(
+  const starPoints = new THREE.Points(
     starGeo,
     new THREE.PointsMaterial({ color: 0xffffff, size: 2 })
-  ))
+  )
+  starPoints.userData.isStarfield = true
+  scene.add(starPoints)
 
-  scene.add(createNebula(new THREE.Vector3(0, 0, -1500)))
+  const nebula = createNebula(new THREE.Vector3(0, 0, -1500))
+  nebula.userData.isNebula = true
+  scene.add(nebula)
   scene.add(new THREE.AmbientLight(0x404040, 0.6))
 
   // Zodiac Ring (at the edge of the system)
@@ -190,6 +197,7 @@ export async function createSolarSystem(scene, zodiacNames = []) {
   const moonTex = await loadTexture('/hq/8k_moon.jpg');
   const moon = createUnifiedPlanet(sizes.earth * sizeScale * 0.27, moonTex, scene);
   moon.userData.name = 'moon';
+  moon.userData.isMoon = true;
   moon.rotation.x = Math.PI / 2; // consistent with other planets
 
   // Moon orbit visualization
@@ -210,6 +218,7 @@ export async function createSolarSystem(scene, zodiacNames = []) {
     0x888888,          // Color (Greyish)
     0.5                // Opacity
   );
+  moonOrbit.userData.isOrbit = true;
   scene.add(moonOrbit);
 
   // 5. Aspects Manager
