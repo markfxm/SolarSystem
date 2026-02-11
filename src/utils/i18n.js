@@ -10,7 +10,8 @@ const dict = {
     nav_title: 'Solar System',
     nav: {
       show_info: 'Show Information',
-      back_to_button: 'Back to Solar System'
+      back_to_button: 'Back to Solar System',
+      land: 'LAND'
     },
     control: {
       real: 'Real Time',
@@ -188,7 +189,8 @@ const dict = {
     nav_title: '太阳系',
     nav: {
       show_info: '查看介绍',
-      back_to_button: '返回太阳系'
+      back_to_button: '返回太阳系',
+      land: '降落'
     },
     control: {
       real: '实时',
