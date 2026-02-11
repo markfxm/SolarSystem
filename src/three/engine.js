@@ -18,7 +18,8 @@ export function createEngine(container) {
   // Renderer
   const renderer = new THREE.WebGLRenderer({ antialias: true })
   renderer.setSize(window.innerWidth, window.innerHeight)
-  renderer.setPixelRatio(window.devicePixelRatio)
+  // Limit pixel ratio to 1.5 for better performance on high-DPI/4K screens
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5))
   container.appendChild(renderer.domElement)
 
   // Controls

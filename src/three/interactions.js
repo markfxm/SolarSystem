@@ -28,6 +28,10 @@ export function createInteractions({
   let selectedObject = null
   let isEnabled = true
 
+  // Temp vectors for performance
+  const _trackingDelta = new THREE.Vector3()
+  let lastMouseMoveTime = 0
+
   // Fly / tracking state
   let isFlying = false
   let isTracking = false
@@ -164,6 +168,12 @@ export function createInteractions({
 
   function onMouseMove(event) {
     if (!isEnabled) return
+
+    // Throttle raycasting to ~30fps to save CPU during mouse movement
+    const now = performance.now()
+    if (now - lastMouseMoveTime < 32) return
+    lastMouseMoveTime = now
+
     mouse.x = (event.clientX / window.innerWidth) * 2 - 1
     mouse.y = -(event.clientY / window.innerHeight) * 2 + 1
 
@@ -179,8 +189,10 @@ export function createInteractions({
         )
       }
     } else {
-      hoveredObject = null
-      onHoverNameChange?.('')
+      if (hoveredObject !== null) {
+        hoveredObject = null
+        onHoverNameChange?.('')
+      }
     }
   }
 
@@ -268,21 +280,15 @@ export function createInteractions({
     // Planet tracking
     if (!isFlying && isTracking && selectedObject) {
       if (!trackingLastPosition) {
-        trackingLastPosition =
-          selectedObject.position.clone()
+        trackingLastPosition = selectedObject.position.clone()
       }
 
-      const deltaMove =
-        selectedObject.position
-          .clone()
-          .sub(trackingLastPosition)
+      _trackingDelta.copy(selectedObject.position).sub(trackingLastPosition)
 
-      camera.position.add(deltaMove)
+      camera.position.add(_trackingDelta)
       controls.target.copy(selectedObject.position)
 
-      trackingLastPosition.copy(
-        selectedObject.position
-      )
+      trackingLastPosition.copy(selectedObject.position)
     }
   }
 

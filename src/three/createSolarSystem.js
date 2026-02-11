@@ -254,24 +254,35 @@ export async function createSolarSystem(scene, zodiacNames = [], onProgress = ()
     }
   }
 
-  // Sequentially load HQ textures in background to avoid network congestion
+  // Sequentially load HQ textures in background.
+  // We only load the most critical ones (Sun, Earth) automatically to save performance.
   const startBackgroundLoading = async () => {
-    // Priority 1: Earth and Sun
-    await Promise.all([
-      loadHQ('sun', 'sun'),
-      loadHQ('earth', 'earth_day'),
-      loadHQ('earth', 'earth_night')
-    ]);
+    // Initial delay to let the app settle
+    await new Promise(r => setTimeout(r, 2000));
 
-    // Priority 2: Other planets
+    // Priority 1: Sun and Earth (the most visible bodies)
+    // We load them one by one instead of Promise.all to reduce peak CPU/GPU spikes
+    await loadHQ('sun', 'sun');
+    await new Promise(r => setTimeout(r, 1500));
+    await loadHQ('earth', 'earth_day');
+    await new Promise(r => setTimeout(r, 1000));
+    await loadHQ('earth', 'earth_night');
+
+    // For other planets, we load them much more slowly in the background
+    // to avoid impacting interaction performance.
+    await new Promise(r => setTimeout(r, 8000));
     const others = ['mars', 'jupiter', 'saturn', 'venus', 'mercury', 'moon', 'uranus', 'neptune'];
     for (const p of others) {
-      await loadHQ(p, p);
+      // If user hasn't already triggered HQ for this planet via interaction
+      if (!hqStatus[p]) {
+        await loadHQ(p, p);
+        await new Promise(r => setTimeout(r, 3000)); // Large gap between each planet
+      }
     }
   }
 
-  // Don't await this, let it run in background
-  startBackgroundLoading();
+  // Start background loading after a short delay
+  setTimeout(startBackgroundLoading, 500);
 
   return {
     scene,

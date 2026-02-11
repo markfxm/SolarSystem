@@ -506,9 +506,9 @@ onMounted(async () => {
     }
 
     // Update simulation time display from controller
-    // Throttle: update only every 10 frames to avoid toLocaleString perf hit
+    // Throttle: update only every 30 frames to avoid toLocaleString perf hit
     frameCount++
-    if (frameCount % 10 === 0 && timeController) {
+    if (frameCount % 30 === 0 && timeController) {
       try {
         const simDate = timeController.getSimulationDate()
         simulationTime.value = simDate.toLocaleString()
@@ -518,18 +518,23 @@ onMounted(async () => {
     }
 
     if (showZodiac.value && solar?.aspectsManager && timeController) {
-      const date = timeController.getSimulationDate()
-      const chart = AstrologyService.calculateGeocentricChart(date)
-      const aspects = AstrologyService.calculateAspects(chart)
-      const vibe = AstrologyService.calculateElementBalance(chart)
-      
-      currentChart.value = chart
-      activeAspects.value = aspects
-      elementBalance.value = vibe.balance
-      dominantElement.value = vibe.dominant
-      
-      solar.aspectsManager.update(aspects)
-      solar.auraManager.update(chart, vibe.dominant, showZodiac.value)
+      // Throttle heavy astrological calculations to ~10-12fps to save CPU
+      // Pulse animations in auraManager still look okay at this rate,
+      // but the calculation overhead is significantly reduced.
+      if (frameCount % 5 === 0) {
+        const date = timeController.getSimulationDate()
+        const chart = AstrologyService.calculateGeocentricChart(date)
+        const aspects = AstrologyService.calculateAspects(chart)
+        const vibe = AstrologyService.calculateElementBalance(chart)
+
+        currentChart.value = chart
+        activeAspects.value = aspects
+        elementBalance.value = vibe.balance
+        dominantElement.value = vibe.dominant
+
+        solar.aspectsManager.update(aspects)
+        solar.auraManager.update(chart, vibe.dominant, showZodiac.value)
+      }
     } else if (solar?.auraManager) {
       solar.auraManager.hideAll()
     }
