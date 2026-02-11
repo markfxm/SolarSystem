@@ -162,7 +162,8 @@ export async function createSolarSystem(scene, zodiacNames = [], onProgress = ()
   const uranus = createPlanet(sizes.uranus * sizeScale, uranusTex, 'uranus')
   const neptune = createPlanet(sizes.neptune * sizeScale, neptuneTex, 'neptune')
 
-  await createSaturnRing(saturn)
+  // Load Saturn rings asynchronously to avoid blocking initial scene visibility
+  createSaturnRing(saturn).catch(err => console.error("Failed to load Saturn rings:", err));
 
   const planets = [sun, mercury, venus, earth, mars, jupiter, saturn, uranus, neptune]
   const planetObjects = { sun, mercury, venus, earth, mars, jupiter, saturn, uranus, neptune }
@@ -282,7 +283,9 @@ export async function createSolarSystem(scene, zodiacNames = [], onProgress = ()
   }
 
   // Start background loading after a short delay
-  setTimeout(startBackgroundLoading, 500);
+  // DEACTIVATED: User prefers not to load HQ textures automatically at startup to avoid lag.
+  // HQ textures will be loaded on-demand via prioritizeHQ() when a planet is selected or focused.
+  // setTimeout(startBackgroundLoading, 500);
 
   return {
     scene,
