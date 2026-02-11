@@ -39,11 +39,16 @@ const dict = {
       'Aries', 'Taurus', 'Gemini', 'Cancer', 'Leo', 'Virgo',
       'Libra', 'Scorpio', 'Sagittarius', 'Capricorn', 'Aquarius', 'Pisces'
     ],
-    tour: {
+    info: {
       radius: 'Radius',
       temp: 'Temp',
       orbit: 'Orbit',
-      did_you_know: 'Did you know?'
+      did_you_know: 'Did you know?',
+      land_btn: 'Land on Mars'
+    },
+    mars: {
+      entering: 'ENTERING MARS ATMOSPHERE...',
+      return_orbit: 'Return to Orbit'
     },
     stellar: {
       btn: 'Stellar Snapshot',
@@ -213,11 +218,16 @@ const dict = {
       '白羊座', '金牛座', '双子座', '巨蟹座', '狮子座', '处女座',
       '天秤座', '天蝎座', '射手座', '摩羯座', '水瓶座', '双鱼座'
     ],
-    tour: {
+    info: {
       radius: '半径',
       temp: '温度',
       orbit: '轨道',
-      did_you_know: '你知道吗？'
+      did_you_know: '你知道吗？',
+      land_btn: '登陆火星'
+    },
+    mars: {
+      entering: '正在进入火星大气层...',
+      return_orbit: '返回轨道'
     },
     stellar: {
       btn: '星空快照',

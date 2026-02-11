@@ -34,8 +34,8 @@ export function createEngine(container) {
 
   // Resize
   const onResize = () => {
-    camera.aspect = window.innerWidth / window.innerHeight
-    camera.updateProjectionMatrix()
+    activeCamera.aspect = window.innerWidth / window.innerHeight
+    activeCamera.updateProjectionMatrix()
     renderer.setSize(window.innerWidth, window.innerHeight)
   }
   window.addEventListener('resize', onResize)
@@ -43,14 +43,19 @@ export function createEngine(container) {
   // Clock
   const clock = new THREE.Clock()
 
+  let activeScene = scene
+  let activeCamera = camera
+
   // Animation loop
   function start(update) {
     function animate() {
       requestAnimationFrame(animate)
       const delta = clock.getDelta()
       update(delta)
-      controls.update()
-      renderer.render(scene, camera)
+      if (activeCamera === camera) {
+        controls.update()
+      }
+      renderer.render(activeScene, activeCamera)
     }
     animate()
   }
@@ -69,6 +74,13 @@ export function createEngine(container) {
     start,
     dispose,
     defaultMinDistance,
-    defaultMaxDistance
+    defaultMaxDistance,
+    setActiveScene: (s, c) => {
+      activeScene = s || scene
+      activeCamera = c || camera
+      // Update aspect ratio for the new camera
+      activeCamera.aspect = window.innerWidth / window.innerHeight
+      activeCamera.updateProjectionMatrix()
+    }
   }
 }

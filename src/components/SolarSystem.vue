@@ -3,7 +3,7 @@
     <div ref="container" class="three-container"></div>
 
     <!-- HUD -->
-    <div class="hud">
+    <div v-if="viewMode === 'solar'" class="hud">
       <div class="time-container">
         <div class="time-real">
           <span class="label">{{ t('control.realTime') || 'Real Time' }}:</span>
@@ -36,7 +36,7 @@
     </div>
 
     <!-- Top Center Actions -->
-    <div class="top-center-actions" v-if="!isSurfaceMode">
+    <div v-if="viewMode === 'solar'" class="top-center-actions">
       <button 
         class="stellar-btn"
         @click="openStellarModal"
@@ -46,7 +46,7 @@
     </div>
 
     <!-- Language Panel -->
-    <LanguagePanel />
+    <LanguagePanel v-if="viewMode === 'solar'" />
 
     <!-- Stellar Moment Modal -->
     <StellarMomentModal
@@ -66,11 +66,29 @@
       v-if="infoPlanetId"
       :planetName="infoPlanetId"
       @close="onInfoPanelClose"
+      @land="onLandOnMars"
     />
+
+    <!-- Cloud Transition Overlay -->
+    <div v-if="showCloudOverlay" class="cloud-overlay" :class="{ 'fade-in': cloudFadeIn }">
+      <div class="cloud-content">
+        <div class="entry-text">{{ enteringText }}</div>
+      </div>
+    </div>
+
+    <!-- Mars Surface UI -->
+    <div v-if="viewMode === 'mars'" class="mars-ui">
+      <button class="return-btn" @click="returnToOrbit">
+        🛸 {{ t('mars.return_orbit') }}
+      </button>
+      <div class="controls-hint">
+        WASD to walk • Mouse to look
+      </div>
+    </div>
 
     <!-- Navigation Panel -->
     <PlanetNavigationPanel
-      v-if="!isSurfaceMode"
+      v-if="viewMode === 'solar'"
       :selectedBody="selectedPlanetId"
       :isNearPlanet="isNearPlanet"
       @select="onPlanetSelected"
@@ -79,7 +97,7 @@
     />
 
     <TimeControlPanel
-      v-if="!isSurfaceMode"
+      v-if="viewMode === 'solar'"
       ref="timePanel"
       @speed-change="onSpeedChange"
       @reset="onReset"
@@ -123,6 +141,7 @@ import { createEngine } from '../three/engine.js'
 import { createSolarSystem } from '../three/createSolarSystem.js'
 import { createTimeController } from '../three/timeController.js'
 import { createInteractions } from '../three/interactions.js'
+import { createMarsSurface } from '../three/marsSurface.js'
 import { AestheticSnapshotManager } from '../utils/AestheticSnapshot.js'
 import { AstrologyService } from '../utils/AstrologyService.js'
 
@@ -148,11 +167,17 @@ const dominantElement = ref('none')
 const isNearPlanet = ref(false) // Track if camera is near selected planet (for showing LAND button)
 const isSurfaceMode = ref(false) // ← NEW: Track if we are on surface HUD
 
+const viewMode = ref('solar') // 'solar' | 'mars'
+const showCloudOverlay = ref(false)
+const cloudFadeIn = ref(false)
+const enteringText = ref('')
+
 let engine
 let solar
 let timeController
 let sunController
 let interactions
+let marsSurface
 let clockTimer
 
 const planetNames = computed(() => ({
@@ -194,6 +219,50 @@ function onShowInfo(id) {
 
 function onInfoPanelClose() {
   infoPlanetId.value = null
+}
+
+async function onLandOnMars() {
+  if (viewMode.value === 'mars') return
+  infoPlanetId.value = null // Close the panel
+
+  enteringText.value = t('mars.entering')
+  showCloudOverlay.value = true
+  setTimeout(() => { cloudFadeIn.value = true }, 10)
+
+  await new Promise(r => setTimeout(r, 2000))
+
+  if (!marsSurface) {
+    marsSurface = createMarsSurface(engine.renderer)
+  }
+
+  viewMode.value = 'mars'
+  engine.setActiveScene(marsSurface.scene, marsSurface.camera)
+  if (interactions) interactions.setEnabled(false)
+
+  window.addEventListener('keydown', marsSurface.onKeyDown)
+  window.addEventListener('keyup', marsSurface.onKeyUp)
+  window.addEventListener('mousemove', marsSurface.onMouseMove)
+
+  cloudFadeIn.value = false
+  setTimeout(() => { showCloudOverlay.value = false }, 2000)
+}
+
+function returnToOrbit() {
+  showCloudOverlay.value = true
+  setTimeout(() => { cloudFadeIn.value = true }, 10)
+
+  setTimeout(() => {
+    viewMode.value = 'solar'
+    engine.setActiveScene()
+    if (interactions) interactions.setEnabled(true)
+
+    window.removeEventListener('keydown', marsSurface.onKeyDown)
+    window.removeEventListener('keyup', marsSurface.onKeyUp)
+    window.removeEventListener('mousemove', marsSurface.onMouseMove)
+
+    cloudFadeIn.value = false
+    setTimeout(() => { showCloudOverlay.value = false }, 2000)
+  }, 2000)
 }
 
 function handleFocusPlanet(name) {
@@ -404,8 +473,12 @@ onMounted(async () => {
 
   let frameCount = 0
   engine.start(delta => {
-    if (timeController) timeController.update(delta)
-    if (interactions) interactions.update(delta)
+    if (viewMode.value === 'solar') {
+      if (timeController) timeController.update(delta)
+      if (interactions) interactions.update(delta)
+    } else if (viewMode.value === 'mars' && marsSurface) {
+      marsSurface.update(delta)
+    }
 
     // Update simulation time display from controller
     // Throttle: update only every 10 frames to avoid toLocaleString perf hit
@@ -452,6 +525,11 @@ onUnmounted(() => {
   clearInterval(clockTimer)
   interactions?.dispose()
   engine?.dispose()
+  if (marsSurface) {
+    window.removeEventListener('keydown', marsSurface.onKeyDown)
+    window.removeEventListener('keyup', marsSurface.onKeyUp)
+    window.removeEventListener('mousemove', marsSurface.onMouseMove)
+  }
 })
 </script>
 
@@ -615,5 +693,85 @@ onUnmounted(() => {
 
 .stellar-btn:active {
   transform: translateY(1px);
+}
+
+/* Cloud Overlay */
+.cloud-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: #8a4b38; /* Dusty Mars atmosphere color */
+  opacity: 0;
+  pointer-events: none;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 2s ease-in-out;
+}
+
+.cloud-overlay.fade-in {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.cloud-content {
+  text-align: center;
+}
+
+.entry-text {
+  color: #fff;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: 4px;
+  text-shadow: 0 0 20px rgba(0,0,0,0.5);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.7; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.05); }
+}
+
+/* Mars Surface UI */
+.mars-ui {
+  position: absolute;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  z-index: 1000;
+  pointer-events: none;
+}
+
+.return-btn {
+  pointer-events: auto;
+  padding: 12px 24px;
+  background: rgba(30, 30, 40, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 30px;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+  transition: all 0.3s;
+}
+
+.return-btn:hover {
+  background: rgba(60, 60, 80, 0.9);
+  transform: translateY(-2px);
+  border-color: #fff;
+}
+
+.controls-hint {
+  color: rgba(255,255,255,0.7);
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
 }
 </style>
