@@ -67,8 +67,12 @@ export class AuraManager {
             const scale = pulseBase + Math.sin(time * pulseSpeed) * 0.1;
 
             // Correctly calculate the size based on geometry radius and mesh scale
-            if (!mesh.geometry.boundingSphere) mesh.geometry.computeBoundingSphere();
-            const radius = mesh.geometry.boundingSphere.radius;
+            // Cache the radius to avoid recomputing bounding sphere every frame
+            if (mesh.userData.auraRadius === undefined) {
+                if (!mesh.geometry.boundingSphere) mesh.geometry.computeBoundingSphere();
+                mesh.userData.auraRadius = mesh.geometry.boundingSphere.radius;
+            }
+            const radius = mesh.userData.auraRadius;
             const size = radius * mesh.scale.x * scale * 3.5; // Increased from 2.5 to 3.5
             aura.scale.set(size, size, size);
 

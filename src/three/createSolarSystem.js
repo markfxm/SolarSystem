@@ -107,19 +107,24 @@ export async function createSolarSystem(scene, zodiacNames = [], onProgress = ()
     return tex;
   }
 
-  const [
-    sunTex, mercuryTex, venusTex,
-    earthDayTex, earthNightTex, marsTex,
-    jupiterTex, saturnTex, uranusTex, neptuneTex, moonTex
-  ] = await Promise.all([
-    loadLowRes('sun'), loadLowRes('mercury'), loadLowRes('venus'),
-    loadLowRes('earth_day'), loadLowRes('earth_night'), loadLowRes('mars'),
-    loadLowRes('jupiter'), loadLowRes('saturn'), loadLowRes('uranus'), loadLowRes('neptune'), loadLowRes('moon')
-  ])
+  // Sequential loading of initial textures to avoid CPU/Network spikes on weaker devices
+  const lowResTextures = {};
+  const keys = Object.keys(lowResMaps);
+  for (const key of keys) {
+    lowResTextures[key] = await loadLowRes(key);
+    // Tiny delay between each load to yield main thread
+    await new Promise(r => setTimeout(r, 20));
+  }
+
+  const {
+    sun: sunTex, mercury: mercuryTex, venus: venusTex,
+    earth_day: earthDayTex, earth_night: earthNightTex, mars: marsTex,
+    jupiter: jupiterTex, saturn: saturnTex, uranus: uranusTex, neptune: neptuneTex, moon: moonTex
+  } = lowResTextures;
 
   // Sun
   const sun = new THREE.Mesh(
-    new THREE.SphereGeometry(sizes.sun, 64, 64),
+    new THREE.SphereGeometry(sizes.sun, 48, 48), // Reduced detail
     new THREE.MeshBasicMaterial({ map: sunTex })
   )
   sun.userData.name = 'sun'
@@ -162,13 +167,18 @@ export async function createSolarSystem(scene, zodiacNames = [], onProgress = ()
   const uranus = createPlanet(sizes.uranus * sizeScale, uranusTex, 'uranus')
   const neptune = createPlanet(sizes.neptune * sizeScale, neptuneTex, 'neptune')
 
-  await createSaturnRing(saturn)
+  // Load Saturn rings asynchronously to avoid blocking initial scene visibility
+  createSaturnRing(saturn).catch(err => console.error("Failed to load Saturn rings:", err));
 
   const planets = [sun, mercury, venus, earth, mars, jupiter, saturn, uranus, neptune]
   const planetObjects = { sun, mercury, venus, earth, mars, jupiter, saturn, uranus, neptune }
 
   Object.entries(planetObjects).forEach(([name, mesh]) => {
     mesh.userData.rotationSpeed = getRotationSpeed(name)
+    // Pre-compute bounding sphere for faster raycasting interaction
+    if (mesh.geometry) {
+      mesh.geometry.computeBoundingSphere();
+    }
   })
 
   // Initial positions
@@ -254,24 +264,37 @@ export async function createSolarSystem(scene, zodiacNames = [], onProgress = ()
     }
   }
 
-  // Sequentially load HQ textures in background to avoid network congestion
+  // Sequentially load HQ textures in background.
+  // We only load the most critical ones (Sun, Earth) automatically to save performance.
   const startBackgroundLoading = async () => {
-    // Priority 1: Earth and Sun
-    await Promise.all([
-      loadHQ('sun', 'sun'),
-      loadHQ('earth', 'earth_day'),
-      loadHQ('earth', 'earth_night')
-    ]);
+    // Initial delay to let the app settle
+    await new Promise(r => setTimeout(r, 2000));
 
-    // Priority 2: Other planets
+    // Priority 1: Sun and Earth (the most visible bodies)
+    // We load them one by one instead of Promise.all to reduce peak CPU/GPU spikes
+    await loadHQ('sun', 'sun');
+    await new Promise(r => setTimeout(r, 1500));
+    await loadHQ('earth', 'earth_day');
+    await new Promise(r => setTimeout(r, 1000));
+    await loadHQ('earth', 'earth_night');
+
+    // For other planets, we load them much more slowly in the background
+    // to avoid impacting interaction performance.
+    await new Promise(r => setTimeout(r, 8000));
     const others = ['mars', 'jupiter', 'saturn', 'venus', 'mercury', 'moon', 'uranus', 'neptune'];
     for (const p of others) {
-      await loadHQ(p, p);
+      // If user hasn't already triggered HQ for this planet via interaction
+      if (!hqStatus[p]) {
+        await loadHQ(p, p);
+        await new Promise(r => setTimeout(r, 3000)); // Large gap between each planet
+      }
     }
   }
 
-  // Don't await this, let it run in background
-  startBackgroundLoading();
+  // Start background loading after a short delay
+  // DEACTIVATED: User prefers not to load HQ textures automatically at startup to avoid lag.
+  // HQ textures will be loaded on-demand via prioritizeHQ() when a planet is selected or focused.
+  // setTimeout(startBackgroundLoading, 500);
 
   return {
     scene,

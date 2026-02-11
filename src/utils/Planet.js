@@ -66,7 +66,8 @@ const fragmentShader = `
 
 // Reuse the exact same shader for ALL planets (including Earth)
 export function createUnifiedPlanet(radius, dayTexture, scene, isEarth = false, nightTexture = null) {
-  const geometry = new THREE.SphereGeometry(radius, 64, 64);
+  // Reduced segments from 64 to 48 for better performance on office laptops
+  const geometry = new THREE.SphereGeometry(radius, 48, 48);
 
   const material = new THREE.ShaderMaterial({
     uniforms: {
