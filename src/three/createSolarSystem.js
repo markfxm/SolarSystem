@@ -215,8 +215,14 @@ export async function createSolarSystem(scene, zodiacNames = [], onProgress = ()
   const aspectsManager = new AspectLinesManager(scene, planetObjects);
   const auraManager = new AuraManager(scene, planetObjects);
 
+  // Track HQ texture status to avoid redundant loads
+  const hqStatus = {}; // { [key]: 'loading' | 'loaded' }
+
   // --- Background HQ Loading ---
   const loadHQ = async (planetName, key, isEarth = false) => {
+    if (hqStatus[key]) return;
+    hqStatus[key] = 'loading';
+
     try {
       const hqTex = await loadTexture(highResMaps[key]);
       const mesh = planetName === 'moon' ? moon : planetObjects[planetName];
@@ -224,18 +230,26 @@ export async function createSolarSystem(scene, zodiacNames = [], onProgress = ()
         if (mesh.material.uniforms) {
           // ShaderMaterial (Planets)
           if (key.includes('night')) {
+             const oldTex = mesh.material.uniforms.nightTexture.value;
              mesh.material.uniforms.nightTexture.value = hqTex;
+             if (oldTex && oldTex !== hqTex) oldTex.dispose();
           } else {
+             const oldTex = mesh.material.uniforms.dayTexture.value;
              mesh.material.uniforms.dayTexture.value = hqTex;
+             if (oldTex && oldTex !== hqTex) oldTex.dispose();
           }
         } else {
           // MeshBasicMaterial (Sun)
+          const oldTex = mesh.material.map;
           mesh.material.map = hqTex;
           mesh.material.needsUpdate = true;
+          if (oldTex && oldTex !== hqTex) oldTex.dispose();
         }
+        hqStatus[key] = 'loaded';
         console.log(`🚀 HQ Texture loaded for ${planetName} (${key})`);
       }
     } catch (e) {
+      delete hqStatus[key]; // Allow retry on failure
       console.warn(`Failed to load HQ texture for ${planetName}`, e);
     }
   }
