@@ -256,8 +256,7 @@ export function createInteractions({
         controls.target.copy(flyToTarget)
         controls.update()
 
-        isFlying = false
-        flyTargetBody = null
+        finishFly()
 
         // Notify arrival (for showing LAND button)
         if (onArrival && selectedObject && selectedObject.userData?.name) {

@@ -10,8 +10,8 @@ import { AuraManager } from '../utils/AuraManager.js';
 const orbitScale = 260
 const sizeScale = 1.2
 const SUN_RADIUS = 70
-const MOON_ORBIT_RADIUS = 14; // Keep this constant as it was already defined
-const ZODIAC_RADIUS = orbitScale * 35; // Define ZODIAC_RADIUS based on existing orbitScale
+const MOON_ORBIT_RADIUS = 14;
+const ZODIAC_RADIUS = orbitScale * 35;
 
 const sizes = {
   sun: SUN_RADIUS,
@@ -25,8 +25,40 @@ const sizes = {
   neptune: 12.03
 }
 
+const lowResMaps = {
+  sun: '/sun.jpg',
+  mercury: '/mercury.jpg',
+  venus: '/venus.jpg',
+  earth_day: '/2k_earth_daymap.jpg',
+  earth_night: '/2k_earth_nightmap.jpg',
+  mars: '/mars.jpg',
+  jupiter: '/jupiter.jpg',
+  saturn: '/saturn.jpg',
+  uranus: '/uranus.jpg',
+  neptune: '/neptune.jpg',
+  moon: '/mercury.jpg' // Placeholder for moon
+}
+
+const highResMaps = {
+  sun: '/hq/8k_sun.jpg',
+  mercury: '/hq/8k_mercury.jpg',
+  venus: '/hq/8k_venus.jpg',
+  earth_day: '/hq/8k_earth_daymap.jpg',
+  earth_night: '/hq/8k_earth_nightmap.jpg',
+  mars: '/hq/8k_mars.jpg',
+  jupiter: '/hq/8k_jupiter.jpg',
+  saturn: '/hq/8k_saturn.jpg',
+  uranus: '/hq/2k_uranus.jpg',
+  neptune: '/hq/2k_neptune.jpg',
+  moon: '/hq/8k_moon.jpg'
+}
+
+const textureLoader = new THREE.TextureLoader()
+
 const loadTexture = (path) =>
-  new Promise(resolve => new THREE.TextureLoader().load(path, resolve))
+  new Promise((resolve, reject) => {
+    textureLoader.load(path, resolve, undefined, reject)
+  })
 
 async function createSaturnRing(saturn) {
   const baseRadius = sizes.saturn * sizeScale;
@@ -63,40 +95,39 @@ async function createSaturnRing(saturn) {
   saturn.add(ringMesh);
 }
 
-export async function createSolarSystem(scene, zodiacNames = []) {
+export async function createSolarSystem(scene, zodiacNames = [], onProgress = () => {}) {
+  // 1. Initial Load: Load all low-res textures
+  const totalSteps = Object.keys(lowResMaps).length;
+  let loadedSteps = 0;
+
+  const loadLowRes = async (key) => {
+    const tex = await loadTexture(lowResMaps[key]);
+    loadedSteps++;
+    onProgress((loadedSteps / totalSteps) * 100);
+    return tex;
+  }
+
   const [
-    dayTexture, nightTexture, sunTexture,
-    mercuryTex, venusTex, marsTex,
-    jupiterTex, saturnTex, uranusTex, neptuneTex
+    sunTex, mercuryTex, venusTex,
+    earthDayTex, earthNightTex, marsTex,
+    jupiterTex, saturnTex, uranusTex, neptuneTex, moonTex
   ] = await Promise.all([
-    loadTexture('/hq/8k_earth_daymap.jpg'),
-    loadTexture('/hq/8k_earth_nightmap.jpg'),
-    loadTexture('/hq/8k_sun.jpg'),
-    loadTexture('/hq/8k_mercury.jpg'),
-    loadTexture('/hq/8k_venus.jpg'),
-    loadTexture('/hq/8k_mars.jpg'),
-    loadTexture('/hq/8k_jupiter.jpg'),
-    loadTexture('/hq/8k_saturn.jpg'),
-    loadTexture('/hq/2k_uranus.jpg'),
-    loadTexture('/hq/2k_neptune.jpg')
+    loadLowRes('sun'), loadLowRes('mercury'), loadLowRes('venus'),
+    loadLowRes('earth_day'), loadLowRes('earth_night'), loadLowRes('mars'),
+    loadLowRes('jupiter'), loadLowRes('saturn'), loadLowRes('uranus'), loadLowRes('neptune'), loadLowRes('moon')
   ])
 
   // Sun
   const sun = new THREE.Mesh(
     new THREE.SphereGeometry(sizes.sun, 64, 64),
-    new THREE.MeshBasicMaterial({ map: sunTexture })
+    new THREE.MeshBasicMaterial({ map: sunTex })
   )
   sun.userData.name = 'sun'
   sun.name = 'sun'
   sun.userData.isSun = true
-  // Fix Sun Orientation: Align local Y (spin axis) with Orbit Normal (Z)
   sun.rotation.x = Math.PI / 2;
-
-  // realistic solar rotation (approx. 25.38 days -> hours)
-  // rotation speed in rad/s = 2π / (hours * 3600)
-  const SUN_ROTATION_HOURS = 25.38 * 24 // ~25.38 days
+  const SUN_ROTATION_HOURS = 25.38 * 24
   sun.userData.rotationSpeed = (2 * Math.PI) / (SUN_ROTATION_HOURS * 3600)
-
   scene.add(sun)
 
   // Planet factory
@@ -104,21 +135,11 @@ export async function createSolarSystem(scene, zodiacNames = []) {
     const planet = createUnifiedPlanet(size, tex, scene, isEarth, extraTex)
     planet.userData.name = name
     planet.userData.isPlanet = true
-
-    // FIX ORINETATION:
-    // Textures map (0,0) to left/center. SphereGeometry wraps it nicely.
-    // By default Three.js spheres have poles on Y axis.
-    // Our orbit is XY plane. We want North Pole to be +Z direction.
-    // So we rotate +90 degrees around X.
     planet.rotation.x = Math.PI / 2;
 
     if (isEarth) {
-      // Earth Axial Tilt: ~23.5 degrees
-      // We are now +Z up. We want to tilt 23.5 degrees away.
-      // Subtracting rotates "back" towards +Y (assuming X axis is Right).
       planet.rotation.x -= (23.5 * Math.PI / 180);
     }
-
     if (name === 'saturn') {
       planet.rotation.x -= (26.73 * Math.PI / 180);
     }
@@ -134,7 +155,7 @@ export async function createSolarSystem(scene, zodiacNames = []) {
   // Planets
   const mercury = createPlanet(sizes.mercury * sizeScale, mercuryTex, 'mercury')
   const venus = createPlanet(sizes.venus * sizeScale, venusTex, 'venus')
-  const earth = createPlanet(sizes.earth * sizeScale, dayTexture, 'earth', true, nightTexture)
+  const earth = createPlanet(sizes.earth * sizeScale, earthDayTex, 'earth', true, earthNightTex)
   const mars = createPlanet(sizes.mars * sizeScale, marsTex, 'mars')
   const jupiter = createPlanet(sizes.jupiter * sizeScale, jupiterTex, 'jupiter')
   const saturn = createPlanet(sizes.saturn * sizeScale, saturnTex, 'saturn')
@@ -143,14 +164,8 @@ export async function createSolarSystem(scene, zodiacNames = []) {
 
   await createSaturnRing(saturn)
 
-  const planets = [
-    sun, mercury, venus, earth, mars, jupiter, saturn, uranus, neptune
-  ]
-
-  const planetObjects = {
-    sun, mercury, venus, earth, mars,
-    jupiter, saturn, uranus, neptune
-  }
+  const planets = [sun, mercury, venus, earth, mars, jupiter, saturn, uranus, neptune]
+  const planetObjects = { sun, mercury, venus, earth, mars, jupiter, saturn, uranus, neptune }
 
   Object.entries(planetObjects).forEach(([name, mesh]) => {
     mesh.userData.rotationSpeed = getRotationSpeed(name)
@@ -158,27 +173,20 @@ export async function createSolarSystem(scene, zodiacNames = []) {
 
   // Initial positions
   Object.keys(planetObjects).forEach(name => {
-    if (name === 'sun') return; // Skip sun as it is at (0,0,0)
+    if (name === 'sun') return;
     const el = computeElements(name, computeD(new Date()))
     const pos = computePosition(el, orbitScale)
     planetObjects[name].position.set(pos.x, pos.y, pos.z)
   })
 
-  // Stars
+  // Environment
   const starGeo = new THREE.BufferGeometry()
   const vertices = []
   for (let i = 0; i < 15000; i++) {
-    vertices.push(
-      (Math.random() - 0.5) * 200000,
-      (Math.random() - 0.5) * 200000,
-      (Math.random() - 0.5) * 200000
-    )
+    vertices.push((Math.random() - 0.5) * 200000, (Math.random() - 0.5) * 200000, (Math.random() - 0.5) * 200000)
   }
   starGeo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3))
-  const starPoints = new THREE.Points(
-    starGeo,
-    new THREE.PointsMaterial({ color: 0xffffff, size: 2 })
-  )
+  const starPoints = new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 2 }))
   starPoints.userData.isStarfield = true
   scene.add(starPoints)
 
@@ -187,58 +195,104 @@ export async function createSolarSystem(scene, zodiacNames = []) {
   scene.add(nebula)
   scene.add(new THREE.AmbientLight(0x404040, 0.6))
 
-  // Zodiac Ring (at the edge of the system)
-  const zodiacRing = createZodiacRing(ZODIAC_RADIUS, zodiacNames); // Larger than Neptune
-  zodiacRing.visible = false; // Hide by default
+  const zodiacRing = createZodiacRing(ZODIAC_RADIUS, zodiacNames);
+  zodiacRing.visible = false;
   scene.add(zodiacRing);
 
-
   // Moon
-  const moonTex = await loadTexture('/hq/8k_moon.jpg');
   const moon = createUnifiedPlanet(sizes.earth * sizeScale * 0.27, moonTex, scene);
   moon.userData.name = 'moon';
   moon.userData.isMoon = true;
-  moon.rotation.x = Math.PI / 2; // consistent with other planets
+  moon.rotation.x = Math.PI / 2;
 
-  // Moon orbit visualization
-  // Use createEllipticalOrbit to match other planets style (Line2, thickness, etc.)
-  // We need to pass the Moon's elements. Since the Moon's orbit precesses efficiently,
-  // we compute elements for the CURRENT date so the initial orbit is accurate.
   const currentD = computeD(new Date());
   const moonEl = computeElements('moon', currentD);
-
-  // Override 'a' with our visual radius because createEllipticalOrbit uses 'a' from elements for size
-  // We need it to be 1 * MOON_ORBIT_RADIUS effectively
   const visualMoonEl = { ...moonEl, a: 1 };
-
-  const moonOrbit = createEllipticalOrbit(
-    visualMoonEl,
-    MOON_ORBIT_RADIUS, // Scale factor
-    128,               // Segments
-    0x888888,          // Color (Greyish)
-    0.5                // Opacity
-  );
+  const moonOrbit = createEllipticalOrbit(visualMoonEl, MOON_ORBIT_RADIUS, 128, 0x888888, 0.5);
   moonOrbit.userData.isOrbit = true;
   scene.add(moonOrbit);
 
-  // 5. Aspects Manager
   const aspectsManager = new AspectLinesManager(scene, planetObjects);
-
-  // 6. Aura Manager
   const auraManager = new AuraManager(scene, planetObjects);
 
-  // Return moon and moonOrbit
+  // Track HQ texture status to avoid redundant loads
+  const hqStatus = {}; // { [key]: 'loading' | 'loaded' }
+
+  // --- Background HQ Loading ---
+  const loadHQ = async (planetName, key, isEarth = false) => {
+    if (hqStatus[key]) return;
+    hqStatus[key] = 'loading';
+
+    try {
+      const hqTex = await loadTexture(highResMaps[key]);
+      const mesh = planetName === 'moon' ? moon : planetObjects[planetName];
+      if (mesh) {
+        if (mesh.material.uniforms) {
+          // ShaderMaterial (Planets)
+          if (key.includes('night')) {
+             const oldTex = mesh.material.uniforms.nightTexture.value;
+             mesh.material.uniforms.nightTexture.value = hqTex;
+             if (oldTex && oldTex !== hqTex) oldTex.dispose();
+          } else {
+             const oldTex = mesh.material.uniforms.dayTexture.value;
+             mesh.material.uniforms.dayTexture.value = hqTex;
+             if (oldTex && oldTex !== hqTex) oldTex.dispose();
+          }
+        } else {
+          // MeshBasicMaterial (Sun)
+          const oldTex = mesh.material.map;
+          mesh.material.map = hqTex;
+          mesh.material.needsUpdate = true;
+          if (oldTex && oldTex !== hqTex) oldTex.dispose();
+        }
+        hqStatus[key] = 'loaded';
+        console.log(`🚀 HQ Texture loaded for ${planetName} (${key})`);
+      }
+    } catch (e) {
+      delete hqStatus[key]; // Allow retry on failure
+      console.warn(`Failed to load HQ texture for ${planetName}`, e);
+    }
+  }
+
+  // Sequentially load HQ textures in background to avoid network congestion
+  const startBackgroundLoading = async () => {
+    // Priority 1: Earth and Sun
+    await Promise.all([
+      loadHQ('sun', 'sun'),
+      loadHQ('earth', 'earth_day'),
+      loadHQ('earth', 'earth_night')
+    ]);
+
+    // Priority 2: Other planets
+    const others = ['mars', 'jupiter', 'saturn', 'venus', 'mercury', 'moon', 'uranus', 'neptune'];
+    for (const p of others) {
+      await loadHQ(p, p);
+    }
+  }
+
+  // Don't await this, let it run in background
+  startBackgroundLoading();
+
   return {
     scene,
-    planets,
+    planets: [...planets, moon],
     planetObjects,
     sun,
     moon,
     moonOrbit,
     MOON_ORBIT_RADIUS,
-    orbitScale, // Use the existing orbitScale constant
+    orbitScale,
     zodiacRing,
     aspectsManager,
-    auraManager
+    auraManager,
+    // Provide a method to prioritize a planet's HQ load
+    prioritizeHQ: (name) => {
+       if (name === 'earth') {
+         loadHQ('earth', 'earth_day');
+         loadHQ('earth', 'earth_night');
+       } else if (highResMaps[name]) {
+         loadHQ(name, name);
+       }
+    }
   };
 }

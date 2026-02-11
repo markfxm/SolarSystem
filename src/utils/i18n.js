@@ -8,6 +8,9 @@ export const currentLang = ref(defaultLang)
 const dict = {
   en: {
     nav_title: 'Solar System',
+    loading: {
+      preparing: 'Mission Control: Preparing Spacecraft...',
+    },
     nav: {
       show_info: 'Show Information',
       back_to_button: 'Back to Solar System',
@@ -187,6 +190,9 @@ const dict = {
   },
   zh: {
     nav_title: '太阳系',
+    loading: {
+      preparing: '任务控制中心：飞船准备中...',
+    },
     nav: {
       show_info: '查看介绍',
       back_to_button: '返回太阳系',
