@@ -2,6 +2,15 @@
   <div class="solar-system-root">
     <div ref="container" class="three-container"></div>
 
+    <!-- Loading Screen -->
+    <div v-if="isLoading" class="loading-screen">
+      <div class="loader-content">
+        <div class="loader-spinner"></div>
+        <div class="loader-text">{{ t('loading.preparing') || 'Mission Control: Preparing Spacecraft...' }}</div>
+        <div class="loader-subtext">{{ loadingProgress }}%</div>
+      </div>
+    </div>
+
     <!-- HUD -->
     <div v-if="viewMode === 'solar'" class="hud">
       <div class="time-container">
@@ -151,6 +160,8 @@ const timePanel = ref(null)
 const hoveredPlanetName = ref('')
 const selectedPlanetId = ref(null)
 const infoPlanetId = ref(null)
+const isLoading = ref(true)
+const loadingProgress = ref(0)
 const currentTime = ref('')
 const simulationTime = ref('')
 const isSimulating = ref(false)
@@ -211,10 +222,18 @@ function onPlanetSelected(id) {
   selectedPlanetId.value = id
   isNearPlanet.value = false // Reset until we arrive
   interactions?.focusPlanetById(id)
+
+  // Prioritize HQ texture loading for selected planet
+  if (solar && solar.prioritizeHQ) {
+    solar.prioritizeHQ(id)
+  }
 }
 
 function onShowInfo(id) {
   infoPlanetId.value = id
+  if (solar && solar.prioritizeHQ) {
+    solar.prioritizeHQ(id)
+  }
 }
 
 function onInfoPanelClose() {
@@ -268,6 +287,9 @@ function returnToOrbit() {
 function handleFocusPlanet(name) {
   if (interactions) {
     interactions.focusPlanetById(name)
+  }
+  if (solar && solar.prioritizeHQ) {
+    solar.prioritizeHQ(name)
   }
 }
 
@@ -438,7 +460,10 @@ onMounted(async () => {
 
   engine = createEngine(container.value)
 
-  solar = await createSolarSystem(engine.scene, t('zodiac_names'))
+  solar = await createSolarSystem(engine.scene, t('zodiac_names'), (progress) => {
+    loadingProgress.value = Math.round(progress)
+  })
+  isLoading.value = false
 
   // pass the sun mesh as an extra rotating object so it spins with real speed
   timeController = createTimeController(
@@ -733,6 +758,58 @@ onUnmounted(() => {
 @keyframes pulse {
   0%, 100% { opacity: 0.7; transform: scale(1); }
   50% { opacity: 1; transform: scale(1.05); }
+}
+
+/* Loading Screen */
+.loading-screen {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle at center, #0a0a1a 0%, #000000 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.loader-content {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+.loader-spinner {
+  width: 60px;
+  height: 60px;
+  border: 3px solid rgba(100, 180, 255, 0.1);
+  border-top: 3px solid #64b4ff;
+  border-radius: 50%;
+  animation: spin 1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  box-shadow: 0 0 20px rgba(100, 180, 255, 0.2);
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.loader-text {
+  color: #fff;
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  text-shadow: 0 0 10px rgba(100, 180, 255, 0.5);
+}
+
+.loader-subtext {
+  color: #64b4ff;
+  font-size: 14px;
+  font-family: monospace;
 }
 
 /* Mars Surface UI */
