@@ -34,8 +34,8 @@ export function createEngine(container) {
 
   // Resize
   const onResize = () => {
-    camera.aspect = window.innerWidth / window.innerHeight
-    camera.updateProjectionMatrix()
+    activeCamera.aspect = window.innerWidth / window.innerHeight
+    activeCamera.updateProjectionMatrix()
     renderer.setSize(window.innerWidth, window.innerHeight)
   }
   window.addEventListener('resize', onResize)
@@ -78,6 +78,9 @@ export function createEngine(container) {
     setActiveScene: (s, c) => {
       activeScene = s || scene
       activeCamera = c || camera
+      // Update aspect ratio for the new camera
+      activeCamera.aspect = window.innerWidth / window.innerHeight
+      activeCamera.updateProjectionMatrix()
     }
   }
 }
