@@ -536,7 +536,10 @@ onMounted(async () => {
         solar.auraManager.update(chart, vibe.dominant, showZodiac.value)
       }
     } else if (solar?.auraManager) {
-      solar.auraManager.hideAll()
+      // Only call hideAll if it was previously visible (throttle/guard redundant calls)
+      if (frameCount % 60 === 0) {
+        solar.auraManager.hideAll()
+      }
     }
   })
   window.addEventListener('resize', () => {

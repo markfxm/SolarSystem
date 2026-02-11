@@ -107,19 +107,24 @@ export async function createSolarSystem(scene, zodiacNames = [], onProgress = ()
     return tex;
   }
 
-  const [
-    sunTex, mercuryTex, venusTex,
-    earthDayTex, earthNightTex, marsTex,
-    jupiterTex, saturnTex, uranusTex, neptuneTex, moonTex
-  ] = await Promise.all([
-    loadLowRes('sun'), loadLowRes('mercury'), loadLowRes('venus'),
-    loadLowRes('earth_day'), loadLowRes('earth_night'), loadLowRes('mars'),
-    loadLowRes('jupiter'), loadLowRes('saturn'), loadLowRes('uranus'), loadLowRes('neptune'), loadLowRes('moon')
-  ])
+  // Sequential loading of initial textures to avoid CPU/Network spikes on weaker devices
+  const lowResTextures = {};
+  const keys = Object.keys(lowResMaps);
+  for (const key of keys) {
+    lowResTextures[key] = await loadLowRes(key);
+    // Tiny delay between each load to yield main thread
+    await new Promise(r => setTimeout(r, 20));
+  }
+
+  const {
+    sun: sunTex, mercury: mercuryTex, venus: venusTex,
+    earth_day: earthDayTex, earth_night: earthNightTex, mars: marsTex,
+    jupiter: jupiterTex, saturn: saturnTex, uranus: uranusTex, neptune: neptuneTex, moon: moonTex
+  } = lowResTextures;
 
   // Sun
   const sun = new THREE.Mesh(
-    new THREE.SphereGeometry(sizes.sun, 64, 64),
+    new THREE.SphereGeometry(sizes.sun, 48, 48), // Reduced detail
     new THREE.MeshBasicMaterial({ map: sunTex })
   )
   sun.userData.name = 'sun'
@@ -170,6 +175,10 @@ export async function createSolarSystem(scene, zodiacNames = [], onProgress = ()
 
   Object.entries(planetObjects).forEach(([name, mesh]) => {
     mesh.userData.rotationSpeed = getRotationSpeed(name)
+    // Pre-compute bounding sphere for faster raycasting interaction
+    if (mesh.geometry) {
+      mesh.geometry.computeBoundingSphere();
+    }
   })
 
   // Initial positions

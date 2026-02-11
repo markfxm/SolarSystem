@@ -23,13 +23,16 @@ export function createInteractions({
 
   const raycaster = new THREE.Raycaster()
   const mouse = new THREE.Vector2()
+  const lastMousePos = new THREE.Vector2(-999, -999)
 
   let hoveredObject = null
   let selectedObject = null
   let isEnabled = true
 
-  // Temp vectors for performance
+  // Temp vectors for performance (avoid GC)
   const _trackingDelta = new THREE.Vector3()
+  const _tempVec3 = new THREE.Vector3()
+  const _tempLookAt = new THREE.Vector3()
   let lastMouseMoveTime = 0
 
   // Fly / tracking state
@@ -172,10 +175,18 @@ export function createInteractions({
     // Throttle raycasting to ~30fps to save CPU during mouse movement
     const now = performance.now()
     if (now - lastMouseMoveTime < 32) return
-    lastMouseMoveTime = now
 
-    mouse.x = (event.clientX / window.innerWidth) * 2 - 1
-    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1
+    const mx = (event.clientX / window.innerWidth) * 2 - 1
+    const my = -(event.clientY / window.innerHeight) * 2 + 1
+
+    // Threshold check: only raycast if mouse moved significantly
+    const distSq = (mx - lastMousePos.x) ** 2 + (my - lastMousePos.y) ** 2
+    if (distSq < 0.0001) return
+
+    lastMouseMoveTime = now
+    mouse.x = mx
+    mouse.y = my
+    lastMousePos.copy(mouse)
 
     raycaster.setFromCamera(mouse, camera)
     const hits = raycaster.intersectObjects(planets, false)
@@ -237,9 +248,10 @@ export function createInteractions({
     // Smooth fly-to
     if (isFlying && flyFromCameraPos && flyToCameraPos) {
       if (flyTargetBody && flyCameraOffset) {
-        flyToTarget = flyTargetBody.position.clone()
-        flyToCameraPos =
-          flyTargetBody.position.clone().add(flyCameraOffset)
+        // Use scratch variables to avoid cloning every frame
+        _tempVec3.copy(flyTargetBody.position)
+        flyToTarget.copy(_tempVec3)
+        flyToCameraPos.copy(_tempVec3).add(flyCameraOffset)
       }
 
       const t = Math.min(
@@ -254,13 +266,13 @@ export function createInteractions({
         eased
       )
 
-      const lookAt = new THREE.Vector3().lerpVectors(
+      _tempLookAt.lerpVectors(
         flyFromTarget,
         flyToTarget,
         eased
       )
 
-      controls.target.copy(lookAt)
+      controls.target.copy(_tempLookAt)
 
       if (t >= 1) {
         // Fly complete
