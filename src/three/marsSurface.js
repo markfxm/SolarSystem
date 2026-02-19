@@ -1,87 +1,350 @@
 import * as THREE from 'three'
 
+// Simple Perlin-like noise for terrain
+class Noise {
+  constructor() {
+    this.p = new Uint8Array(512);
+    // Fixed standard Perlin permutation table for predictability
+    this.permutation = [151,160,137,91,90,15,
+      131,13,201,95,96,53,194,233,7,225,140,36,103,30,69,142,8,99,37,240,21,10,23,
+      190, 6,148,247,120,234,75,0,26,197,62,94,252,219,203,117,35,11,32,57,177,33,
+      88,237,149,56,87,174,20,125,136,171,168, 68,175,74,165,71,134,139,48,27,166,
+      77,146,158,231,83,111,229,122,60,211,133,230,220,105,92,41,55,46,245,40,244,
+      102,143,54, 65,25,63,161, 1,216,80,73,209,76,132,187,208, 89,18,169,200,196,
+      135,130,116,188,159,86,164,100,109,198,173,186, 3,64,52,217,226,250,124,123,
+      5,202,38,147,118,126,255,82,85,212,207,206,59,227,47,16,58,17,182,189,28,42,
+      223,183,170,213,119,248,152, 2,44,154,163, 70,221,153,101,155,167, 43,172,9,
+      129,22,39,253, 19,98,108,110,79,113,224,232,178,185, 112,104,218,246,97,228,
+      251,34,242,193,238,210,144,12,191,179,162,241, 81,51,145,235,249,14,239,107,
+      49,192,214,31,181,199,106,157,184, 84,204,176,115,121,50,45,127, 4,150,254,
+      138,236,205,93,222,114,67,29,24,72,243,141,128,195,78,66,215,61,156,180];
+    for (let i = 0; i < 256; i++) this.p[i] = this.p[i + 256] = this.permutation[i];
+  }
+
+  fade(t) { return t * t * t * (t * (t * 6 - 15) + 10); }
+  lerp(t, a, b) { return a + t * (b - a); }
+  grad(hash, x, y, z) {
+    const h = hash & 15;
+    const u = h < 8 ? x : y;
+    const v = h < 4 ? y : h === 12 || h === 14 ? x : z;
+    return ((h & 1) === 0 ? u : -u) + ((h & 2) === 0 ? v : -v);
+  }
+
+  noise(x, y, z = 0) {
+    const X = Math.floor(x) & 255;
+    const Y = Math.floor(y) & 255;
+    const Z = Math.floor(z) & 255;
+    x -= Math.floor(x);
+    y -= Math.floor(y);
+    z -= Math.floor(z);
+    const u = this.fade(x);
+    const v = this.fade(y);
+    const w = this.fade(z);
+    const A = this.p[X] + Y, AA = this.p[A] + Z, AB = this.p[A + 1] + Z;
+    const B = this.p[X + 1] + Y, BA = this.p[B] + Z, BB = this.p[B + 1] + Z;
+
+    return this.lerp(w, this.lerp(v, this.lerp(u, this.grad(this.p[AA], x, y, z),
+      this.grad(this.p[BA], x - 1, y, z)),
+      this.lerp(u, this.grad(this.p[AB], x, y - 1, z),
+        this.grad(this.p[BB], x - 1, y - 1, z))),
+      this.lerp(v, this.lerp(u, this.grad(this.p[AA + 1], x, y, z - 1),
+        this.grad(this.p[BA + 1], x - 1, y, z - 1)),
+        this.lerp(u, this.grad(this.p[AB + 1], x, y - 1, z - 1),
+          this.grad(this.p[BB + 1], x - 1, y - 1, z - 1))));
+  }
+}
+
+const perlin = new Noise();
+
 export function createMarsSurface(renderer) {
   const scene = new THREE.Scene()
-  scene.background = new THREE.Color(0x8a4b38) // Mars atmosphere color
+  scene.background = new THREE.Color(0x8a4b38)
+  scene.fog = new THREE.FogExp2(0x8a4b38, 0.01)
 
-  // Fog for atmosphere
-  scene.fog = new THREE.FogExp2(0x8a4b38, 0.005)
+  const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 5000)
+  camera.position.set(0, 5, 0)
 
-  const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 10000)
-  camera.position.set(0, 5, 0) // Start slightly above ground
+  // Audio
+  const listener = new THREE.AudioListener()
+  camera.add(listener)
 
-  // Light
-  const ambientLight = new THREE.AmbientLight(0xffffff, 0.3)
+  // Procedural Wind (Brownian Noise)
+  const ctx = THREE.AudioContext.getContext()
+  const bufferSize = 2 * ctx.sampleRate
+  const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate)
+  const output = noiseBuffer.getChannelData(0)
+  let lastOut = 0.0
+  for (let i = 0; i < bufferSize; i++) {
+    const white = Math.random() * 2 - 1
+    output[i] = (lastOut + (0.02 * white)) / 1.02
+    lastOut = output[i]
+    output[i] *= 1.5 // Adjust volume
+  }
+  const wind = new THREE.Audio(listener)
+  wind.setBuffer(noiseBuffer)
+  wind.setLoop(true)
+  wind.setVolume(0.1)
+
+  // Footsteps (Simple procedural "thump")
+  function playFootstep() {
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.type = 'sine'
+    osc.frequency.setValueAtTime(150, ctx.currentTime)
+    osc.frequency.exponentialRampToValueAtTime(40, ctx.currentTime + 0.1)
+    gain.gain.setValueAtTime(0.1, ctx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1)
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.start()
+    osc.stop(ctx.currentTime + 0.1)
+  }
+
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.2)
   scene.add(ambientLight)
 
-  const sunLight = new THREE.DirectionalLight(0xffccaa, 1.0)
-  sunLight.position.set(100, 100, 50)
+  // Sky Dome
+  const skyGeo = new THREE.SphereGeometry(4000, 32, 32)
+  const skyMat = new THREE.ShaderMaterial({
+    uniforms: {
+      topColor: { value: new THREE.Color(0x8a4b38) },
+      bottomColor: { value: new THREE.Color(0xffccaa) },
+    },
+    vertexShader: `
+      varying vec3 vWorldPosition;
+      void main() {
+        vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+        vWorldPosition = worldPosition.xyz;
+        gl_Position = projectionMatrix * viewMatrix * worldPosition;
+      }
+    `,
+    fragmentShader: `
+      uniform vec3 topColor;
+      uniform vec3 bottomColor;
+      varying vec3 vWorldPosition;
+      void main() {
+        float h = normalize(vWorldPosition).y;
+        float mixValue = clamp((h + 0.2) * 1.5, 0.0, 1.0);
+        gl_FragColor = vec4(mix(bottomColor, topColor, mixValue), 1.0);
+      }
+    `,
+    side: THREE.BackSide
+  })
+  const sky = new THREE.Mesh(skyGeo, skyMat)
+  scene.add(sky)
+
+  const sunLight = new THREE.DirectionalLight(0xffccaa, 1.5)
+  sunLight.position.set(100, 200, 100)
+  sunLight.castShadow = true
+  sunLight.shadow.mapSize.width = 2048
+  sunLight.shadow.mapSize.height = 2048
   scene.add(sunLight)
 
-  // Skybox/Dome (optional, but reddish background is enough for now)
-
-  // Terrain
   const textureLoader = new THREE.TextureLoader()
   const marsTex = textureLoader.load('/hq/8k_mars.jpg')
   marsTex.wrapS = marsTex.wrapT = THREE.RepeatWrapping
-  marsTex.repeat.set(50, 50) // Tiling for detail
+  marsTex.repeat.set(10, 10) // Tile slightly for more detail per chunk
+  marsTex.anisotropy = renderer.capabilities.getMaxAnisotropy()
 
-  const terrainSize = 2000
-  const terrainSegments = 256
-  const geometry = new THREE.PlaneGeometry(terrainSize, terrainSize, terrainSegments, terrainSegments)
-  geometry.rotateX(-Math.PI / 2)
-
-  // Procedural Height
-  const pos = geometry.attributes.position
   const getH = (x, z) => {
-    // Combination of sine waves to simulate uneven terrain
-    return (
-      Math.sin(x * 0.02) * Math.cos(z * 0.02) * 5 +
-      Math.sin(x * 0.05) * Math.sin(z * 0.05) * 2 +
-      Math.cos(x * 0.1) * 0.5
-    )
+    // Apply global offsets for a better starting location (high and open)
+    const ox = x + 2500;
+    const oz = z + 2500;
+
+    let h = 0;
+    // Massive features (Olympus Mons style)
+    h += perlin.noise(ox * 0.0001, oz * 0.0001) * 300;
+    // Canyons (Valles Marineris style)
+    // Offset canyon noise to avoid being in one at the start
+    const canyon = Math.abs(perlin.noise(ox * 0.0005 + 123.45, oz * 0.0005 + 123.45));
+    if (canyon < 0.1) {
+       h -= (0.1 - canyon) * 1000;
+    }
+    // Hills
+    h += perlin.noise(ox * 0.005, oz * 0.005) * 30;
+    // Bumps
+    h += perlin.noise(ox * 0.05, oz * 0.05) * 2;
+    return h;
   }
 
-  for (let i = 0; i < pos.count; i++) {
-    const x = pos.getX(i)
-    const z = pos.getZ(i)
-    pos.setY(i, getH(x, z))
-  }
-  geometry.computeVertexNormals()
+  // Terrain Chunks
+  const chunkSize = 400
+  const chunkRes = 64
+  const chunks = new Map()
+  const renderDistance = 2 // 5x5 chunks
 
-  const material = new THREE.MeshStandardMaterial({
-    map: marsTex,
-    roughness: 0.9,
-    metalness: 0.0,
+  // Rock Geometry
+  const rockGeo = new THREE.DodecahedronGeometry(1, 0)
+  const rockMat = new THREE.MeshStandardMaterial({
+    map: marsTex, // Reuse texture
+    color: 0x888888,
+    roughness: 1.0,
   })
 
-  const terrain = new THREE.Mesh(geometry, material)
-  scene.add(terrain)
+  // Dust Particles
+  const particleCount = 2000
+  const particleGeo = new THREE.BufferGeometry()
+  const particlePos = new Float32Array(particleCount * 3)
+  for (let i = 0; i < particleCount * 3; i++) {
+    particlePos[i] = (Math.random() - 0.5) * 100
+  }
+  particleGeo.setAttribute('position', new THREE.BufferAttribute(particlePos, 3))
+  const particleMat = new THREE.PointsMaterial({
+    color: 0xffccaa,
+    size: 0.1,
+    transparent: true,
+    opacity: 0.4,
+    blending: THREE.AdditiveBlending
+  })
+  const dustParticles = new THREE.Points(particleGeo, particleMat)
+  scene.add(dustParticles)
+
+  function updateParticles(delta) {
+    dustParticles.position.copy(camera.position)
+    const positions = particleGeo.attributes.position.array
+    for (let i = 0; i < particleCount; i++) {
+      positions[i * 3 + 1] -= delta * 0.5 // falling slowly
+      positions[i * 3] += delta * 2.0 // blowing sideways
+
+      if (positions[i * 3 + 1] < -50) positions[i * 3 + 1] = 50
+      if (positions[i * 3] > 50) positions[i * 3] = -50
+    }
+    particleGeo.attributes.position.needsUpdate = true
+  }
+
+  function createChunk(cx, cz) {
+    const geometry = new THREE.PlaneGeometry(chunkSize, chunkSize, chunkRes, chunkRes)
+    geometry.rotateX(-Math.PI / 2)
+
+    const pos = geometry.attributes.position
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i) + cx * chunkSize
+      const z = pos.getZ(i) + cz * chunkSize
+      pos.setY(i, getH(x, z))
+    }
+    geometry.computeVertexNormals()
+
+    const material = new THREE.MeshStandardMaterial({
+      map: marsTex,
+      roughness: 0.8,
+      metalness: 0.1,
+    })
+
+    const mesh = new THREE.Mesh(geometry, material)
+    mesh.position.set(cx * chunkSize, 0, cz * chunkSize)
+    mesh.receiveShadow = true
+    scene.add(mesh)
+
+    // Add Rocks
+    const rockCount = 50
+    const instancedRocks = new THREE.InstancedMesh(rockGeo, rockMat, rockCount)
+    const dummy = new THREE.Object3D()
+    for (let i = 0; i < rockCount; i++) {
+      const rx = (Math.random() - 0.5) * chunkSize + cx * chunkSize
+      const rz = (Math.random() - 0.5) * chunkSize + cz * chunkSize
+      const ry = getH(rx, rz)
+
+      dummy.position.set(rx - cx * chunkSize, ry, rz - cz * chunkSize)
+      dummy.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI)
+      const scale = 0.5 + Math.random() * 2
+      dummy.scale.set(scale, scale, scale)
+      dummy.updateMatrix()
+      instancedRocks.setMatrixAt(i, dummy.matrix)
+    }
+    instancedRocks.castShadow = true
+    instancedRocks.receiveShadow = true
+    mesh.add(instancedRocks)
+
+    return mesh
+  }
+
+  function updateChunks() {
+    const camX = Math.round(camera.position.x / chunkSize)
+    const camZ = Math.round(camera.position.z / chunkSize)
+
+    for (let x = camX - renderDistance; x <= camX + renderDistance; x++) {
+      for (let z = camZ - renderDistance; z <= camZ + renderDistance; z++) {
+        const key = `${x},${z}`
+        if (!chunks.has(key)) {
+          chunks.set(key, createChunk(x, z))
+        }
+      }
+    }
+
+    // Remove far chunks
+    for (const [key, chunk] of chunks) {
+      const [x, z] = key.split(',').map(Number)
+      if (Math.abs(x - camX) > renderDistance + 1 || Math.abs(z - camZ) > renderDistance + 1) {
+        scene.remove(chunk)
+        chunk.geometry.dispose()
+        chunk.material.dispose()
+        chunks.delete(key)
+      }
+    }
+  }
+
+  updateChunks()
+
+  // Lander
+  function createLander() {
+    const group = new THREE.Group()
+    const body = new THREE.Mesh(
+      new THREE.CylinderGeometry(1.5, 2, 2, 6),
+      new THREE.MeshStandardMaterial({ color: 0xdddddd, metalness: 0.8, roughness: 0.2 })
+    )
+    body.position.y = 2
+    body.castShadow = true
+    group.add(body)
+
+    const legGeo = new THREE.CylinderGeometry(0.1, 0.1, 3)
+    const legMat = new THREE.MeshStandardMaterial({ color: 0x888888, metalness: 0.9 })
+    for (let i = 0; i < 4; i++) {
+      const leg = new THREE.Mesh(legGeo, legMat)
+      const angle = (i / 4) * Math.PI * 2
+      leg.position.set(Math.cos(angle) * 2, 1, Math.sin(angle) * 2)
+      leg.rotation.x = Math.sin(angle) * 0.5
+      leg.rotation.z = -Math.cos(angle) * 0.5
+      leg.castShadow = true
+      group.add(leg)
+    }
+
+    const dish = new THREE.Mesh(
+      new THREE.SphereGeometry(0.8, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2),
+      new THREE.MeshStandardMaterial({ color: 0xffffff, side: THREE.DoubleSide })
+    )
+    dish.position.set(0, 3, 0)
+    dish.rotation.x = -Math.PI / 4
+    dish.castShadow = true
+    group.add(dish)
+
+    const lx = 0
+    const lz = -10
+    group.position.set(lx, getH(lx, lz), lz)
+    scene.add(group)
+    return group
+  }
+  const lander = createLander()
 
   // Controls state
   const keys = { w: false, a: false, s: false, d: false }
-
   let yaw = 0
   let pitch = 0
 
-  const velocity = new THREE.Vector3()
-  const direction = new THREE.Vector3()
-
+  let stepTimer = 0
   function update(delta) {
-    // Update camera rotation
+    if (!wind.isPlaying) {
+      wind.play()
+    }
+
     camera.rotation.order = 'YXZ'
     camera.rotation.y = yaw
     camera.rotation.x = pitch
 
-    // Movement
-    const speed = 20
+    const speed = 20.0
     const moveZ = Number(keys.w) - Number(keys.s)
     const moveX = Number(keys.d) - Number(keys.a)
 
     if (moveZ !== 0 || moveX !== 0) {
-      direction.set(moveX, 0, -moveZ).normalize()
-
-      // We want to move in the direction the camera is facing (yaw)
       const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw))
       const right = new THREE.Vector3(1, 0, 0).applyQuaternion(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw))
 
@@ -91,11 +354,31 @@ export function createMarsSurface(renderer) {
       moveVec.normalize().multiplyScalar(speed * delta)
 
       camera.position.add(moveVec)
+
+      stepTimer += delta
+      if (stepTimer > 10.0 / speed) { // Adjusted frequency for higher speed
+        playFootstep()
+        stepTimer = 0
+      }
+    } else {
+      stepTimer = 0
     }
 
-    // Ground follow
     const groundH = getH(camera.position.x, camera.position.z)
-    camera.position.y = THREE.MathUtils.lerp(camera.position.y, groundH + 1.7, 0.1) // 1.7m eye level
+    const targetY = groundH + 1.7
+    camera.position.y = THREE.MathUtils.lerp(camera.position.y, targetY, 0.2)
+
+    // Apply head bobbing AFTER lerp to avoid being dampened
+    if (moveZ !== 0 || moveX !== 0) {
+      camera.position.y += Math.sin(Date.now() * 0.01) * 0.05
+    }
+
+    updateChunks()
+    updateParticles(delta)
+    sky.position.copy(camera.position)
+    sunLight.position.set(camera.position.x + 100, camera.position.y + 200, camera.position.z + 100)
+    sunLight.target.position.copy(camera.position)
+    sunLight.target.updateMatrixWorld()
   }
 
   function onKeyDown(e) {
@@ -108,28 +391,15 @@ export function createMarsSurface(renderer) {
     if (keys.hasOwnProperty(key)) keys[key] = false
   }
 
-  let lastMouseX = null
-  let lastMouseY = null
-
   function onMouseMove(e) {
     const sensitivity = 0.002
+    yaw -= (e.movementX || 0) * sensitivity
+    pitch -= (e.movementY || 0) * sensitivity
+    pitch = Math.max(-Math.PI / 2.1, Math.min(Math.PI / 2.1, pitch))
+  }
 
-    let deltaX = e.movementX
-    let deltaY = e.movementY
-
-    if (deltaX === undefined && lastMouseX !== null) {
-      deltaX = e.clientX - lastMouseX
-      deltaY = e.clientY - lastMouseY
-    }
-
-    lastMouseX = e.clientX
-    lastMouseY = e.clientY
-
-    if (deltaX !== undefined) {
-      yaw -= deltaX * sensitivity
-      pitch -= deltaY * sensitivity
-      pitch = Math.max(-Math.PI / 2.1, Math.min(Math.PI / 2.1, pitch))
-    }
+  function requestPointerLock() {
+    renderer.domElement.requestPointerLock()
   }
 
   return {
@@ -139,9 +409,13 @@ export function createMarsSurface(renderer) {
     onKeyDown,
     onKeyUp,
     onMouseMove,
+    requestPointerLock,
     dispose: () => {
-      geometry.dispose()
-      material.dispose()
+      if (wind.isPlaying) wind.stop()
+      for (const chunk of chunks.values()) {
+        chunk.geometry.dispose()
+        chunk.material.dispose()
+      }
       marsTex.dispose()
     }
   }
