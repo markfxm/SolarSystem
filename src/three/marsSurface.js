@@ -85,17 +85,32 @@ export function createMarsSurface(renderer) {
   wind.setLoop(true)
   wind.setVolume(0.1)
 
+  // Muffle the wind to simulate thin atmosphere
+  const windFilter = ctx.createBiquadFilter()
+  windFilter.type = 'lowpass'
+  windFilter.frequency.setValueAtTime(400, ctx.currentTime)
+  wind.setFilter(windFilter)
+
   // Footsteps (Simple procedural "thump")
   function playFootstep() {
     const osc = ctx.createOscillator()
     const gain = ctx.createGain()
+    const filter = ctx.createBiquadFilter()
+
     osc.type = 'sine'
-    osc.frequency.setValueAtTime(150, ctx.currentTime)
+    osc.frequency.setValueAtTime(120, ctx.currentTime) // Lower starting frequency
     osc.frequency.exponentialRampToValueAtTime(40, ctx.currentTime + 0.1)
+
     gain.gain.setValueAtTime(0.1, ctx.currentTime)
     gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1)
+
+    filter.type = 'lowpass'
+    filter.frequency.setValueAtTime(200, ctx.currentTime) // Muffled footstep
+
     osc.connect(gain)
-    gain.connect(ctx.destination)
+    gain.connect(filter)
+    filter.connect(ctx.destination)
+
     osc.start()
     osc.stop(ctx.currentTime + 0.1)
   }
@@ -366,9 +381,17 @@ export function createMarsSurface(renderer) {
 
     const groundH = getH(camera.position.x, camera.position.z)
     const targetY = groundH + 1.7
-    camera.position.y = THREE.MathUtils.lerp(camera.position.y, targetY, 0.2)
 
-    // Apply head bobbing AFTER lerp to avoid being dampened
+    // Snappier height adjustment (increased from 0.2 to 0.8)
+    camera.position.y = THREE.MathUtils.lerp(camera.position.y, targetY, 0.8)
+
+    // Safety check: Ensure camera never drops below ground level even during rapid movement
+    const minHeight = groundH + 0.5
+    if (camera.position.y < minHeight) {
+      camera.position.y = minHeight
+    }
+
+    // Apply head bobbing AFTER lerp and safety check
     if (moveZ !== 0 || moveX !== 0) {
       camera.position.y += Math.sin(Date.now() * 0.01) * 0.05
     }
