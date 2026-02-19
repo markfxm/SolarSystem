@@ -91,7 +91,7 @@
         🛸 {{ t('mars.return_orbit') }}
       </button>
       <div class="controls-hint">
-        WASD to walk • Mouse to look
+        WASD to walk • Mouse to look • Click to Lock
       </div>
     </div>
 
@@ -262,6 +262,15 @@ async function onLandOnMars() {
   window.addEventListener('keyup', marsSurface.onKeyUp)
   window.addEventListener('mousemove', marsSurface.onMouseMove)
 
+  // Request pointer lock on first click when in Mars mode
+  const requestLock = () => {
+    if (viewMode.value === 'mars' && marsSurface.requestPointerLock) {
+      marsSurface.requestPointerLock()
+    }
+  }
+  container.value.addEventListener('click', requestLock)
+  marsSurface._requestLockRef = requestLock // Keep ref for removal
+
   cloudFadeIn.value = false
   setTimeout(() => { showCloudOverlay.value = false }, 2000)
 }
@@ -269,6 +278,10 @@ async function onLandOnMars() {
 function returnToOrbit() {
   showCloudOverlay.value = true
   setTimeout(() => { cloudFadeIn.value = true }, 10)
+
+  if (document.exitPointerLock) {
+    document.exitPointerLock()
+  }
 
   setTimeout(() => {
     viewMode.value = 'solar'
@@ -278,6 +291,9 @@ function returnToOrbit() {
     window.removeEventListener('keydown', marsSurface.onKeyDown)
     window.removeEventListener('keyup', marsSurface.onKeyUp)
     window.removeEventListener('mousemove', marsSurface.onMouseMove)
+    if (marsSurface._requestLockRef) {
+      container.value.removeEventListener('click', marsSurface._requestLockRef)
+    }
 
     cloudFadeIn.value = false
     setTimeout(() => { showCloudOverlay.value = false }, 2000)
