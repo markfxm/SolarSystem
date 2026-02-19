@@ -295,6 +295,9 @@ function returnToOrbit() {
       container.value.removeEventListener('click', marsSurface._requestLockRef)
     }
 
+    marsSurface.dispose()
+    marsSurface = null
+
     cloudFadeIn.value = false
     setTimeout(() => { showCloudOverlay.value = false }, 2000)
   }, 2000)
@@ -578,6 +581,7 @@ onUnmounted(() => {
     window.removeEventListener('keydown', marsSurface.onKeyDown)
     window.removeEventListener('keyup', marsSurface.onKeyUp)
     window.removeEventListener('mousemove', marsSurface.onMouseMove)
+    marsSurface.dispose()
   }
 })
 </script>
