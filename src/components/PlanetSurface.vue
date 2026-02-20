@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
+import { ref, onMounted, onUnmounted, computed } from 'vue';
 
 const props = defineProps({
   isVisible: Boolean,
@@ -47,6 +47,12 @@ const drawMap = () => {
   if (!canvas) return
   const ctx = canvas.getContext('2d')
   const size = isExpanded.value ? EXPANDED_MAP_SIZE : MAP_SIZE
+
+  // Ensure canvas dimensions match the internal size (Fixes rectangle bug on first load)
+  if (canvas.width !== size || canvas.height !== size) {
+    canvas.width = size
+    canvas.height = size
+  }
 
   ctx.clearRect(0, 0, size, size)
 
@@ -151,23 +157,7 @@ const loop = () => {
 }
 
 onMounted(() => {
-  // Initial size
-  const canvas = canvasRef.value
-  if (canvas) {
-    const size = isExpanded.value ? EXPANDED_MAP_SIZE : MAP_SIZE
-    canvas.width = size
-    canvas.height = size
-  }
   loop()
-})
-
-watch(isExpanded, (newVal) => {
-  const canvas = canvasRef.value
-  if (canvas) {
-    const size = newVal ? EXPANDED_MAP_SIZE : MAP_SIZE
-    canvas.width = size
-    canvas.height = size
-  }
 })
 
 onUnmounted(() => {

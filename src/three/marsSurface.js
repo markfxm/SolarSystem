@@ -234,25 +234,25 @@ export function createMarsSurface(renderer) {
   })
 
   // Dust Particles
-  const particleCount = 2000
+  const particleCount = 3000
   const particleGeo = new THREE.BufferGeometry()
   const particlePos = new Float32Array(particleCount * 3)
   for (let i = 0; i < particleCount * 3; i++) {
-    particlePos[i] = (Math.random() - 0.5) * 100
+    particlePos[i] = (Math.random() - 0.5) * 120
   }
   particleGeo.setAttribute('position', new THREE.BufferAttribute(particlePos, 3))
   const particleMat = new THREE.PointsMaterial({
     color: 0xffccaa,
-    size: 0.1,
+    size: 0.15,
     transparent: true,
-    opacity: 0.4,
+    opacity: 0.5,
     blending: THREE.AdditiveBlending
   })
   const particleVelocities = new Float32Array(particleCount * 3)
   for (let i = 0; i < particleCount; i++) {
-    particleVelocities[i * 3] = (Math.random() - 0.5) * 2.0 // x
-    particleVelocities[i * 3 + 1] = -Math.random() * 0.5 // y (falling)
-    particleVelocities[i * 3 + 2] = (Math.random() - 0.5) * 2.0 // z
+    particleVelocities[i * 3] = (Math.random() - 0.5) * 1.5 // x
+    particleVelocities[i * 3 + 1] = -Math.random() * 0.4 // y (drifting down)
+    particleVelocities[i * 3 + 2] = (Math.random() - 0.5) * 1.5 // z
   }
 
   const dustParticles = new THREE.Points(particleGeo, particleMat)
@@ -266,13 +266,13 @@ export function createMarsSurface(renderer) {
       positions[i * 3 + 1] += particleVelocities[i * 3 + 1] * delta
       positions[i * 3 + 2] += particleVelocities[i * 3 + 2] * delta
 
-      // Wrap around bounds
-      if (positions[i * 3] > 50) positions[i * 3] = -50
-      if (positions[i * 3] < -50) positions[i * 3] = 50
-      if (positions[i * 3 + 1] > 50) positions[i * 3 + 1] = -50
-      if (positions[i * 3 + 1] < -50) positions[i * 3 + 1] = 50
-      if (positions[i * 3 + 2] > 50) positions[i * 3 + 2] = -50
-      if (positions[i * 3 + 2] < -50) positions[i * 3 + 2] = 50
+      // Wrap around bounds (60 radius around camera)
+      if (positions[i * 3] > 60) positions[i * 3] = -60
+      if (positions[i * 3] < -60) positions[i * 3] = 60
+      if (positions[i * 3 + 1] > 60) positions[i * 3 + 1] = -60
+      if (positions[i * 3 + 1] < -60) positions[i * 3 + 1] = 60
+      if (positions[i * 3 + 2] > 60) positions[i * 3 + 2] = -60
+      if (positions[i * 3 + 2] < -60) positions[i * 3 + 2] = 60
     }
     particleGeo.attributes.position.needsUpdate = true
   }

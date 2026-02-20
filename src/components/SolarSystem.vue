@@ -90,9 +90,6 @@
       <button class="return-btn" @click="returnToOrbit">
         🛸 {{ t('mars.return_orbit') }}
       </button>
-      <div class="controls-hint">
-        WASD to walk • Mouse to look • Click to Lock
-      </div>
     </div>
 
     <!-- Navigation Panel -->
@@ -909,10 +906,4 @@ onUnmounted(() => {
   border-color: #fff;
 }
 
-.controls-hint {
-  color: rgba(255,255,255,0.7);
-  font-size: 14px;
-  text-transform: uppercase;
-  letter-spacing: 2px;
-}
 </style>
