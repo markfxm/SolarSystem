@@ -76,14 +76,32 @@ export function createMarsSurface(renderer) {
     lastPosition.set(last.x, 0, last.z)
   }
 
+  let saveTimeout = null
+  const saveToStorage = () => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(explorationPath))
+    } catch (e) {
+      console.warn('Failed to save exploration path', e)
+    }
+    saveTimeout = null
+  }
+
   const recordPoint = (pos) => {
-    explorationPath.push({ x: pos.x, z: pos.z })
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(explorationPath))
+    explorationPath.push({ x: Math.round(pos.x), z: Math.round(pos.z) })
     lastPosition.set(pos.x, 0, pos.z)
+
+    // Throttled localStorage writes (every 2 seconds or on trailing edge)
+    if (!saveTimeout) {
+      saveTimeout = setTimeout(saveToStorage, 2000)
+    }
   }
 
   const clearPath = () => {
     explorationPath = []
+    if (saveTimeout) {
+      clearTimeout(saveTimeout)
+      saveTimeout = null
+    }
     localStorage.removeItem(STORAGE_KEY)
     lastPosition.set(camera.position.x, 0, camera.position.z)
   }
@@ -495,6 +513,10 @@ export function createMarsSurface(renderer) {
     clearPath,
     dispose: () => {
       if (wind.isPlaying) wind.stop()
+      if (saveTimeout) {
+        clearTimeout(saveTimeout)
+        saveToStorage() // Final save on dispose
+      }
       for (const chunk of chunks.values()) {
         chunk.geometry.dispose()
         chunk.material.dispose()
