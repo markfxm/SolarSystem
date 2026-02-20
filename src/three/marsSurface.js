@@ -248,6 +248,13 @@ export function createMarsSurface(renderer) {
     opacity: 0.4,
     blending: THREE.AdditiveBlending
   })
+  const particleVelocities = new Float32Array(particleCount * 3)
+  for (let i = 0; i < particleCount; i++) {
+    particleVelocities[i * 3] = (Math.random() - 0.5) * 2.0 // x
+    particleVelocities[i * 3 + 1] = -Math.random() * 0.5 // y (falling)
+    particleVelocities[i * 3 + 2] = (Math.random() - 0.5) * 2.0 // z
+  }
+
   const dustParticles = new THREE.Points(particleGeo, particleMat)
   scene.add(dustParticles)
 
@@ -255,11 +262,17 @@ export function createMarsSurface(renderer) {
     dustParticles.position.copy(camera.position)
     const positions = particleGeo.attributes.position.array
     for (let i = 0; i < particleCount; i++) {
-      positions[i * 3 + 1] -= delta * 0.5 // falling slowly
-      positions[i * 3] += delta * 2.0 // blowing sideways
+      positions[i * 3] += particleVelocities[i * 3] * delta
+      positions[i * 3 + 1] += particleVelocities[i * 3 + 1] * delta
+      positions[i * 3 + 2] += particleVelocities[i * 3 + 2] * delta
 
-      if (positions[i * 3 + 1] < -50) positions[i * 3 + 1] = 50
+      // Wrap around bounds
       if (positions[i * 3] > 50) positions[i * 3] = -50
+      if (positions[i * 3] < -50) positions[i * 3] = 50
+      if (positions[i * 3 + 1] > 50) positions[i * 3 + 1] = -50
+      if (positions[i * 3 + 1] < -50) positions[i * 3 + 1] = 50
+      if (positions[i * 3 + 2] > 50) positions[i * 3 + 2] = -50
+      if (positions[i * 3 + 2] < -50) positions[i * 3 + 2] = 50
     }
     particleGeo.attributes.position.needsUpdate = true
   }

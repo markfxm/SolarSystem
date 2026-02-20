@@ -315,6 +315,10 @@ function returnToOrbit() {
       container.value.removeEventListener('click', marsSurface._requestLockRef)
     }
 
+    // Clear exploration history when returning to orbit
+    marsSurface.clearPath()
+    marsPath.value = []
+
     marsSurface.dispose()
     marsSurface = null
 

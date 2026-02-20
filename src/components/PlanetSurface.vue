@@ -138,8 +138,10 @@ const drawMap = () => {
   ctx.font = '10px monospace'
   ctx.fillText('N', centerX - 3, 15)
 
-  const dist = Math.sqrt(Math.pow(px - lx, 2) + Math.pow(pz - lz, 2)).toFixed(1)
-  ctx.fillText(`${dist}m from START`, 10, size - 10)
+  if (isExpanded.value) {
+    const dist = Math.sqrt(Math.pow(px - lx, 2) + Math.pow(pz - lz, 2)).toFixed(1)
+    ctx.fillText(`${dist}m from START`, 10, size - 10)
+  }
 }
 
 let animationFrame
@@ -201,12 +203,6 @@ onUnmounted(() => {
         <div class="map-hint">{{ isExpanded ? 'Scroll to Zoom • Click to Shrink' : 'Click to Expand' }}</div>
       </div>
 
-      <!-- Bottom Center: Controls Hint -->
-      <div class="controls-hint">
-        <div class="mouse-icon">🖱️</div>
-        <span>Hold Left Click & Drag to Look Around</span>
-      </div>
-      
       <!-- Scanline / Sci-fi Overlay Effect -->
       <div class="scanlines"></div>
       <div class="vignette"></div>
@@ -247,14 +243,9 @@ onUnmounted(() => {
   border-radius: 0 6px 6px 0;
   box-shadow: 10px 0 30px rgba(0, 0, 0, 0.3);
   
-  /* Initial state: Hidden to the left, but blue border (4px) stays on screen */
-  transform: translateX(calc(-100% + 4px)); 
-  transition: transform 0.8s cubic-bezier(0.19, 1, 0.22, 1); /* Slower transition */
-}
-
-/* Hover effect: Slide out */
-.location-drawer-container:hover .location-panel {
+  /* Permanently visible */
   transform: translateX(0);
+  transition: transform 0.8s cubic-bezier(0.19, 1, 0.22, 1);
 }
 
 .location-panel .label {
@@ -331,23 +322,6 @@ onUnmounted(() => {
   pointer-events: none;
 }
 
-.controls-hint {
-  position: absolute;
-  bottom: 40px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(4px);
-  padding: 10px 20px;
-  border-radius: 30px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 13px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  animation: pulsed 2s infinite ease-in-out;
-}
-
 /* Sci-fi Overlay Effects */
 .scanlines {
   position: absolute;
@@ -377,11 +351,6 @@ onUnmounted(() => {
 }
 
 /* Animations */
-@keyframes pulsed {
-  0%, 100% { opacity: 0.7; transform: translateX(-50%) scale(1); }
-  50% { opacity: 1; transform: translateX(-50%) scale(1.02); }
-}
-
 /* Vue Transitions */
 .fade-enter-active,
 .fade-leave-active {
