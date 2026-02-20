@@ -59,10 +59,41 @@ const perlin = new Noise();
 export function createMarsSurface(renderer) {
   const scene = new THREE.Scene()
   scene.background = new THREE.Color(0x8a4b38)
+
+  // Path persistence
+  const STORAGE_KEY = 'mars_exploration_path'
+  let explorationPath = []
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY)
+    if (saved) explorationPath = JSON.parse(saved)
+  } catch (e) {
+    console.warn('Failed to load exploration path', e)
+  }
+
+  const lastPosition = new THREE.Vector3()
+  if (explorationPath.length > 0) {
+    const last = explorationPath[explorationPath.length - 1]
+    lastPosition.set(last.x, 0, last.z)
+  }
+
+  const recordPoint = (pos) => {
+    explorationPath.push({ x: pos.x, z: pos.z })
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(explorationPath))
+    lastPosition.set(pos.x, 0, pos.z)
+  }
+
+  const clearPath = () => {
+    explorationPath = []
+    localStorage.removeItem(STORAGE_KEY)
+    lastPosition.set(camera.position.x, 0, camera.position.z)
+  }
   scene.fog = new THREE.FogExp2(0x8a4b38, 0.01)
 
   const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 5000)
-  camera.position.set(0, 5, 0)
+  // Randomized start location to make each exploration feel unique
+  const spawnX = (Math.random() - 0.5) * 5000
+  const spawnZ = (Math.random() - 0.5) * 5000
+  camera.position.set(spawnX, 5, spawnZ)
 
   // Audio
   const listener = new THREE.AudioListener()
@@ -153,6 +184,12 @@ export function createMarsSurface(renderer) {
   sunLight.castShadow = true
   sunLight.shadow.mapSize.width = 2048
   sunLight.shadow.mapSize.height = 2048
+  // Improve shadow frustum for better near-player details
+  sunLight.shadow.camera.left = -200
+  sunLight.shadow.camera.right = 200
+  sunLight.shadow.camera.top = 200
+  sunLight.shadow.camera.bottom = -200
+  sunLight.shadow.camera.far = 1000
   scene.add(sunLight)
 
   const textureLoader = new THREE.TextureLoader()
@@ -301,6 +338,7 @@ export function createMarsSurface(renderer) {
   updateChunks()
 
   // Lander
+  const landerPos = { x: camera.position.x, z: camera.position.z - 10 }
   function createLander() {
     const group = new THREE.Group()
     const body = new THREE.Mesh(
@@ -332,8 +370,8 @@ export function createMarsSurface(renderer) {
     dish.castShadow = true
     group.add(dish)
 
-    const lx = 0
-    const lz = -10
+    const lx = landerPos.x
+    const lz = landerPos.z
     group.position.set(lx, getH(lx, lz), lz)
     scene.add(group)
     return group
@@ -349,6 +387,12 @@ export function createMarsSurface(renderer) {
   function update(delta) {
     if (!wind.isPlaying) {
       wind.play()
+    }
+
+    // Path recording
+    const dist = camera.position.distanceTo(lastPosition)
+    if (dist > 5) {
+      recordPoint(camera.position)
     }
 
     camera.rotation.order = 'YXZ'
@@ -433,6 +477,9 @@ export function createMarsSurface(renderer) {
     onKeyUp,
     onMouseMove,
     requestPointerLock,
+    getExplorationPath: () => explorationPath,
+    getLanderPosition: () => landerPos,
+    clearPath,
     dispose: () => {
       if (wind.isPlaying) wind.stop()
       for (const chunk of chunks.values()) {

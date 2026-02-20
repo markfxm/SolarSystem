@@ -123,10 +123,15 @@
     />
 
     <PlanetSurface
-      :isVisible="isSurfaceMode"
-      :planetId="selectedPlanetId"
-      :planetName="planetNames[selectedPlanetId] || selectedPlanetId"
-      @exit="onHomeClick"
+      :isVisible="isSurfaceMode || viewMode === 'mars'"
+      :planetId="viewMode === 'mars' ? 'mars' : selectedPlanetId"
+      :planetName="viewMode === 'mars' ? t('planet.mars') : (planetNames[selectedPlanetId] || selectedPlanetId)"
+      :playerPos="marsPlayerPos"
+      :playerYaw="marsPlayerYaw"
+      :explorationPath="marsPath"
+      :landerPos="marsLanderPos"
+      @exit="viewMode === 'mars' ? returnToOrbit() : onHomeClick()"
+      @clear-path="onClearMarsPath"
     />
 
   </div>
@@ -177,6 +182,10 @@ const elementBalance = ref({ fire: 0, earth: 0, air: 0, water: 0 })
 const dominantElement = ref('none')
 const isNearPlanet = ref(false) // Track if camera is near selected planet (for showing LAND button)
 const isSurfaceMode = ref(false) // ← NEW: Track if we are on surface HUD
+const marsPlayerPos = ref({ x: 0, z: 0 })
+const marsPlayerYaw = ref(0)
+const marsPath = ref([])
+const marsLanderPos = ref({ x: 0, z: -10 })
 
 const viewMode = ref('solar') // 'solar' | 'mars'
 const showCloudOverlay = ref(false)
@@ -253,6 +262,10 @@ async function onLandOnMars() {
   if (!marsSurface) {
     marsSurface = createMarsSurface(engine.renderer)
   }
+  const lPos = marsSurface.getLanderPosition()
+  if (lPos) {
+    marsLanderPos.value = { x: lPos.x, y: lPos.y, z: lPos.z }
+  }
 
   viewMode.value = 'mars'
   engine.setActiveScene(marsSurface.scene, marsSurface.camera)
@@ -273,6 +286,13 @@ async function onLandOnMars() {
 
   cloudFadeIn.value = false
   setTimeout(() => { showCloudOverlay.value = false }, 2000)
+}
+
+function onClearMarsPath() {
+  if (marsSurface) {
+    marsSurface.clearPath()
+    marsPath.value = []
+  }
 }
 
 function returnToOrbit() {
@@ -522,6 +542,18 @@ onMounted(async () => {
       if (interactions) interactions.update(delta)
     } else if (viewMode.value === 'mars' && marsSurface) {
       marsSurface.update(delta)
+      const pPos = marsSurface.camera.position
+      marsPlayerPos.value = { x: pPos.x, y: pPos.y, z: pPos.z }
+      marsPlayerYaw.value = marsSurface.camera.rotation.y
+      const currentPath = marsSurface.getExplorationPath();
+      if (currentPath.length !== marsPath.value.length) {
+        marsPath.value = [...currentPath];
+      }
+
+      const lPos = marsSurface.getLanderPosition()
+      if (lPos) {
+        marsLanderPos.value = { x: lPos.x, y: lPos.y, z: lPos.z }
+      }
     }
 
     // Update simulation time display from controller

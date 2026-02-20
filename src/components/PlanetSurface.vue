@@ -1,13 +1,176 @@
 <script setup>
-import { computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
 
 const props = defineProps({
   isVisible: Boolean,
   planetId: String,
-  planetName: String
+  planetName: String,
+  playerPos: {
+    type: Object,
+    default: () => ({ x: 0, y: 0, z: 0 })
+  },
+  playerYaw: {
+    type: Number,
+    default: 0
+  },
+  explorationPath: {
+    type: Array,
+    default: () => []
+  },
+  landerPos: {
+    type: Object,
+    default: () => ({ x: 0, z: -10 })
+  }
 })
 
-const emit = defineEmits(['exit'])
+const emit = defineEmits(['exit', 'clear-path'])
+
+const isExpanded = ref(false)
+const zoomLevel = ref(1) // Base zoom
+const canvasRef = ref(null)
+
+const MAP_SIZE = 180
+const EXPANDED_MAP_SIZE = 500
+
+const toggleExpand = () => {
+  isExpanded.value = !isExpanded.value
+}
+
+const handleWheel = (e) => {
+  if (!isExpanded.value) return
+  const delta = e.deltaY > 0 ? 0.9 : 1.1
+  zoomLevel.value = Math.max(0.1, Math.min(10, zoomLevel.value * delta))
+}
+
+const drawMap = () => {
+  const canvas = canvasRef.value
+  if (!canvas) return
+  const ctx = canvas.getContext('2d')
+  const size = isExpanded.value ? EXPANDED_MAP_SIZE : MAP_SIZE
+
+  ctx.clearRect(0, 0, size, size)
+
+  // Background
+  ctx.fillStyle = 'rgba(0, 20, 40, 0.6)'
+  ctx.fillRect(0, 0, size, size)
+
+  // Safety checks
+  const px = props.playerPos?.x ?? 0
+  const pz = props.playerPos?.z ?? 0
+  const lx = props.landerPos?.x ?? 0
+  const lz = props.landerPos?.z ?? 0
+
+  // Grid
+  ctx.strokeStyle = 'rgba(0, 163, 255, 0.2)'
+  ctx.lineWidth = 1
+  const gridSize = 50 * zoomLevel.value
+  const offsetX = ((-px * zoomLevel.value) % gridSize + gridSize) % gridSize
+  const offsetZ = ((-pz * zoomLevel.value) % gridSize + gridSize) % gridSize
+
+  ctx.beginPath()
+  for (let x = offsetX; x < size; x += gridSize) {
+    ctx.moveTo(x, 0)
+    ctx.lineTo(x, size)
+  }
+  for (let y = offsetZ; y < size; y += gridSize) {
+    ctx.moveTo(0, y)
+    ctx.lineTo(size, y)
+  }
+  ctx.stroke()
+
+  const centerX = size / 2
+  const centerY = size / 2
+
+  const worldToMap = (wx, wz) => {
+    return {
+      x: centerX + (wx - px) * zoomLevel.value,
+      y: centerY + (wz - pz) * zoomLevel.value
+    }
+  }
+
+  // Draw Path
+  if (props.explorationPath.length > 0) {
+    ctx.beginPath()
+    ctx.strokeStyle = 'rgba(255, 200, 0, 0.6)'
+    ctx.setLineDash([5, 5])
+    ctx.lineWidth = 2
+
+    // Only show recent path on small map, or full path on expanded?
+    // User said: "由于minimap不是很大，就只能显示最近的走过的路程。当我放大map的时候，显示的范围就更大"
+    const startIdx = isExpanded.value ? 0 : Math.max(0, props.explorationPath.length - 50)
+
+    for (let i = startIdx; i < props.explorationPath.length; i++) {
+      const p = props.explorationPath[i]
+      const mapPos = worldToMap(p.x, p.z)
+      if (i === startIdx) ctx.moveTo(mapPos.x, mapPos.y)
+      else ctx.lineTo(mapPos.x, mapPos.y)
+    }
+    ctx.stroke()
+    ctx.setLineDash([])
+  }
+
+  // Draw Start (Lander)
+  const startPos = worldToMap(props.landerPos.x, props.landerPos.z)
+  ctx.fillStyle = '#ff0000'
+  ctx.beginPath()
+  ctx.arc(startPos.x, startPos.y, 4, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.fillStyle = '#fff'
+  ctx.font = '10px Arial'
+  ctx.fillText('START', startPos.x + 6, startPos.y + 4)
+
+  // Draw Player Marker (Always at center because we are centering on player)
+  ctx.save()
+  ctx.translate(centerX, centerY)
+  ctx.rotate(-props.playerYaw) // North is up, so we rotate the marker by yaw
+
+  ctx.fillStyle = '#00A3FF'
+  ctx.beginPath()
+  ctx.moveTo(0, -8)
+  ctx.lineTo(-6, 6)
+  ctx.lineTo(6, 6)
+  ctx.closePath()
+  ctx.fill()
+  ctx.restore()
+
+  // Labels
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.8)'
+  ctx.font = '10px monospace'
+  ctx.fillText('N', centerX - 3, 15)
+
+  const dist = Math.sqrt(Math.pow(px - lx, 2) + Math.pow(pz - lz, 2)).toFixed(1)
+  ctx.fillText(`${dist}m from START`, 10, size - 10)
+}
+
+let animationFrame
+const loop = () => {
+  drawMap()
+  animationFrame = requestAnimationFrame(loop)
+}
+
+onMounted(() => {
+  // Initial size
+  const canvas = canvasRef.value
+  if (canvas) {
+    const size = isExpanded.value ? EXPANDED_MAP_SIZE : MAP_SIZE
+    canvas.width = size
+    canvas.height = size
+  }
+  loop()
+})
+
+watch(isExpanded, (newVal) => {
+  const canvas = canvasRef.value
+  if (canvas) {
+    const size = newVal ? EXPANDED_MAP_SIZE : MAP_SIZE
+    canvas.width = size
+    canvas.height = size
+  }
+})
+
+onUnmounted(() => {
+  cancelAnimationFrame(animationFrame)
+})
 </script>
 
 <template>
@@ -19,7 +182,23 @@ const emit = defineEmits(['exit'])
           <div class="label">LOCATION</div>
           <div class="value">{{ planetName }} Surface</div>
           <div class="coords">Lat: 18.65° N | Lon: 226.2° E</div>
+
+          <div v-if="planetId === 'mars'" class="history-actions">
+            <button class="clear-btn" @click="$emit('clear-path')">🗑️ Clear History</button>
+          </div>
         </div>
+      </div>
+
+      <!-- Minimap -->
+      <div
+        v-if="planetId === 'mars'"
+        class="minimap-container"
+        :class="{ expanded: isExpanded }"
+        @click="toggleExpand"
+        @wheel.prevent="handleWheel"
+      >
+        <canvas ref="canvasRef"></canvas>
+        <div class="map-hint">{{ isExpanded ? 'Scroll to Zoom • Click to Shrink' : 'Click to Expand' }}</div>
       </div>
 
       <!-- Bottom Center: Controls Hint -->
@@ -98,6 +277,58 @@ const emit = defineEmits(['exit'])
   font-family: 'Courier New', Courier, monospace;
   opacity: 0.5;
   white-space: nowrap;
+  margin-bottom: 8px;
+}
+
+.history-actions {
+  margin-top: 10px;
+  pointer-events: auto;
+}
+
+.clear-btn {
+  background: rgba(255, 50, 50, 0.2);
+  border: 1px solid rgba(255, 50, 50, 0.4);
+  color: #ffaaaa;
+  font-size: 10px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.clear-btn:hover {
+  background: rgba(255, 50, 50, 0.4);
+}
+
+.minimap-container {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  border: 2px solid rgba(0, 163, 255, 0.5);
+  background: rgba(0, 0, 0, 0.8);
+  border-radius: 8px;
+  overflow: hidden;
+  pointer-events: auto;
+  cursor: pointer;
+  transition: all 0.4s cubic-bezier(0.19, 1, 0.22, 1);
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+}
+
+.minimap-container.expanded {
+  top: 50%;
+  right: 50%;
+  transform: translate(50%, -50%);
+  border-color: #00A3FF;
+}
+
+.map-hint {
+  position: absolute;
+  bottom: 5px;
+  width: 100%;
+  text-align: center;
+  font-size: 9px;
+  opacity: 0.6;
+  pointer-events: none;
 }
 
 .controls-hint {
