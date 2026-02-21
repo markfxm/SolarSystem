@@ -51,7 +51,12 @@ const dict = {
     },
     mars: {
       entering: 'ENTERING MARS ATMOSPHERE...',
-      return_orbit: 'Return to Orbit'
+      return_orbit: 'Return to Orbit',
+      location: 'LOCATION',
+      surface: 'Surface',
+      lat: 'Lat',
+      lon: 'Lon',
+      reset_path: 'Reset Path'
     },
     stellar: {
       btn: 'Stellar Snapshot',
@@ -233,7 +238,12 @@ const dict = {
     },
     mars: {
       entering: '正在进入火星大气层...',
-      return_orbit: '返回轨道'
+      return_orbit: '返回轨道',
+      location: '当前位置',
+      surface: '地表',
+      lat: '纬度',
+      lon: '经度',
+      reset_path: '重置路径'
     },
     stellar: {
       btn: '星空快照',

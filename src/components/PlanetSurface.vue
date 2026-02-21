@@ -23,9 +23,30 @@ const props = defineProps({
   }
 })
 
+import { t } from '../utils/i18n.js'
+
 const emit = defineEmits(['exit', 'clear-path'])
 
 const isExpanded = ref(false)
+
+const MARS_RADIUS = 3389500; // meters
+const DEG_PER_METER = 180 / (Math.PI * MARS_RADIUS);
+const BASE_LAT = 18.65;
+const BASE_LON = 226.2;
+
+const currentLat = computed(() => {
+  // In our engine, -Z is North
+  const lat = BASE_LAT + (-props.playerPos.z * DEG_PER_METER);
+  const suffix = lat >= 0 ? 'N' : 'S';
+  return `${Math.abs(lat).toFixed(4)}° ${suffix}`;
+})
+
+const currentLon = computed(() => {
+  // X is East
+  const lon = (BASE_LON + (props.playerPos.x * DEG_PER_METER) + 360) % 360;
+  return `${lon.toFixed(4)}° E`;
+})
+
 const zoomLevel = ref(1) // Base zoom
 const canvasRef = ref(null)
 
@@ -171,12 +192,14 @@ onUnmounted(() => {
       <!-- Location Drawer Overlay (Positioned below Zodiac button) -->
       <div class="location-drawer-container">
         <div class="location-panel">
-          <div class="label">LOCATION</div>
-          <div class="value">{{ planetName }} Surface</div>
-          <div class="coords">Lat: 18.65° N | Lon: 226.2° E</div>
+          <div class="label">{{ t('mars.location') }}</div>
+          <div class="value">{{ planetName }} {{ t('mars.surface') }}</div>
+          <div class="coords">
+            {{ t('mars.lat') }}: {{ currentLat }} | {{ t('mars.lon') }}: {{ currentLon }}
+          </div>
 
           <div v-if="planetId === 'mars'" class="history-actions">
-            <button class="clear-btn" @click="$emit('clear-path')">🗑️ Clear History</button>
+            <button class="clear-btn" @click="$emit('clear-path')">📍 {{ t('mars.reset_path') }}</button>
           </div>
         </div>
       </div>
