@@ -31,19 +31,19 @@ const isExpanded = ref(false)
 
 const MARS_RADIUS = 3389500; // meters
 const DEG_PER_METER = 180 / (Math.PI * MARS_RADIUS);
+const BASE_LAT = 18.65;
+const BASE_LON = 226.2;
 
 const currentLat = computed(() => {
-  const baseLat = 18.65;
   // In our engine, -Z is North
-  const lat = baseLat + (-props.playerPos.z * DEG_PER_METER);
+  const lat = BASE_LAT + (-props.playerPos.z * DEG_PER_METER);
   const suffix = lat >= 0 ? 'N' : 'S';
   return `${Math.abs(lat).toFixed(4)}° ${suffix}`;
 })
 
 const currentLon = computed(() => {
-  const baseLon = 226.2;
   // X is East
-  const lon = (baseLon + (props.playerPos.x * DEG_PER_METER) + 360) % 360;
+  const lon = (BASE_LON + (props.playerPos.x * DEG_PER_METER) + 360) % 360;
   return `${lon.toFixed(4)}° E`;
 })
 
