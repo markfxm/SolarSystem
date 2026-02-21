@@ -283,7 +283,7 @@ onUnmounted(() => {
 
 .minimap-container {
   position: absolute;
-  top: 20px;
+  top: 60px; /* Moved down to avoid overlap with LanguagePanel */
   right: 20px;
   border: 2px solid rgba(0, 163, 255, 0.5);
   background: rgba(0, 0, 0, 0.8);

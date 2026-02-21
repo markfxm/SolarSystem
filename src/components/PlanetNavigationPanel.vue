@@ -58,15 +58,6 @@
               @click="$emit('select', body.id)"
             >
               <span class="planet-label">{{ body.label }}</span>
-              <!-- LAND Button (inline, only for landable planets when near) -->
-              <button
-                v-if="isLandable(body.id) && selectedBody === body.id && isNearPlanet"
-                class="land-trigger"
-                @click.stop="$emit('land', body.id)"
-                :title="t('nav.land')"
-              >
-                <span class="land-icon">🚀</span>
-              </button>
               <button
                 class="info-trigger"
                 @click.stop="$emit('info', body.id)"
@@ -85,19 +76,14 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { t } from '../utils/i18n.js'
-import { isLandable } from '../data/planetConfigs.js'
 
 defineProps({
   selectedBody: {
     type: String,
     default: null
-  },
-  isNearPlanet: {
-    type: Boolean,
-    default: false
   }
 })
-defineEmits(['select', 'info', 'land'])
+defineEmits(['select', 'info'])
 
 const panelState = ref(0) // 0: Hidden (Arrow), 1: Peeking (Button), 2: Open (List)
 
@@ -329,37 +315,6 @@ const bodies = computed(() => [
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.land-trigger {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 42px;
-  height: 42px;
-  min-width: 42px;
-  background: transparent;
-  color: #ff8855;
-  border: none;
-  border-left: 1px solid rgba(255, 102, 51, 0.15);
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.land-trigger:hover {
-  background: rgba(255, 102, 51, 0.2);
-  color: #fff;
-}
-
-.land-icon {
-  font-size: 18px;
-  opacity: 0.8;
-  line-height: 1;
-}
-
-.land-trigger:hover .land-icon {
-  opacity: 1;
-  transform: scale(1.15);
 }
 
 .info-trigger {
