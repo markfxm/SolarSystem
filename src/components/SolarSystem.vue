@@ -31,7 +31,6 @@
       </button>
 
       <button
-        v-if="!isSurfaceMode"
         class="zodiac-toggle-btn"
         :class="{ active: showZodiac }"
         @click="toggleZodiac"
@@ -96,10 +95,8 @@
     <PlanetNavigationPanel
       v-if="viewMode === 'solar'"
       :selectedBody="selectedPlanetId"
-      :isNearPlanet="isNearPlanet"
       @select="onPlanetSelected"
       @info="onShowInfo"
-      @land="onLandOnPlanet"
     />
 
     <TimeControlPanel
@@ -120,14 +117,14 @@
     />
 
     <PlanetSurface
-      :isVisible="isSurfaceMode || viewMode === 'mars'"
-      :planetId="viewMode === 'mars' ? 'mars' : selectedPlanetId"
-      :planetName="viewMode === 'mars' ? t('planet.mars') : (planetNames[selectedPlanetId] || selectedPlanetId)"
+      :isVisible="viewMode === 'mars'"
+      planetId="mars"
+      :planetName="t('planet.mars')"
       :playerPos="marsPlayerPos"
       :playerYaw="marsPlayerYaw"
       :explorationPath="marsPath"
       :landerPos="marsLanderPos"
-      @exit="viewMode === 'mars' ? returnToOrbit() : onHomeClick()"
+      @exit="returnToOrbit"
       @clear-path="onClearMarsPath"
     />
 
@@ -177,8 +174,6 @@ const currentChart = ref({})
 const activeAspects = ref([])
 const elementBalance = ref({ fire: 0, earth: 0, air: 0, water: 0 })
 const dominantElement = ref('none')
-const isNearPlanet = ref(false) // Track if camera is near selected planet (for showing LAND button)
-const isSurfaceMode = ref(false) // ← NEW: Track if we are on surface HUD
 const marsPlayerPos = ref({ x: 0, z: 0 })
 const marsPlayerYaw = ref(0)
 const marsPath = ref([])
@@ -218,15 +213,7 @@ function startClock() {
 }
 
 function onPlanetSelected(id) {
-  // If we're on Mars surface, exit surface mode first
-  if (isSurfaceMode.value && interactions) {
-    console.log('Exiting surface because of planet selection...')
-    interactions.exitSurface()
-    isSurfaceMode.value = false
-  }
-  
   selectedPlanetId.value = id
-  isNearPlanet.value = false // Reset until we arrive
   interactions?.focusPlanetById(id)
 
   // Prioritize HQ texture loading for selected planet
@@ -333,21 +320,7 @@ function handleFocusPlanet(name) {
   }
 }
 
-function onLandOnPlanet(planetId) {
-  console.log(`🚀 Landing on ${planetId}!`)
-  if (interactions) {
-    interactions.landOnPlanet(planetId)
-    isSurfaceMode.value = true
-  }
-}
-
 function onHomeClick() {
-  console.log('Home click - isSurfaceMode:', isSurfaceMode.value)
-  // Explicitly exit surface state in both Three.js and Vue
-  if (interactions?.exitSurface) interactions.exitSurface()
-  isSurfaceMode.value = false
-  
-  isNearPlanet.value = false
   selectedPlanetId.value = null
   interactions?.goHome()
 }
@@ -526,13 +499,6 @@ onMounted(async () => {
     onSelectionChange: name => {
       // keep nav panel selection in sync; empty string -> clear selection
       selectedPlanetId.value = name || null
-    },
-    onArrival: (planetId) => {
-      // Called when camera finishes flying to a planet
-      console.log(`Arrived at ${planetId}`)
-      if (planetId === 'mars') {
-        isNearPlanet.value = true // Show LAND button for Mars
-      }
     }
   })
 
