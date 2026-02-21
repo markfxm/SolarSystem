@@ -1,7 +1,4 @@
 import * as THREE from 'three'
-import { createSimpleMarsEnvironment } from './simpleMarsEnvironment.js'
-import { createSurfaceController } from './surfaceController.js'
-import { getPlanetConfig } from '../data/planetConfigs.js'
 
 export function createInteractions({
   engine,
@@ -9,8 +6,7 @@ export function createInteractions({
   planetNames,
   timeController,
   onHoverNameChange,
-  onSelectionChange, // ← callback to notify selection changes
-  onArrival // ← NEW: callback when camera arrives at planet
+  onSelectionChange // ← callback to notify selection changes
 }) {
   const {
     camera,
@@ -49,12 +45,6 @@ export function createInteractions({
   let flyTargetBody = null
   let flyCameraOffset = null
   let prevControlsState = null
-
-  // Surface mode state
-  let isSurfaceMode = false
-  let surfaceEnvironment = null
-  let surfaceController = null
-  let currentSurfacePlanet = null
 
   /* ─────────────────────────────
      Utilities
@@ -225,9 +215,6 @@ export function createInteractions({
   ───────────────────────────── */
 
   function focusPlanetById(id) {
-    if (isSurfaceMode) {
-      exitSurface()
-    }
     const target = planets.find(
       p => p.userData.name === id
     )
@@ -238,12 +225,6 @@ export function createInteractions({
 
   function update(deltaSeconds = 0) {
     const now = performance.now()
-
-    // Surface mode update
-    if (isSurfaceMode && surfaceController) {
-      surfaceController.update(deltaSeconds)
-      return // Skip orbital updates in surface mode
-    }
 
     // Smooth fly-to
     if (isFlying && flyFromCameraPos && flyToCameraPos) {
@@ -281,11 +262,6 @@ export function createInteractions({
         controls.update()
 
         finishFly()
-
-        // Notify arrival (for showing LAND button)
-        if (onArrival && selectedObject && selectedObject.userData?.name) {
-          onArrival(selectedObject.userData.name)
-        }
       }
     }
 
@@ -345,9 +321,6 @@ export function createInteractions({
   const HOME_LOOK_AT = new THREE.Vector3(0, 0, 0)
 
   function goHome() {
-    if (isSurfaceMode) {
-      exitSurface()
-    }
     timeController?.freeze()
 
     selectedObject = null
@@ -404,163 +377,6 @@ export function createInteractions({
     isFlying = true
   }
 
-  /* ─────────────────────────────
-     Surface Mode - Mars Landing
-  ───────────────────────────── */
-
-  function landOnPlanet(planetId) {
-    // For now, only Mars is supported
-    if (planetId !== 'mars') {
-      console.warn(`Landing on ${planetId} not yet implemented`)
-      return
-    }
-
-    const planetBody = planets.find(p => p.userData?.name === planetId)
-    if (!planetBody) {
-      console.error(`Planet ${planetId} not found`)
-      return
-    }
-
-    const config = getPlanetConfig(planetId)
-    if (!config || !config.landable) {
-      console.error(`Planet ${planetId} is not landable`)
-      return
-    }
-
-    console.log('🚀 Starting landing sequence...')
-
-    // Freeze time and disable orbital interactions
-    timeController?.freeze()
-    isEnabled = false
-    controls.enabled = false
-
-    // Get planet info
-    const planetPosition = planetBody.position.clone()
-    const planetRadius = planetBody.geometry?.parameters?.radius || 10
-
-    // Create surface environment IMMEDIATELY
-    surfaceEnvironment = createSimpleMarsEnvironment(
-      scene,
-      camera,
-      planetPosition,
-      planetRadius
-    )
-
-    // Calculate landing position (standing on surface)
-    const landingHeight = 5 // Camera height above ground (eye level)
-    const groundLevel = surfaceEnvironment.getGroundLevel()
-
-    // Place camera on surface immediately
-    camera.position.set(
-      planetPosition.x,
-      groundLevel + landingHeight,
-      planetPosition.z + 50 // Slight offset from planet center
-    )
-
-    // Look forward along the surface
-    camera.lookAt(
-      planetPosition.x,
-      groundLevel + landingHeight,
-      planetPosition.z - 1000
-    )
-
-    // Mark surface mode as active
-    isSurfaceMode = true
-    currentSurfacePlanet = planetId
-
-    // 🚀 NEW: Activate First-Person Controls
-    surfaceController = createSurfaceController(camera, renderer.domElement, config)
-    surfaceController.activate()
-
-    // Hide all solar system objects (planets, orbits, stars, nebula)
-    scene.traverse((obj) => {
-      // Keep surface environment objects visible
-      if (obj.userData?.surfaceMode) {
-        obj.visible = true
-        return
-      }
-
-      // Hide planets, orbits, and markers
-      if (obj.isMesh || obj.isLine || obj.isPoints || obj.isGroup || obj.isSprite) {
-        obj.visible = false
-      }
-    })
-
-    // Specifically ensure the landed planet and its label/aura are hidden
-    if (planetBody) {
-      planetBody.visible = false
-      // Traverse children of the body if any (like atmospheres)
-      planetBody.traverse(child => { child.visible = false })
-    }
-
-    // Keep surface environment visible
-    surfaceEnvironment.elements.forEach(el => {
-      el.userData.surfaceMode = true
-      el.visible = true
-    })
-
-    console.log(`✅ Landed on ${planetId}! You're standing on the red surface.`)
-    console.log(`Camera position:`, camera.position)
-    console.log(`Ground level:`, groundLevel)
-  }
-
-  function exitSurface() {
-    if (!isSurfaceMode) return false
-
-    console.log('Exiting surface mode...')
-
-    // Cleanup surface mode
-    if (surfaceController) {
-      surfaceController.dispose()
-      surfaceController = null
-    }
-
-    if (surfaceEnvironment) {
-      surfaceEnvironment.dispose()
-      surfaceEnvironment = null
-    }
-
-    // Restore all solar system objects visibility
-    scene.traverse((obj) => {
-      // Restore planets and their children
-      if (obj.userData?.isPlanet || obj.userData?.isMoon || obj.userData?.isSun) {
-        obj.visible = true
-      }
-
-      // Restore orbits
-      if (obj.userData?.isOrbit) {
-        obj.visible = true
-      }
-
-      // Restore major environmental elements like stars/background
-      if (obj.userData?.isStarfield || obj.userData?.isNebula) {
-        obj.visible = true
-      }
-
-      // Clear surface mode flag
-      if (obj.userData) {
-        delete obj.userData.surfaceMode
-      }
-    })
-
-    // Note: Zodiac Ring and Aspect lines are NOT hidden/shown here;
-    // they should be managed by SolarSystem.vue's showZodiac state.
-    // However, during landOnPlanet they were hidden by the generic "hide all" traverse.
-    // We should ensure they are hidden/shown based on their own logic.
-
-    isSurfaceMode = false
-    currentSurfacePlanet = null
-
-    // Return to orbital view
-    isEnabled = true
-    controls.enabled = true
-    if (timeController) {
-      timeController.unfreeze() // Use unfreeze instead of non-existent resume
-    }
-
-    return true // Indicate surface was exited
-  }
-
   window.addEventListener('mousemove', onMouseMove)
   window.addEventListener('click', onClick)
 
@@ -578,8 +394,6 @@ export function createInteractions({
     dispose,
     focusPlanetById,
     goHome,
-    landOnPlanet,
-    exitSurface,
     setEnabled: (val) => {
       isEnabled = val
       if (controls) controls.enabled = val
