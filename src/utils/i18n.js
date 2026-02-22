@@ -56,7 +56,15 @@ const dict = {
       surface: 'Surface',
       lat: 'Lat',
       lon: 'Lon',
-      reset_path: 'Reset Path'
+      reset_path: 'Reset Path',
+      start: 'START',
+      north: 'N',
+      south: 'S',
+      west: 'W',
+      east: 'E',
+      dist_start: '{dist}m from START',
+      map_hint_expanded: 'Scroll to Zoom • Click to Shrink',
+      map_hint_collapsed: 'Click to Expand'
     },
     stellar: {
       btn: 'Stellar Snapshot',
@@ -243,7 +251,15 @@ const dict = {
       surface: '地表',
       lat: '纬度',
       lon: '经度',
-      reset_path: '重置路径'
+      reset_path: '重置路径',
+      start: '起点',
+      north: '北',
+      south: '南',
+      west: '西',
+      east: '东',
+      dist_start: '距离起点 {dist}米',
+      map_hint_expanded: '滚动缩放 · 点击收缩',
+      map_hint_collapsed: '点击展开'
     },
     stellar: {
       btn: '星空快照',
