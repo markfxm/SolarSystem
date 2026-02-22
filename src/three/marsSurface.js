@@ -252,14 +252,15 @@ export function createMarsSurface(renderer) {
   })
 
   // Dust Particles
-  const particleCount = 3000
+  const particleCount = 1000
   const particleGeo = new THREE.BufferGeometry()
   const particlePos = new Float32Array(particleCount * 3)
   // Initialize particles in a volume around the starting camera position
+  const initialRange = 200
   for (let i = 0; i < particleCount; i++) {
-    particlePos[i * 3] = camera.position.x + (Math.random() - 0.5) * 100
-    particlePos[i * 3 + 1] = camera.position.y + (Math.random() - 0.5) * 100
-    particlePos[i * 3 + 2] = camera.position.z + (Math.random() - 0.5) * 100
+    particlePos[i * 3] = camera.position.x + (Math.random() - 0.5) * initialRange
+    particlePos[i * 3 + 1] = camera.position.y + (Math.random() - 0.5) * initialRange
+    particlePos[i * 3 + 2] = camera.position.z + (Math.random() - 0.5) * initialRange
   }
   particleGeo.setAttribute('position', new THREE.BufferAttribute(particlePos, 3))
 
@@ -278,6 +279,8 @@ export function createMarsSurface(renderer) {
   }
 
   const dustParticles = new THREE.Points(particleGeo, particleMat)
+  // Prevent particles from disappearing when moving far from the origin
+  dustParticles.frustumCulled = false
   // Keep the points object at world origin so particles are in world space
   scene.add(dustParticles)
 
@@ -286,7 +289,7 @@ export function createMarsSurface(renderer) {
     const camX = camera.position.x
     const camY = camera.position.y
     const camZ = camera.position.z
-    const range = 50 // Half-size of the box around camera
+    const range = 100 // Half-size of the box around camera
 
     for (let i = 0; i < particleCount; i++) {
       // 1. Move particles by their velocity (drifting)
