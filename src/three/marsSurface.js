@@ -56,6 +56,21 @@ class Noise {
 
 const perlin = new Noise();
 
+function createDustTexture() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 64;
+  canvas.height = 64;
+  const context = canvas.getContext('2d');
+  const gradient = context.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gradient.addColorStop(0, 'rgba(255, 255, 255, 1.0)');
+  gradient.addColorStop(0.3, 'rgba(255, 210, 170, 0.6)');
+  gradient.addColorStop(0.7, 'rgba(150, 100, 50, 0.1)');
+  gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  context.fillStyle = gradient;
+  context.fillRect(0, 0, 64, 64);
+  return new THREE.CanvasTexture(canvas);
+}
+
 export function createMarsSurface(renderer) {
   const scene = new THREE.Scene()
   scene.background = new THREE.Color(0x8a4b38)
@@ -255,16 +270,23 @@ export function createMarsSurface(renderer) {
   const particleCount = 3000
   const particleGeo = new THREE.BufferGeometry()
   const particlePos = new Float32Array(particleCount * 3)
-  for (let i = 0; i < particleCount * 3; i++) {
-    particlePos[i] = (Math.random() - 0.5) * 120
+  // Initialize particles in a volume around the starting camera position
+  for (let i = 0; i < particleCount; i++) {
+    particlePos[i * 3] = camera.position.x + (Math.random() - 0.5) * 100
+    particlePos[i * 3 + 1] = camera.position.y + (Math.random() - 0.5) * 100
+    particlePos[i * 3 + 2] = camera.position.z + (Math.random() - 0.5) * 100
   }
   particleGeo.setAttribute('position', new THREE.BufferAttribute(particlePos, 3))
+
   const particleMat = new THREE.PointsMaterial({
     color: 0xffccaa,
-    size: 0.15,
+    size: 1.5,
+    map: createDustTexture(),
     transparent: true,
-    opacity: 0.5,
-    blending: THREE.AdditiveBlending
+    opacity: 0.8,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    sizeAttenuation: true
   })
   const particleVelocities = new Float32Array(particleCount * 3)
   for (let i = 0; i < particleCount; i++) {
@@ -274,23 +296,31 @@ export function createMarsSurface(renderer) {
   }
 
   const dustParticles = new THREE.Points(particleGeo, particleMat)
+  // Keep the points object at world origin so particles are in world space
   scene.add(dustParticles)
 
   function updateParticles(delta) {
-    dustParticles.position.copy(camera.position)
     const positions = particleGeo.attributes.position.array
+    const camX = camera.position.x
+    const camY = camera.position.y
+    const camZ = camera.position.z
+    const range = 50 // Half-size of the box around camera
+
     for (let i = 0; i < particleCount; i++) {
+      // 1. Move particles by their velocity (drifting)
       positions[i * 3] += particleVelocities[i * 3] * delta
       positions[i * 3 + 1] += particleVelocities[i * 3 + 1] * delta
       positions[i * 3 + 2] += particleVelocities[i * 3 + 2] * delta
 
-      // Wrap around bounds (60 radius around camera)
-      if (positions[i * 3] > 60) positions[i * 3] = -60
-      if (positions[i * 3] < -60) positions[i * 3] = 60
-      if (positions[i * 3 + 1] > 60) positions[i * 3 + 1] = -60
-      if (positions[i * 3 + 1] < -60) positions[i * 3 + 1] = 60
-      if (positions[i * 3 + 2] > 60) positions[i * 3 + 2] = -60
-      if (positions[i * 3 + 2] < -60) positions[i * 3 + 2] = 60
+      // 2. Wrap world positions around camera to keep them local but in world space
+      if (positions[i * 3] > camX + range) positions[i * 3] -= range * 2
+      else if (positions[i * 3] < camX - range) positions[i * 3] += range * 2
+
+      if (positions[i * 3 + 1] > camY + range) positions[i * 3 + 1] -= range * 2
+      else if (positions[i * 3 + 1] < camY - range) positions[i * 3 + 1] += range * 2
+
+      if (positions[i * 3 + 2] > camZ + range) positions[i * 3 + 2] -= range * 2
+      else if (positions[i * 3 + 2] < camZ - range) positions[i * 3 + 2] += range * 2
     }
     particleGeo.attributes.position.needsUpdate = true
   }
