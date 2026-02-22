@@ -56,21 +56,6 @@ class Noise {
 
 const perlin = new Noise();
 
-function createDustTexture() {
-  const canvas = document.createElement('canvas');
-  canvas.width = 64;
-  canvas.height = 64;
-  const context = canvas.getContext('2d');
-  const gradient = context.createRadialGradient(32, 32, 0, 32, 32, 32);
-  gradient.addColorStop(0, 'rgba(255, 255, 255, 1.0)');
-  gradient.addColorStop(0.3, 'rgba(255, 210, 170, 0.6)');
-  gradient.addColorStop(0.7, 'rgba(150, 100, 50, 0.1)');
-  gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
-  context.fillStyle = gradient;
-  context.fillRect(0, 0, 64, 64);
-  return new THREE.CanvasTexture(canvas);
-}
-
 export function createMarsSurface(renderer) {
   const scene = new THREE.Scene()
   scene.background = new THREE.Color(0x8a4b38)
@@ -279,13 +264,10 @@ export function createMarsSurface(renderer) {
   particleGeo.setAttribute('position', new THREE.BufferAttribute(particlePos, 3))
 
   const particleMat = new THREE.PointsMaterial({
-    color: 0xffccaa,
-    size: 1.5,
-    map: createDustTexture(),
+    color: 0xffffff,
+    size: 0.2,
     transparent: true,
-    opacity: 0.8,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
+    opacity: 0.6,
     sizeAttenuation: true
   })
   const particleVelocities = new Float32Array(particleCount * 3)
