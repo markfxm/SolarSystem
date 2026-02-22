@@ -215,12 +215,16 @@ onUnmounted(() => {
       <!-- Minimap -->
       <div
         v-if="planetId === 'mars'"
-        class="minimap-container"
+        class="minimap-wrapper"
         :class="{ expanded: isExpanded }"
-        @click="toggleExpand"
-        @wheel.prevent="handleWheel"
       >
-        <canvas ref="canvasRef"></canvas>
+        <div
+          class="minimap-container"
+          @click="toggleExpand"
+          @wheel.prevent="handleWheel"
+        >
+          <canvas ref="canvasRef"></canvas>
+        </div>
         <div class="map-hint">{{ isExpanded ? t('mars.map_hint_expanded') : t('mars.map_hint_collapsed') }}</div>
       </div>
 
@@ -312,35 +316,45 @@ onUnmounted(() => {
   background: rgba(255, 50, 50, 0.4);
 }
 
-.minimap-container {
+.minimap-wrapper {
   position: absolute;
   top: 60px;
   right: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+  transition: all 0.4s cubic-bezier(0.19, 1, 0.22, 1);
+}
+
+.minimap-wrapper.expanded {
+  top: 50%;
+  right: 50%;
+  transform: translate(50%, -50%);
+}
+
+.minimap-container {
   border: 2px solid rgba(0, 163, 255, 0.5);
   background: rgba(0, 0, 0, 0.8);
   border-radius: 8px;
   overflow: hidden;
   pointer-events: auto;
   cursor: pointer;
-  transition: all 0.4s cubic-bezier(0.19, 1, 0.22, 1);
+  transition: border-color 0.4s;
   box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
 }
 
-.minimap-container.expanded {
-  top: 50%;
-  right: 50%;
-  transform: translate(50%, -50%);
+.expanded .minimap-container {
   border-color: #00A3FF;
 }
 
 .map-hint {
-  position: absolute;
-  bottom: 5px;
-  width: 100%;
-  text-align: center;
-  font-size: 9px;
-  opacity: 0.6;
-  pointer-events: none;
+  font-size: 10px;
+  opacity: 0.5;
+  color: #fff;
+  text-shadow: 0 0 4px rgba(0,0,0,0.5);
+  white-space: nowrap;
 }
 
 /* Sci-fi Overlay Effects */
