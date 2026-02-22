@@ -96,7 +96,7 @@ const planetsData = {
 export const ORIENTATION_CONSTANTS = {
   mercury: { alpha0: 281.01, delta0: 61.414, W0: 329.548, Wdot: 6.1385025 },
   venus:   { alpha0: 272.76, delta0: 67.16, W0: 160.20, Wdot: -1.4813688 },
-  earth:   { alpha0: 0.00, delta0: 90.00, W0: 280.4606, Wdot: 360.98564736 },
+  earth:   { alpha0: 0.00, delta0: 90.00, W0: 190.1406, Wdot: 360.9856235 },
   mars:    { alpha0: 317.681, delta0: 52.886, W0: 176.630, Wdot: 350.8919822 },
   jupiter: { alpha0: 268.05, delta0: 64.49, W0: 284.95, Wdot: 870.5360000 },
   saturn:  { alpha0: 40.58, delta0: 83.537, W0: 38.90, Wdot: 810.7939024 },
@@ -189,10 +189,13 @@ export function computePosition(elements, scale = 10) {
   const y = xOrb * sinN + yOrb * cosI * cosN;
   const z = yOrb * sinI;
 
+  // Transform Ecliptic (XY-plane, Z-up) to World (XZ-plane, Y-up)
+  // New Y = Old Z (North)
+  // New Z = -Old Y
   return {
     x: x * scale,
-    y: y * scale,
-    z: z * scale,
+    y: z * scale,
+    z: -y * scale,
     r: r * scale
   };
 }
@@ -210,17 +213,22 @@ export function computePlanetQuaternion(planetName, d) {
 
   const alpha = c.alpha0 * Math.PI / 180;
   const delta = c.delta0 * Math.PI / 180;
-  const W = (c.W0 + c.Wdot * d) * Math.PI / 180;
+  // W is the angle of the prime meridian measured from the node.
+  // We add 180 degrees because Three.js SphereGeometry (u=0.5) and most
+  // planetary textures have a 180-degree phase difference relative to the
+  // standard IAU nodal definition.
+  const W = (c.W0 + c.Wdot * d + 180) * Math.PI / 180;
   const epsilon = 23.4392911 * Math.PI / 180; // Obliquity of the Ecliptic
 
-  // 1. ICRF to Ecliptic transformation
-  const qEcl = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), epsilon);
+  // 1. ICRF to World (Y-up) transformation
+  // Maps Ecliptic North to +Y and Ecliptic plane to XZ
+  const qEcl = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2 - epsilon);
 
   // 2. IAU Rotation: Body-Fixed to ICRF
-  // M = Rz(-(alpha+90)) * Rx(-(90-delta)) * Rz(-W)
-  const q1 = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), -(alpha + Math.PI / 2));
-  const q2 = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -(Math.PI / 2 - delta));
-  const q3 = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), -W);
+  // M = Rz(alpha+90) * Rx(90-delta) * Rz(W)
+  const q1 = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), (alpha + Math.PI / 2));
+  const q2 = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), (Math.PI / 2 - delta));
+  const q3 = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), W);
 
   // 3. Three.js Sphere Adjustment: Map local Y (up) to Body-Fixed Z (pole)
   const qAdj = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI / 2);

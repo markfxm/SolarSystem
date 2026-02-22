@@ -13,7 +13,7 @@ export function createEngine(container) {
     0.1,
     200000
   )
-  camera.position.set(0, 300, 1200)
+  camera.position.set(0, 500, 1500)
 
   // Renderer
   const renderer = new THREE.WebGLRenderer({ antialias: true })
