@@ -10,7 +10,8 @@ export function createLatLonGrid(radius) {
   group.name = 'LatLonGrid';
 
   // Offset slightly to avoid Z-fighting with the planet surface
-  const gridRadius = radius * 1.005;
+  // Increased from 1.005 to 1.02 to prevent labels from clipping into the sphere
+  const gridRadius = radius * 1.02;
 
   const lineMaterial = new THREE.LineBasicMaterial({
     color: 0xaaaaaa, // Light gray instead of pure white to appear thinner
@@ -26,7 +27,7 @@ export function createLatLonGrid(radius) {
   for (let lat = -90; lat <= 90; lat += 30) {
     if (Math.abs(lat) === 90) {
       // Points at poles - add a label
-      const y = gridRadius * Math.sin(THREE.MathUtils.degToRad(lat));
+      const y = gridRadius * 1.005 * Math.sin(THREE.MathUtils.degToRad(lat));
       const labelText = lat === 90 ? '90°N' : '90°S';
       const sprite = createTextSprite(labelText, labelScale);
       sprite.position.set(0, y, 0);
@@ -51,7 +52,9 @@ export function createLatLonGrid(radius) {
     // Latitude Label placed on the "Prime Meridian" of the sphere (x=r, z=0)
     const labelText = lat === 0 ? '0°' : `${Math.abs(lat)}°${lat > 0 ? 'N' : 'S'}`;
     const sprite = createTextSprite(labelText, labelScale);
-    sprite.position.set(r, y, 0);
+    // Add a tiny extra offset for labels to stay clear of lines
+    const labelRadius = r * 1.005;
+    sprite.position.set(labelRadius, y * 1.005, 0);
     group.add(sprite);
   }
 
@@ -75,7 +78,8 @@ export function createLatLonGrid(radius) {
     // Avoid redundant label at (lat 0, lon 0)
     if (lon !== 0) {
       const sprite = createTextSprite(`${lon}°`, labelScale);
-      sprite.position.set(gridRadius * Math.cos(theta), 0, gridRadius * Math.sin(theta));
+      const labelR = gridRadius * 1.005;
+      sprite.position.set(labelR * Math.cos(theta), 0, labelR * Math.sin(theta));
       group.add(sprite);
     }
   }
