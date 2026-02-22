@@ -24,7 +24,8 @@ const dict = {
       speed: 'Speed',
       home: 'Home',
       reset: 'Reset',
-      zodiac: 'Zodiac Ring'
+      zodiac: 'Zodiac Ring',
+      grid: 'Grid'
     },
     planet: {
       sun: 'Sun',
@@ -219,7 +220,8 @@ const dict = {
       speed: '速度',
       home: '主页',
       reset: '归位',
-      zodiac: '十二宫环'
+      zodiac: '十二宫环',
+      grid: '经纬度'
     },
     planet: {
       sun: '太阳',

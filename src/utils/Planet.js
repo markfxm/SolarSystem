@@ -1,5 +1,6 @@
 // src/utils/Planet.js
 import * as THREE from 'three';
+import { createLatLonGrid } from './Grid.js';
 
 const vertexShader = `
   varying vec2 vUv;
@@ -82,6 +83,11 @@ export function createUnifiedPlanet(radius, dayTexture, scene, isEarth = false, 
   const mesh = new THREE.Mesh(geometry, material);
   mesh.userData.originalRadius = radius;
   scene.add(mesh);
+
+  // Add Longitude/Latitude Grid
+  const grid = createLatLonGrid(radius);
+  mesh.add(grid);
+  mesh.userData.grid = grid;
 
   // Add atmosphere only for Earth
   if (isEarth) {
