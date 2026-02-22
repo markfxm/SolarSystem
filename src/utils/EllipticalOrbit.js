@@ -69,7 +69,8 @@ export function createEllipticalOrbit(elements, scale, segments = 512, color = 0
     const y = xOrb * sinN + yOrb * cosI * cosN;
     const z = yOrb * sinI;
 
-    points.push(x * scale, y * scale, z * scale);
+    // Transform Ecliptic (XY-plane, Z-up) to World (XZ-plane, Y-up)
+    points.push(x * scale, z * scale, -y * scale);
   }
 
   const geometry = new LineGeometry();

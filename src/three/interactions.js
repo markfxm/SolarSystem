@@ -54,12 +54,13 @@ export function createInteractions({
     const radius =
       body.geometry?.parameters?.radius ?? 5
 
+    // Distance and vertical offset for an "above-front" perspective
     const distance = Math.max(radius * 5, 20)
-    const height = Math.max(radius * 2, 8)
+    const verticalOffset = Math.max(radius * 1.5, 6)
 
     return {
       cameraPos: body.position.clone().add(
-        new THREE.Vector3(0, height, distance)
+        new THREE.Vector3(0, verticalOffset, distance)
       ),
       lookAt: body.position.clone(),
       minDistance: radius * 1.5
@@ -317,7 +318,7 @@ export function createInteractions({
      Init
   ───────────────────────────── */
 
-  const HOME_CAMERA_POS = new THREE.Vector3(0, 3000, 15000)
+  const HOME_CAMERA_POS = new THREE.Vector3(0, 5000, 15000)
   const HOME_LOOK_AT = new THREE.Vector3(0, 0, 0)
 
   function goHome() {

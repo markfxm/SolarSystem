@@ -70,7 +70,8 @@ export function createZodiacRing(radius = 10000, initialNames = []) {
     const ringCurve = new THREE.EllipseCurve(0, 0, radius, radius, 0, 2 * Math.PI, false, 0);
     const ringPointsRaw = ringCurve.getPoints(ringSegments);
     const ringPoints = [];
-    ringPointsRaw.forEach(p => ringPoints.push(p.x, p.y, 0));
+    // Transform Ecliptic (XY-plane, Z-up) to World (XZ-plane, Y-up)
+    ringPointsRaw.forEach(p => ringPoints.push(p.x, 0, -p.y));
 
     const ringGeo = new LineGeometry();
     ringGeo.setPositions(ringPoints);
@@ -105,7 +106,8 @@ export function createZodiacRing(radius = 10000, initialNames = []) {
         const endY = Math.sin(angle) * (radius + tickLength);
 
         const tickGeo = new LineGeometry();
-        tickGeo.setPositions([startX, startY, 0, endX, endY, 0]);
+        // Transform Ecliptic (XY-plane, Z-up) to World (XZ-plane, Y-up)
+        tickGeo.setPositions([startX, 0, -startY, endX, 0, -endY]);
         const tickLine = new Line2(tickGeo, tickMat);
         tickLine.renderOrder = 5;
         tickLine.computeLineDistances();
@@ -126,8 +128,9 @@ export function createZodiacRing(radius = 10000, initialNames = []) {
             opacity: 0.8
         });
         const sprite = new THREE.Sprite(spriteMat);
-        // Add a small Z-offset to prevent Z-fighting with the ring plane
-        sprite.position.set(lx, ly, radius * 0.001);
+        // Transform Ecliptic (XY) to World (XZ)
+        // Add a small Y-offset to prevent Z-fighting with the ring plane
+        sprite.position.set(lx, radius * 0.001, -ly);
         sprite.renderOrder = 10; // Draw on top
         // ScaleX is now 2x to maintain 8:1 ratio (radius*0.3 vs radius*0.0375)
         sprite.scale.set(radius * 0.3, radius * 0.0375, 1);

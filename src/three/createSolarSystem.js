@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { createUnifiedPlanet } from '../utils/Planet.js'
 import { createNebula } from '../utils/Nebula.js'
-import { computeElements, computePosition, getRotationSpeed, computeD } from '../utils/Astronomy.js'
+import { computeElements, computePosition, computeD, computePlanetQuaternion } from '../utils/Astronomy.js'
 import { createEllipticalOrbit } from '../utils/EllipticalOrbit.js'
 import { createZodiacRing } from '../utils/ZodiacRing.js';
 import { AspectLinesManager } from '../utils/AspectLines.js';
@@ -130,9 +130,6 @@ export async function createSolarSystem(scene, zodiacNames = [], onProgress = ()
   sun.userData.name = 'sun'
   sun.name = 'sun'
   sun.userData.isSun = true
-  sun.rotation.x = Math.PI / 2;
-  const SUN_ROTATION_HOURS = 25.38 * 24
-  sun.userData.rotationSpeed = (2 * Math.PI) / (SUN_ROTATION_HOURS * 3600)
   scene.add(sun)
 
   // Planet factory
@@ -140,14 +137,6 @@ export async function createSolarSystem(scene, zodiacNames = [], onProgress = ()
     const planet = createUnifiedPlanet(size, tex, scene, isEarth, extraTex)
     planet.userData.name = name
     planet.userData.isPlanet = true
-    planet.rotation.x = Math.PI / 2;
-
-    if (isEarth) {
-      planet.rotation.x -= (23.5 * Math.PI / 180);
-    }
-    if (name === 'saturn') {
-      planet.rotation.x -= (26.73 * Math.PI / 180);
-    }
 
     const elements = computeElements(name, 0)
     const orbit = createEllipticalOrbit(elements, orbitScale, 512, 0xd4aaff, 0.92)
@@ -174,19 +163,21 @@ export async function createSolarSystem(scene, zodiacNames = [], onProgress = ()
   const planetObjects = { sun, mercury, venus, earth, mars, jupiter, saturn, uranus, neptune }
 
   Object.entries(planetObjects).forEach(([name, mesh]) => {
-    mesh.userData.rotationSpeed = getRotationSpeed(name)
     // Pre-compute bounding sphere for faster raycasting interaction
     if (mesh.geometry) {
       mesh.geometry.computeBoundingSphere();
     }
   })
 
-  // Initial positions
+  // Initial positions & orientations
+  const startD = computeD(new Date());
   Object.keys(planetObjects).forEach(name => {
-    if (name === 'sun') return;
-    const el = computeElements(name, computeD(new Date()))
+    const el = computeElements(name, startD)
     const pos = computePosition(el, orbitScale)
-    planetObjects[name].position.set(pos.x, pos.y, pos.z)
+    if (name !== 'sun') {
+      planetObjects[name].position.set(pos.x, pos.y, pos.z)
+    }
+    planetObjects[name].setRotationFromQuaternion(computePlanetQuaternion(name, startD));
   })
 
   // Environment
@@ -213,7 +204,6 @@ export async function createSolarSystem(scene, zodiacNames = [], onProgress = ()
   const moon = createUnifiedPlanet(sizes.earth * sizeScale * 0.27, moonTex, scene);
   moon.userData.name = 'moon';
   moon.userData.isMoon = true;
-  moon.rotation.x = Math.PI / 2;
 
   const currentD = computeD(new Date());
   const moonEl = computeElements('moon', currentD);

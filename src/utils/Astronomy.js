@@ -87,6 +87,25 @@ const planetsData = {
   }
 };
 
+/**
+ * IAU J2000 Orientation Constants (Report 2015)
+ * alpha0, delta0: North Pole RA/Dec in ICRF (degrees)
+ * W0: Prime meridian at J2000 (degrees)
+ * Wdot: Rotation rate (degrees/day)
+ */
+export const ORIENTATION_CONSTANTS = {
+  mercury: { alpha0: 281.01, delta0: 61.414, W0: 329.548, Wdot: 6.1385025 },
+  venus:   { alpha0: 272.76, delta0: 67.16, W0: 160.20, Wdot: -1.4813688 },
+  earth:   { alpha0: 0.00, delta0: 90.00, W0: 190.1406, Wdot: 360.9856235 },
+  mars:    { alpha0: 317.681, delta0: 52.886, W0: 176.630, Wdot: 350.8919822 },
+  jupiter: { alpha0: 268.05, delta0: 64.49, W0: 284.95, Wdot: 870.5360000 },
+  saturn:  { alpha0: 40.58, delta0: 83.537, W0: 38.90, Wdot: 810.7939024 },
+  uranus:  { alpha0: 257.31, delta0: -15.175, W0: 203.81, Wdot: -501.1600928 },
+  neptune: { alpha0: 299.33, delta0: 42.95, W0: 253.18, Wdot: 536.3128492 },
+  moon:    { alpha0: 269.99, delta0: 66.54, W0: 38.32, Wdot: 13.17635815 },
+  sun:     { alpha0: 286.13, delta0: 63.87, W0: 84.176, Wdot: 14.1844 }
+};
+
 export function computeD(date) {
   // Days since J2000.0 (Jan 1.5, 2000)
   // Date.UTC(2000, 0, 1, 12) is J2000.0
@@ -170,10 +189,13 @@ export function computePosition(elements, scale = 10) {
   const y = xOrb * sinN + yOrb * cosI * cosN;
   const z = yOrb * sinI;
 
+  // Transform Ecliptic (XY-plane, Z-up) to World (XZ-plane, Y-up)
+  // New Y = Old Z (North)
+  // New Z = -Old Y
   return {
     x: x * scale,
-    y: y * scale,
-    z: z * scale,
+    y: z * scale,
+    z: -y * scale,
     r: r * scale
   };
 }
@@ -181,46 +203,47 @@ export function computePosition(elements, scale = 10) {
 
 
 
-export function getRotationSpeed(planetName) {
-  const data = planetsData[planetName];
-  if (!data || !data.rotationPeriodHours) return 0;
-  return (2 * Math.PI) / (data.rotationPeriodHours * 3600); // rad/s
-}
-
 /**
- * Returns the absolute rotation of the planet (rad) at time d
- * calibrated for Earth's geography.
+ * Computes the planetary orientation as a Quaternion in Ecliptic J2000 space.
+ * Uses IAU 2015 recommended models.
  */
-export function computeRotation(planetName, d) {
-  if (planetName === 'earth') {
-    // Greenwich Sidereal Time formula: GST = 280.4606 + 360.98564736 * d
-    // This is the angle of the Prime Meridian from the Vernal Equinox (+X axis).
-    const gstDegrees = 280.4606 + 360.98564736 * d;
+export function computePlanetQuaternion(planetName, d) {
+  const c = ORIENTATION_CONSTANTS[planetName];
+  if (!c) return new THREE.Quaternion();
 
-    // Convert to radians.
-    // Standard Three.js Sphere mapping: u=0.5 (center) is at world angle rot.y + PI.
-    // We want world_angle = GST (in radians).
-    // So rot.y + PI = GST_rad => rot.y = GST_rad - PI.
-    // CALIBRATION: To align Asia (~120E) to face the sun at ~12:00 local time (UTC+8).
-    // Current observation says it's off. adding 3.3 radians aligns it roughly for visual check.
-    return (gstDegrees * Math.PI / 180) - Math.PI + 3.3;
-  }
+  const alpha = c.alpha0 * Math.PI / 180;
+  const delta = c.delta0 * Math.PI / 180;
+  // W is the angle of the prime meridian measured from the node.
+  // We add 180 degrees because Three.js SphereGeometry (u=0.5) and most
+  // planetary textures have a 180-degree phase difference relative to the
+  // standard IAU nodal definition.
+  const W = (c.W0 + c.Wdot * d + 180) * Math.PI / 180;
+  const epsilon = 23.4392911 * Math.PI / 180; // Obliquity of the Ecliptic
 
-  if (planetName === 'moon') {
-    // Moon is tidally locked, same rotation period as orbital period ~27.32 days
-    // However, it faces Earth, not a fixed direction in space.
-    // Ideally it rotates once per orbit.
-    // Simple approx:
-    return (d / 27.321661) * 2 * Math.PI;
-  }
+  // 1. ICRF to World (Y-up) transformation
+  // Maps Ecliptic North to +Y and Ecliptic plane to XZ
+  const qEcl = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2 - epsilon);
 
-  const data = planetsData[planetName];
-  if (data) {
-    // For other planets, simplified d-based rotation
-    return (getRotationSpeed(planetName) * d * 86400);
-  }
-  return 0;
+  // 2. IAU Rotation: Body-Fixed to ICRF
+  // M = Rz(alpha+90) * Rx(90-delta) * Rz(W)
+  const q1 = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), (alpha + Math.PI / 2));
+  const q2 = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), (Math.PI / 2 - delta));
+  const q3 = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), W);
+
+  // 3. Three.js Sphere Adjustment: Map local Y (up) to Body-Fixed Z (pole)
+  const qAdj = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI / 2);
+
+  // Total orientation: qEcl * q1 * q2 * q3 * qAdj
+  const total = new THREE.Quaternion()
+    .copy(qEcl)
+    .multiply(q1)
+    .multiply(q2)
+    .multiply(q3)
+    .multiply(qAdj);
+
+  return total;
 }
+
 
 export function computeMoonPosition(d) {
   // Use accurate Keplerian elements for the Moon relative to Earth
