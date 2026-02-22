@@ -1,4 +1,4 @@
-import { computeD, computeElements, computePosition, computeRotation, computeMoonPosition } from '../utils/Astronomy.js'
+import { computeD, computeElements, computePosition, computeMoonPosition, computePlanetQuaternion } from '../utils/Astronomy.js'
 
 export function createTimeController(planetObjects, orbitScale, extraRotating = [], moon = null, moonOrbit = null, moonOrbitRadius = 10) {
   let speedMultiplier = 1
@@ -32,8 +32,8 @@ export function createTimeController(planetObjects, orbitScale, extraRotating = 
       const pos = computePosition(el, orbitScale)
       mesh.position.set(pos.x, pos.y, pos.z)
 
-      // Use absolute rotation based on d
-      mesh.rotation.y = computeRotation(name, d)
+      // Use absolute IAU orientation based on d
+      mesh.setRotationFromQuaternion(computePlanetQuaternion(name, d));
 
       if (name === 'earth') {
         earthPos = mesh.position.clone();
@@ -62,7 +62,8 @@ export function createTimeController(planetObjects, orbitScale, extraRotating = 
     if (Array.isArray(extraRotating)) {
       for (const obj of extraRotating) {
         if (obj && obj.userData && obj.userData.name) {
-          obj.rotation.y = computeRotation(obj.userData.name, d)
+          const name = obj.userData.name;
+          obj.setRotationFromQuaternion(computePlanetQuaternion(name, d));
         }
       }
     }
