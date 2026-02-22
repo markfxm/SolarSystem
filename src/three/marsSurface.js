@@ -252,19 +252,24 @@ export function createMarsSurface(renderer) {
   })
 
   // Dust Particles
-  const particleCount = 3000
+  const particleCount = 1000
   const particleGeo = new THREE.BufferGeometry()
   const particlePos = new Float32Array(particleCount * 3)
-  for (let i = 0; i < particleCount * 3; i++) {
-    particlePos[i] = (Math.random() - 0.5) * 120
+  // Initialize particles in a volume around the starting camera position
+  const initialRange = 200
+  for (let i = 0; i < particleCount; i++) {
+    particlePos[i * 3] = camera.position.x + (Math.random() - 0.5) * initialRange
+    particlePos[i * 3 + 1] = camera.position.y + (Math.random() - 0.5) * initialRange
+    particlePos[i * 3 + 2] = camera.position.z + (Math.random() - 0.5) * initialRange
   }
   particleGeo.setAttribute('position', new THREE.BufferAttribute(particlePos, 3))
+
   const particleMat = new THREE.PointsMaterial({
-    color: 0xffccaa,
-    size: 0.15,
+    color: 0xffffff,
+    size: 0.2,
     transparent: true,
-    opacity: 0.5,
-    blending: THREE.AdditiveBlending
+    opacity: 0.6,
+    sizeAttenuation: true
   })
   const particleVelocities = new Float32Array(particleCount * 3)
   for (let i = 0; i < particleCount; i++) {
@@ -274,23 +279,33 @@ export function createMarsSurface(renderer) {
   }
 
   const dustParticles = new THREE.Points(particleGeo, particleMat)
+  // Prevent particles from disappearing when moving far from the origin
+  dustParticles.frustumCulled = false
+  // Keep the points object at world origin so particles are in world space
   scene.add(dustParticles)
 
   function updateParticles(delta) {
-    dustParticles.position.copy(camera.position)
     const positions = particleGeo.attributes.position.array
+    const camX = camera.position.x
+    const camY = camera.position.y
+    const camZ = camera.position.z
+    const range = 100 // Half-size of the box around camera
+
     for (let i = 0; i < particleCount; i++) {
+      // 1. Move particles by their velocity (drifting)
       positions[i * 3] += particleVelocities[i * 3] * delta
       positions[i * 3 + 1] += particleVelocities[i * 3 + 1] * delta
       positions[i * 3 + 2] += particleVelocities[i * 3 + 2] * delta
 
-      // Wrap around bounds (60 radius around camera)
-      if (positions[i * 3] > 60) positions[i * 3] = -60
-      if (positions[i * 3] < -60) positions[i * 3] = 60
-      if (positions[i * 3 + 1] > 60) positions[i * 3 + 1] = -60
-      if (positions[i * 3 + 1] < -60) positions[i * 3 + 1] = 60
-      if (positions[i * 3 + 2] > 60) positions[i * 3 + 2] = -60
-      if (positions[i * 3 + 2] < -60) positions[i * 3 + 2] = 60
+      // 2. Wrap world positions around camera to keep them local but in world space
+      if (positions[i * 3] > camX + range) positions[i * 3] -= range * 2
+      else if (positions[i * 3] < camX - range) positions[i * 3] += range * 2
+
+      if (positions[i * 3 + 1] > camY + range) positions[i * 3 + 1] -= range * 2
+      else if (positions[i * 3 + 1] < camY - range) positions[i * 3 + 1] += range * 2
+
+      if (positions[i * 3 + 2] > camZ + range) positions[i * 3 + 2] -= range * 2
+      else if (positions[i * 3 + 2] < camZ - range) positions[i * 3 + 2] += range * 2
     }
     particleGeo.attributes.position.needsUpdate = true
   }
