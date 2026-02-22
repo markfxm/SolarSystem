@@ -13,14 +13,14 @@ export function createLatLonGrid(radius) {
   const gridRadius = radius * 1.005;
 
   const lineMaterial = new THREE.LineBasicMaterial({
-    color: 0xffffff,
+    color: 0xaaaaaa, // Light gray instead of pure white to appear thinner
     transparent: true,
-    opacity: 1.0,
+    opacity: 0.6,
     depthTest: true
   });
 
   // Scale labels relative to planet size
-  const labelScale = radius * 0.15;
+  const labelScale = radius * 0.08; // Reduced size
 
   // Latitudes (-90 to 90, every 30 degrees)
   for (let lat = -90; lat <= 90; lat += 30) {
@@ -95,8 +95,8 @@ function createTextSprite(text, scale) {
   canvas.height = size;
   const ctx = canvas.getContext('2d');
 
-  // Use a bold sans-serif font
-  ctx.font = 'Bold 44px Arial';
+  // Use a smaller, regular weight font
+  ctx.font = '32px Arial';
   ctx.fillStyle = 'white';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
