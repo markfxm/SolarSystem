@@ -144,7 +144,8 @@ const drawMap = () => {
   ctx.fill()
   ctx.fillStyle = '#fff'
   ctx.font = '10px Arial'
-  ctx.fillText('START', startPos.x + 6, startPos.y + 4)
+  ctx.textAlign = 'left'
+  ctx.fillText(t('mars.start'), startPos.x + 6, startPos.y + 4)
 
   // Draw Player Marker (Always at center because we are centering on player)
   ctx.save()
@@ -163,11 +164,18 @@ const drawMap = () => {
   // Labels
   ctx.fillStyle = 'rgba(255, 255, 255, 0.8)'
   ctx.font = '10px monospace'
-  ctx.fillText('N', centerX - 3, 15)
+  ctx.textAlign = 'center'
+
+  // N S W E
+  ctx.fillText(t('mars.north'), centerX, 15)
+  ctx.fillText(t('mars.south'), centerX, size - 10)
+  ctx.fillText(t('mars.west'), 10, centerY + 4)
+  ctx.fillText(t('mars.east'), size - 15, centerY + 4)
 
   if (isExpanded.value) {
     const dist = Math.sqrt(Math.pow(px - lx, 2) + Math.pow(pz - lz, 2)).toFixed(1)
-    ctx.fillText(`${dist}m from START`, 10, size - 10)
+    ctx.textAlign = 'left'
+    ctx.fillText(t('mars.dist_start', { dist }), 10, size - 25)
   }
 }
 
@@ -213,7 +221,7 @@ onUnmounted(() => {
         @wheel.prevent="handleWheel"
       >
         <canvas ref="canvasRef"></canvas>
-        <div class="map-hint">{{ isExpanded ? 'Scroll to Zoom • Click to Shrink' : 'Click to Expand' }}</div>
+        <div class="map-hint">{{ isExpanded ? t('mars.map_hint_expanded') : t('mars.map_hint_collapsed') }}</div>
       </div>
 
       <!-- Scanline / Sci-fi Overlay Effect -->
@@ -306,7 +314,7 @@ onUnmounted(() => {
 
 .minimap-container {
   position: absolute;
-  top: 20px;
+  top: 60px;
   right: 20px;
   border: 2px solid rgba(0, 163, 255, 0.5);
   background: rgba(0, 0, 0, 0.8);

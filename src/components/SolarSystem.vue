@@ -54,7 +54,7 @@
     </div>
 
     <!-- Language Panel -->
-    <LanguagePanel v-if="viewMode === 'solar'" />
+    <LanguagePanel />
 
     <!-- Stellar Moment Modal -->
     <StellarMomentModal
