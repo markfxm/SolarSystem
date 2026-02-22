@@ -38,6 +38,15 @@
         {{ t('control.zodiac') }}
       </button>
 
+      <button
+        v-if="selectedPlanetId"
+        class="grid-toggle-btn"
+        :class="{ active: showGrid }"
+        @click="toggleGrid"
+      >
+        {{ t('control.grid') }}
+      </button>
+
       <div v-if="hoveredPlanetName" class="hover-name">
         {{ hoveredPlanetName }}
       </div>
@@ -174,6 +183,7 @@ const currentChart = ref({})
 const activeAspects = ref([])
 const elementBalance = ref({ fire: 0, earth: 0, air: 0, water: 0 })
 const dominantElement = ref('none')
+const showGrid = ref(false)
 const marsPlayerPos = ref({ x: 0, z: 0 })
 const marsPlayerYaw = ref(0)
 const marsPath = ref([])
@@ -335,6 +345,22 @@ function toggleZodiac() {
   if (solar && solar.aspectsManager) {
     solar.aspectsManager.setVisible(showZodiac.value)
   }
+}
+
+function toggleGrid() {
+  showGrid.value = !showGrid.value
+  updateGridsVisibility()
+}
+
+function updateGridsVisibility() {
+  if (!solar) return
+  const allPlanets = solar.planets || []
+  allPlanets.forEach(p => {
+    if (p.userData && p.userData.grid) {
+      // Show grid only if global toggle is ON and this planet is currently selected/focused
+      p.userData.grid.visible = showGrid.value && (selectedPlanetId.value === p.userData.name)
+    }
+  })
 }
 
 function onSpeedChange(mult) {
@@ -570,6 +596,11 @@ onMounted(async () => {
       solar.zodiacRing.updateLabels(t('zodiac_names'))
     }
   })
+
+  // Watch for selection or grid toggle changes
+  watch([selectedPlanetId, showGrid], () => {
+    updateGridsVisibility()
+  })
 })
 
 onUnmounted(() => {
@@ -707,6 +738,32 @@ onUnmounted(() => {
 
 .zodiac-toggle-btn:hover {
   background: rgba(212,170,255,0.4);
+  transform: translateY(-2px);
+}
+
+.grid-toggle-btn {
+  margin-top: 0;
+  align-self: flex-start;
+  pointer-events: auto;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  background: rgba(30,30,40,0.9);
+  border: 1px solid rgba(150,255,200,0.35);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all .18s ease;
+}
+
+.grid-toggle-btn.active {
+  background: rgba(150,255,200,0.25);
+  border-color: rgba(150,255,200,0.8);
+  box-shadow: 0 0 15px rgba(150,255,200,0.3);
+}
+
+.grid-toggle-btn:hover {
+  background: rgba(150,255,200,0.4);
   transform: translateY(-2px);
 }
 
