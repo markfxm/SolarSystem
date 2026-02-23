@@ -52,6 +52,14 @@
       </div>
     </div>
 
+    <!-- POI Landing Prompt -->
+    <div v-if="selectedPOI && selectedPOI.planetName === 'mars'" class="poi-landing-prompt">
+      <div class="poi-name">{{ t(`mars.pois.${selectedPOI.poiId}`) }}</div>
+      <button class="land-btn" @click="onLandOnMars(selectedPOI)">
+        🚀 {{ t('mars.pois.land_here') }}
+      </button>
+    </div>
+
     <!-- Top Center Actions -->
     <div v-if="viewMode === 'solar'" class="top-center-actions">
       <button 
@@ -159,6 +167,7 @@ import { createSolarSystem } from '../three/createSolarSystem.js'
 import { createTimeController } from '../three/timeController.js'
 import { createInteractions } from '../three/interactions.js'
 import { createMarsSurface } from '../three/marsSurface.js'
+import { updatePOIs } from '../utils/POI.js'
 import { AestheticSnapshotManager } from '../utils/AestheticSnapshot.js'
 import { AstrologyService } from '../utils/AstrologyService.js'
 
@@ -184,6 +193,7 @@ const activeAspects = ref([])
 const elementBalance = ref({ fire: 0, earth: 0, air: 0, water: 0 })
 const dominantElement = ref('none')
 const showGrid = ref(false)
+const selectedPOI = ref(null)
 const marsPlayerPos = ref({ x: 0, z: 0 })
 const marsPlayerYaw = ref(0)
 const marsPath = ref([])
@@ -243,9 +253,10 @@ function onInfoPanelClose() {
   infoPlanetId.value = null
 }
 
-async function onLandOnMars() {
+async function onLandOnMars(coords = null) {
   if (viewMode.value === 'mars') return
   infoPlanetId.value = null // Close the panel
+  selectedPOI.value = null // Close POI prompt
 
   enteringText.value = t('mars.entering')
   showCloudOverlay.value = true
@@ -254,7 +265,19 @@ async function onLandOnMars() {
   await new Promise(r => setTimeout(r, 2000))
 
   if (!marsSurface) {
-    marsSurface = createMarsSurface(engine.renderer)
+    // If we have specific coordinates from a POI, pass them to the surface generator
+    const options = {};
+    if (coords && coords.lat !== undefined && coords.lon !== undefined) {
+      // Mapping logic:
+      // BASE_LAT = 18.65, BASE_LON = 226.2
+      // X = (lon - BASE_LON) / DEG_PER_METER
+      // Z = (BASE_LAT - lat) / DEG_PER_METER
+      const MARS_RADIUS = 3389500;
+      const DEG_PER_METER = 180 / (Math.PI * MARS_RADIUS);
+      options.spawnX = (coords.lon - 226.2) / DEG_PER_METER;
+      options.spawnZ = (18.65 - coords.lat) / DEG_PER_METER;
+    }
+    marsSurface = createMarsSurface(engine.renderer, options)
   }
   const lPos = marsSurface.getLanderPosition()
   if (lPos) {
@@ -525,6 +548,10 @@ onMounted(async () => {
     onSelectionChange: name => {
       // keep nav panel selection in sync; empty string -> clear selection
       selectedPlanetId.value = name || null
+      if (!name) selectedPOI.value = null
+    },
+    onPOISelect: poi => {
+      selectedPOI.value = poi
     }
   })
 
@@ -533,6 +560,15 @@ onMounted(async () => {
     if (viewMode.value === 'solar') {
       if (timeController) timeController.update(delta)
       if (interactions) interactions.update(delta)
+
+      // Update POIs visibility and labels
+      if (solar && solar.planetObjects) {
+        Object.entries(solar.planetObjects).forEach(([name, mesh]) => {
+          if (mesh.userData.pois) {
+            updatePOIs(mesh.userData.pois, engine.camera, mesh.position, name)
+          }
+        })
+      }
     } else if (viewMode.value === 'mars' && marsSurface) {
       marsSurface.update(delta)
       const pPos = marsSurface.camera.position
@@ -927,6 +963,57 @@ onUnmounted(() => {
   background: rgba(60, 60, 80, 0.9);
   transform: translateY(-2px);
   border-color: #fff;
+}
+
+/* POI Landing Prompt */
+.poi-landing-prompt {
+  position: absolute;
+  bottom: 120px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 20, 40, 0.7);
+  backdrop-filter: blur(12px);
+  padding: 16px 24px;
+  border-radius: 16px;
+  border: 1px solid rgba(0, 163, 255, 0.4);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  z-index: 1001;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+  animation: slideUp 0.3s cubic-bezier(0.19, 1, 0.22, 1);
+  pointer-events: auto;
+}
+
+@keyframes slideUp {
+  from { transform: translate(-50%, 20px); opacity: 0; }
+  to { transform: translate(-50%, 0); opacity: 1; }
+}
+
+.poi-name {
+  font-size: 18px;
+  font-weight: 800;
+  color: #fff;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+.poi-landing-prompt .land-btn {
+  padding: 10px 20px;
+  background: #00A3FF;
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.poi-landing-prompt .land-btn:hover {
+  background: #0082CC;
+  transform: scale(1.05);
+  box-shadow: 0 0 20px rgba(0, 163, 255, 0.5);
 }
 
 </style>

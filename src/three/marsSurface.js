@@ -56,7 +56,7 @@ class Noise {
 
 const perlin = new Noise();
 
-export function createMarsSurface(renderer) {
+export function createMarsSurface(renderer, options = {}) {
   const scene = new THREE.Scene()
   scene.background = new THREE.Color(0x8a4b38)
 
@@ -108,9 +108,11 @@ export function createMarsSurface(renderer) {
   scene.fog = new THREE.FogExp2(0x8a4b38, 0.01)
 
   const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 5000)
-  // Randomized start location to make each exploration feel unique
-  const spawnX = (Math.random() - 0.5) * 5000
-  const spawnZ = (Math.random() - 0.5) * 5000
+
+  // Start location: use provided coordinates or randomize
+  let spawnX = options.spawnX !== undefined ? options.spawnX : (Math.random() - 0.5) * 5000;
+  let spawnZ = options.spawnZ !== undefined ? options.spawnZ : (Math.random() - 0.5) * 5000;
+
   camera.position.set(spawnX, 5, spawnZ)
 
   // Audio

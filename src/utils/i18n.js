@@ -65,7 +65,15 @@ const dict = {
       east: 'E',
       dist_start: '{dist}m from START',
       map_hint_expanded: 'Scroll to Zoom • Click to Shrink',
-      map_hint_collapsed: 'Click to Expand'
+      map_hint_collapsed: 'Click to Expand',
+      pois: {
+        olympus_mons: 'Olympus Mons',
+        valles_marineris: 'Valles Marineris',
+        gale_crater: 'Gale Crater',
+        jezero_crater: 'Jezero Crater',
+        hellas_planitia: 'Hellas Planitia',
+        land_here: 'Land Here?'
+      }
     },
     stellar: {
       btn: 'Stellar Snapshot',
@@ -261,7 +269,15 @@ const dict = {
       east: '东',
       dist_start: '距离起点 {dist}米',
       map_hint_expanded: '滚动缩放 · 点击收缩',
-      map_hint_collapsed: '点击展开'
+      map_hint_collapsed: '点击展开',
+      pois: {
+        olympus_mons: '奥林匹斯山',
+        valles_marineris: '水手号峡谷',
+        gale_crater: '盖尔撞击坑',
+        jezero_crater: '耶泽罗撞击坑',
+        hellas_planitia: '希腊平原',
+        land_here: '确认降落？'
+      }
     },
     stellar: {
       btn: '星空快照',
