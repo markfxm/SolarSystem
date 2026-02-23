@@ -185,21 +185,27 @@ export function createInteractions({
     raycaster.setFromCamera(mouse, camera)
 
     // Check for POIs first (they are smaller and "on top")
-    const poiObjects = []
+    let hitPOI = null
+    const poiCandidates = []
     planets.forEach(p => {
       if (p.userData.pois && p.userData.pois.visible) {
-        // POI objects are now direct children of the POI group
-        p.userData.pois.children.forEach(sprite => {
-          if (sprite.userData.isPOI) poiObjects.push(sprite)
+        p.userData.pois.children.forEach(poiGroup => {
+          // Raycast against both dot and label for better hit area
+          poiCandidates.push(...poiGroup.children)
+          // Reset hover state
+          poiGroup.userData.isHovered = false
         })
       }
     })
 
-    const poiHits = raycaster.intersectObjects(poiObjects, false)
+    const poiHits = raycaster.intersectObjects(poiCandidates, false)
     if (poiHits.length > 0) {
-      const hitObj = poiHits[0].object
-      if (hoveredPOI !== hitObj) {
-        hoveredPOI = hitObj
+      // Find the parent POI group
+      hitPOI = poiHits[0].object.parent
+      hitPOI.userData.isHovered = true
+
+      if (hoveredPOI !== hitPOI) {
+        hoveredPOI = hitPOI
         renderer.domElement.style.cursor = 'pointer'
       }
       // If hovering a POI, we don't want to hover the planet behind it
@@ -207,13 +213,14 @@ export function createInteractions({
         hoveredObject = null
         onHoverNameChange?.('')
       }
-      return
     } else {
       if (hoveredPOI !== null) {
         hoveredPOI = null
         renderer.domElement.style.cursor = 'default'
       }
     }
+
+    if (hitPOI) return
 
     const hits = raycaster.intersectObjects(planets, false)
 
