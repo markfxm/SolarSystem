@@ -21,48 +21,31 @@ export function createPOIMarkers(planetName, radius) {
   const group = new THREE.Group();
   group.name = `POIs_${planetName}`;
 
-  const circleTexture = createCircleTexture();
-
   pois.forEach(poi => {
-    const poiGroup = new THREE.Group();
-    // Attach important data to the group so raycasting can find it
-    poiGroup.userData = {
+    // We create a single sprite per POI containing both marker and label
+    const sprite = createPOISprite(poi, radius);
+
+    const latRad = THREE.MathUtils.degToRad(poi.lat);
+    const lonRad = THREE.MathUtils.degToRad(-poi.lon);
+
+    // Increased radius slightly more to prevent clipping with the sphere limb
+    const r = radius * 1.03;
+
+    const x = r * Math.cos(latRad) * Math.cos(lonRad);
+    const y = r * Math.sin(latRad);
+    const z = r * Math.cos(latRad) * Math.sin(lonRad);
+
+    sprite.position.set(x, y, z);
+
+    // Attach data to the sprite for raycasting
+    sprite.userData = {
       ...poi,
       isPOI: true,
       planetName,
       poiId: poi.id
     };
 
-    const latRad = THREE.MathUtils.degToRad(poi.lat);
-    const lonRad = THREE.MathUtils.degToRad(-poi.lon);
-    const r = radius * 1.01;
-
-    const x = r * Math.cos(latRad) * Math.cos(lonRad);
-    const y = r * Math.sin(latRad);
-    const z = r * Math.cos(latRad) * Math.sin(lonRad);
-
-    // Circle Sprite
-    const circleMaterial = new THREE.SpriteMaterial({
-      map: circleTexture,
-      transparent: true,
-      depthTest: true,
-      sizeAttenuation: true
-    });
-    const circle = new THREE.Sprite(circleMaterial);
-    circle.scale.set(radius * 0.08, radius * 0.08, 1);
-    circle.userData.isPOIMarker = true;
-    circle.userData.parentPOI = poiGroup;
-    poiGroup.add(circle);
-
-    // Label Sprite
-    const labelScale = radius * 0.3;
-    const label = createTextSprite(t(`mars.pois.${poi.id}`), labelScale);
-    label.position.set(0, -radius * 0.08, 0);
-    label.userData.isPOILabel = true;
-    poiGroup.add(label);
-
-    poiGroup.position.set(x, y, z);
-    group.add(poiGroup);
+    group.add(sprite);
   });
 
   return group;
@@ -75,93 +58,80 @@ export function updatePOIs(group, camera, planetPosition, planetName) {
   if (!group) return;
 
   const distance = camera.position.distanceTo(planetPosition);
-  // Show only when close to the planet (relative to planet size)
-  // For Mars (radius 1.65), distance < 20 is a good threshold
-  const radius = group.children[0]?.position.length() || 1.65;
-  const isVisible = distance < radius * 12;
+  // Show when close to the planet (threshold increased for better visibility during transitions)
+  const isVisible = distance < 40;
 
   group.visible = isVisible;
 
   if (isVisible) {
-    // Update labels if language changed (simple check)
-    group.children.forEach(poiGroup => {
-      const label = poiGroup.children.find(c => c.userData.isPOILabel);
-      if (label) {
-        const currentText = t(`mars.pois.${poiGroup.userData.poiId}`);
-        if (label.userData.lastText !== currentText) {
-          updateTextSprite(label, currentText, radius * 0.3);
-          label.userData.lastText = currentText;
-        }
+    // Update labels if language changed
+    group.children.forEach(sprite => {
+      const currentText = t(`mars.pois.${sprite.userData.poiId}`);
+      if (sprite.userData.lastText !== currentText) {
+        drawPOICanvas(sprite.material.map.image, currentText);
+        sprite.material.map.needsUpdate = true;
+        sprite.userData.lastText = currentText;
       }
     });
   }
 }
 
-function createCircleTexture() {
+function createPOISprite(poi, radius) {
   const canvas = document.createElement('canvas');
-  canvas.width = 128;
-  canvas.height = 128;
-  const ctx = canvas.getContext('2d');
+  canvas.width = 512;
+  canvas.height = 256;
 
-  // Outer Glow
-  const gradient = ctx.createRadialGradient(64, 64, 20, 64, 64, 60);
-  gradient.addColorStop(0, 'rgba(255, 255, 255, 0.8)');
-  gradient.addColorStop(0.5, 'rgba(0, 163, 255, 0.4)');
-  gradient.addColorStop(1, 'rgba(0, 163, 255, 0)');
-
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, 128, 128);
-
-  // Inner Circle
-  ctx.beginPath();
-  ctx.arc(64, 64, 24, 0, Math.PI * 2);
-  ctx.strokeStyle = '#00A3FF';
-  ctx.lineWidth = 6;
-  ctx.stroke();
-  ctx.fillStyle = 'white';
-  ctx.fill();
+  const text = t(`mars.pois.${poi.id}`);
+  drawPOICanvas(canvas, text);
 
   const texture = new THREE.CanvasTexture(canvas);
-  return texture;
-}
-
-function createTextSprite(text, scale) {
-  const canvas = document.createElement('canvas');
-  const size = 256;
-  canvas.width = size;
-  canvas.height = 64;
-  drawTextOnCanvas(canvas, text);
-
-  const texture = new THREE.CanvasTexture(canvas);
-  const material = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: true });
+  const material = new THREE.SpriteMaterial({
+    map: texture,
+    transparent: true,
+    depthTest: true,
+    sizeAttenuation: true
+  });
   const sprite = new THREE.Sprite(material);
-  sprite.scale.set(scale * 2, scale * 0.5, 1);
+
+  // Base scale on planet radius
+  // 4:2 aspect ratio (512x256)
+  const baseScale = radius * 0.4;
+  sprite.scale.set(baseScale, baseScale * 0.5, 1);
+
+  // Anchor the sprite at the center of the circle marker
+  // In the canvas, circle is at y=80 (from top).
+  // sprite.center.y is from bottom: 1 - (80/256) = 0.6875
+  sprite.center.set(0.5, 0.6875);
+
   sprite.userData.lastText = text;
   return sprite;
 }
 
-function updateTextSprite(sprite, text, scale) {
-  const canvas = sprite.material.map.image;
-  drawTextOnCanvas(canvas, text);
-  sprite.material.map.needsUpdate = true;
-}
-
-function drawTextOnCanvas(canvas, text) {
+function drawPOICanvas(canvas, text) {
   const ctx = canvas.getContext('2d');
   const w = canvas.width;
   const h = canvas.height;
   ctx.clearRect(0, 0, w, h);
 
-  ctx.font = 'bold 36px Arial';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
+  // 1. Draw Hollow Circle (Marker) at y=80
+  ctx.beginPath();
+  ctx.arc(256, 80, 40, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+  ctx.lineWidth = 4;
+  ctx.stroke();
 
-  // Stroke
-  ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
-  ctx.lineWidth = 6;
-  ctx.strokeText(text, w / 2, h / 2);
+  // Subtle Outer Glow
+  ctx.shadowBlur = 15;
+  ctx.shadowColor = 'rgba(0, 163, 255, 0.8)';
+  ctx.stroke();
 
-  // Fill
+  // 2. Draw Label Text below circle
+  ctx.shadowBlur = 4;
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+  // Light weight font as requested
+  ctx.font = '300 38px "Segoe UI", Arial, sans-serif';
   ctx.fillStyle = 'white';
-  ctx.fillText(text, w / 2, h / 2);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  ctx.fillText(text, 256, 135);
 }

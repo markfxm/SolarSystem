@@ -188,10 +188,9 @@ export function createInteractions({
     const poiObjects = []
     planets.forEach(p => {
       if (p.userData.pois && p.userData.pois.visible) {
-        p.userData.pois.children.forEach(poiGroup => {
-          // Add the circle sprite to raycast list
-          const circle = poiGroup.children.find(c => c.userData.isPOIMarker)
-          if (circle) poiObjects.push(circle)
+        // POI objects are now direct children of the POI group
+        p.userData.pois.children.forEach(sprite => {
+          if (sprite.userData.isPOI) poiObjects.push(sprite)
         })
       }
     })
@@ -199,10 +198,8 @@ export function createInteractions({
     const poiHits = raycaster.intersectObjects(poiObjects, false)
     if (poiHits.length > 0) {
       const hitObj = poiHits[0].object
-      const poiGroup = hitObj.userData.parentPOI
-      if (hoveredPOI !== poiGroup) {
-        hoveredPOI = poiGroup
-        // Maybe change cursor or something?
+      if (hoveredPOI !== hitObj) {
+        hoveredPOI = hitObj
         renderer.domElement.style.cursor = 'pointer'
       }
       // If hovering a POI, we don't want to hover the planet behind it
