@@ -60,7 +60,8 @@ export function createLatLonGrid(radius) {
 
   // Longitudes (0 to 330, every 30 degrees)
   for (let lon = 0; lon < 360; lon += 30) {
-    const theta = THREE.MathUtils.degToRad(lon);
+    // Negative longitude to match Three.js SphereGeometry UV mapping (East is negative theta)
+    const theta = THREE.MathUtils.degToRad(-lon);
     const points = [];
     const segments = 64;
     for (let i = 0; i <= segments; i++) {
