@@ -528,6 +528,17 @@ export function createMarsSurface(renderer, options = {}) {
     getExplorationPath: () => explorationPath,
     getLanderPosition: () => landerPos,
     clearPath,
+    teleport: (x, z) => {
+      camera.position.set(x, 5, z);
+      landerPos.x = x;
+      landerPos.z = z - 10;
+      lander.position.set(landerPos.x, getH(landerPos.x, landerPos.z), landerPos.z);
+      // Clear path when teleporting to a new POI
+      explorationPath = [];
+      localStorage.removeItem(STORAGE_KEY);
+      lastPosition.set(x, 0, z);
+      updateChunks();
+    },
     dispose: () => {
       if (wind.isPlaying) wind.stop()
       if (saveTimeout) {

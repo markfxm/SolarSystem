@@ -264,20 +264,21 @@ async function onLandOnMars(coords = null) {
 
   await new Promise(r => setTimeout(r, 2000))
 
+  const MARS_RADIUS = 3389500;
+  const DEG_PER_METER = 180 / (Math.PI * MARS_RADIUS);
+  const targetCoords = (coords && coords.lat !== undefined) ? coords : null;
+
   if (!marsSurface) {
-    // If we have specific coordinates from a POI, pass them to the surface generator
     const options = {};
-    if (coords && coords.lat !== undefined && coords.lon !== undefined) {
-      // Mapping logic:
-      // BASE_LAT = 18.65, BASE_LON = 226.2
-      // X = (lon - BASE_LON) / DEG_PER_METER
-      // Z = (BASE_LAT - lat) / DEG_PER_METER
-      const MARS_RADIUS = 3389500;
-      const DEG_PER_METER = 180 / (Math.PI * MARS_RADIUS);
-      options.spawnX = (coords.lon - 226.2) / DEG_PER_METER;
-      options.spawnZ = (18.65 - coords.lat) / DEG_PER_METER;
+    if (targetCoords) {
+      options.spawnX = (targetCoords.lon - 226.2) / DEG_PER_METER;
+      options.spawnZ = (18.65 - targetCoords.lat) / DEG_PER_METER;
     }
     marsSurface = createMarsSurface(engine.renderer, options)
+  } else if (targetCoords) {
+    const tx = (targetCoords.lon - 226.2) / DEG_PER_METER;
+    const tz = (18.65 - targetCoords.lat) / DEG_PER_METER;
+    marsSurface.teleport(tx, tz);
   }
   const lPos = marsSurface.getLanderPosition()
   if (lPos) {
