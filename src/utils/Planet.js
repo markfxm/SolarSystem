@@ -1,6 +1,7 @@
 // src/utils/Planet.js
 import * as THREE from 'three';
 import { createLatLonGrid } from './Grid.js';
+import { createPOIMarkers } from './POI.js';
 
 const vertexShader = `
   varying vec2 vUv;
@@ -66,7 +67,7 @@ const fragmentShader = `
 `;
 
 // Reuse the exact same shader for ALL planets (including Earth)
-export function createUnifiedPlanet(radius, dayTexture, scene, isEarth = false, nightTexture = null) {
+export function createUnifiedPlanet(radius, dayTexture, scene, isEarth = false, nightTexture = null, planetName = '') {
   // Reduced segments from 64 to 48 for better performance on office laptops
   const geometry = new THREE.SphereGeometry(radius, 48, 48);
 
@@ -89,7 +90,13 @@ export function createUnifiedPlanet(radius, dayTexture, scene, isEarth = false, 
   mesh.add(grid);
   mesh.userData.grid = grid;
 
-  // Add atmosphere only for Earth
+  // Add POI Markers (if any)
+  const pois = createPOIMarkers(planetName || (isEarth ? 'earth' : ''), radius);
+  if (pois) {
+    mesh.add(pois);
+    mesh.userData.pois = pois;
+  }
+
   if (isEarth) {
     const atmos = new THREE.Mesh(
       new THREE.SphereGeometry(radius * 1.05, 64, 64),

@@ -6,7 +6,8 @@ export function createInteractions({
   planetNames,
   timeController,
   onHoverNameChange,
-  onSelectionChange // ← callback to notify selection changes
+  onSelectionChange, // ← callback to notify selection changes
+  onPOISelect // ← callback for POI clicks
 }) {
   const {
     camera,
@@ -23,6 +24,8 @@ export function createInteractions({
 
   let hoveredObject = null
   let selectedObject = null
+  let hoveredPOI = null
+  let selectedPOI = null
   let isEnabled = true
 
   // Temp vectors for performance (avoid GC)
@@ -180,6 +183,45 @@ export function createInteractions({
     lastMousePos.copy(mouse)
 
     raycaster.setFromCamera(mouse, camera)
+
+    // Check for POIs first (they are smaller and "on top")
+    let hitPOI = null
+    const poiCandidates = []
+    planets.forEach(p => {
+      if (p.userData.pois && p.userData.pois.visible) {
+        p.userData.pois.children.forEach(poiGroup => {
+          // Raycast against both dot and label for better hit area
+          poiCandidates.push(...poiGroup.children)
+          // Reset hover state
+          poiGroup.userData.isHovered = false
+        })
+      }
+    })
+
+    const poiHits = raycaster.intersectObjects(poiCandidates, false)
+    if (poiHits.length > 0) {
+      // Find the parent POI group
+      hitPOI = poiHits[0].object.parent
+      hitPOI.userData.isHovered = true
+
+      if (hoveredPOI !== hitPOI) {
+        hoveredPOI = hitPOI
+        renderer.domElement.style.cursor = 'pointer'
+      }
+      // If hovering a POI, we don't want to hover the planet behind it
+      if (hoveredObject !== null) {
+        hoveredObject = null
+        onHoverNameChange?.('')
+      }
+    } else {
+      if (hoveredPOI !== null) {
+        hoveredPOI = null
+        renderer.domElement.style.cursor = 'default'
+      }
+    }
+
+    if (hitPOI) return
+
     const hits = raycaster.intersectObjects(planets, false)
 
     if (hits.length > 0) {
@@ -200,7 +242,21 @@ export function createInteractions({
 
   function onClick() {
     if (!isEnabled) return
-    if (!hoveredObject) return
+
+    if (hoveredPOI) {
+      selectedPOI = hoveredPOI
+      onPOISelect?.(hoveredPOI.userData)
+      return
+    }
+
+    if (!hoveredObject) {
+      // Clicked on empty space -> clear POI selection
+      if (selectedPOI) {
+        selectedPOI = null
+        onPOISelect?.(null)
+      }
+      return
+    }
 
     // If we are already viewing a planet (selectedObject is set),
     // prevent clicking on OTHER planets to avoid accidental jumps (e.g. to Sun).
@@ -209,6 +265,9 @@ export function createInteractions({
     }
 
     startFlyTo(hoveredObject)
+    // Clear POI when switching/selecting planet
+    selectedPOI = null
+    onPOISelect?.(null)
   }
 
   /* ─────────────────────────────
@@ -325,6 +384,8 @@ export function createInteractions({
     timeController?.freeze()
 
     selectedObject = null
+    selectedPOI = null
+    onPOISelect?.(null)
     isTracking = false
     trackingLastPosition = null
 

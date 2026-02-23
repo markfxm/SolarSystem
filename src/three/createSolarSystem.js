@@ -134,7 +134,7 @@ export async function createSolarSystem(scene, zodiacNames = [], onProgress = ()
 
   // Planet factory
   const createPlanet = (size, tex, name, isEarth = false, extraTex = null) => {
-    const planet = createUnifiedPlanet(size, tex, scene, isEarth, extraTex)
+    const planet = createUnifiedPlanet(size, tex, scene, isEarth, extraTex, name)
     planet.userData.name = name
     planet.userData.isPlanet = true
 
@@ -201,7 +201,7 @@ export async function createSolarSystem(scene, zodiacNames = [], onProgress = ()
   scene.add(zodiacRing);
 
   // Moon
-  const moon = createUnifiedPlanet(sizes.earth * sizeScale * 0.27, moonTex, scene);
+  const moon = createUnifiedPlanet(sizes.earth * sizeScale * 0.27, moonTex, scene, false, null, 'moon');
   moon.userData.name = 'moon';
   moon.userData.isMoon = true;
 
