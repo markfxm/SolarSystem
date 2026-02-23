@@ -214,10 +214,7 @@ export function computePlanetQuaternion(planetName, d) {
   const alpha = c.alpha0 * Math.PI / 180;
   const delta = c.delta0 * Math.PI / 180;
   // W is the angle of the prime meridian measured from the node.
-  // We add 180 degrees because Three.js SphereGeometry (u=0.5) and most
-  // planetary textures have a 180-degree phase difference relative to the
-  // standard IAU nodal definition.
-  const W = (c.W0 + c.Wdot * d + 180) * Math.PI / 180;
+  const W = (c.W0 + c.Wdot * d) * Math.PI / 180;
   const epsilon = 23.4392911 * Math.PI / 180; // Obliquity of the Ecliptic
 
   // 1. ICRF to World (Y-up) transformation
