@@ -219,7 +219,8 @@ const poiUI = ref({
   side: 'right',
   linePath: '',
   panelX: 0,
-  panelY: 0
+  panelY: 0,
+  initialSide: 'right'
 })
 const marsPlayerPos = ref({ x: 0, z: 0 })
 const marsPlayerYaw = ref(0)
@@ -227,13 +228,10 @@ const marsPath = ref([])
 const marsLanderPos = ref({ x: 0, z: -10 })
 
 const poiPanelStyle = computed(() => {
-  const isLeft = poiUI.value.side === 'left';
   return {
     position: 'absolute',
-    left: isLeft ? 'auto' : `${poiUI.value.panelX}px`,
-    right: isLeft ? `${window.innerWidth - poiUI.value.panelX}px` : 'auto',
+    left: `${poiUI.value.panelX}px`,
     top: `${poiUI.value.panelY}px`,
-    transform: 'translateY(-50%)',
     zIndex: 1002,
     pointerEvents: 'none'
   };
@@ -628,6 +626,18 @@ onMounted(async () => {
     onPOISelect: poi => {
       if (selectedPOI.value?.poiId !== poi?.poiId) {
         poiDragOffset.value = { x: 0, y: 0 }
+
+        // Determine initial side
+        if (poi && engine) {
+          poi.dot.getWorldPosition(_poiWorldPos);
+          _tempV.copy(_poiWorldPos).project(engine.camera);
+          const x = (_tempV.x * 0.5 + 0.5) * window.innerWidth;
+          const half = window.innerWidth / 2;
+
+          if (x < half - 100) poiUI.value.initialSide = 'left';
+          else if (x > half + 100) poiUI.value.initialSide = 'right';
+          else poiUI.value.initialSide = Math.random() > 0.5 ? 'left' : 'right';
+        }
       }
       selectedPOI.value = poi
     }
@@ -661,18 +671,43 @@ onMounted(async () => {
             _tempV.copy(_planetWorldPos).project(engine.camera);
             const px = (_tempV.x * 0.5 + 0.5) * window.innerWidth;
 
-            const side = x < px ? 'left' : 'right';
+            // Side logic: panel is either to the left or right of the POI
+            const side = poiUI.value.initialSide;
+            const panelWidth = 280;
+            const marginX = 100;
+            const marginY = -120; // Default height offset
 
-            const dx = side === 'left' ? -50 : 50;
-            const dy = -50;
-            const hx = side === 'left' ? -90 : 90;
+            // Current Panel position
+            let panelX = (side === 'left') ? (x - panelWidth - marginX) : (x + marginX);
+            let panelY = y + marginY;
+
+            // Apply drag offset
+            panelX += poiDragOffset.value.x;
+            panelY += poiDragOffset.value.y;
+
+            // Flip side if dragged across the POI
+            const currentSide = (panelX + panelWidth / 2 < x) ? 'left' : 'right';
+
+            // 3-Point Path: POI -> Near Top Corner -> Far Top Corner
+            let p1 = { x, y };
+            let p2, p3;
+
+            if (currentSide === 'left') {
+              p2 = { x: panelX + panelWidth, y: panelY };
+              p3 = { x: panelX, y: panelY };
+            } else {
+              p2 = { x: panelX, y: panelY };
+              p3 = { x: panelX + panelWidth, y: panelY };
+            }
 
             poiUI.value = {
+              ...poiUI.value,
               visible: true,
-              x, y, side,
-              linePath: `M ${x} ${y} L ${x + dx} ${y + dy} L ${x + hx + poiDragOffset.value.x} ${y + dy + poiDragOffset.value.y}`,
-              panelX: x + hx + poiDragOffset.value.x,
-              panelY: y + dy + poiDragOffset.value.y
+              x, y,
+              side: currentSide,
+              linePath: `M ${p1.x} ${p1.y} L ${p2.x} ${p2.y} L ${p3.x} ${p3.y}`,
+              panelX,
+              panelY
             };
           } else {
             poiUI.value.visible = false;
@@ -1103,9 +1138,9 @@ onUnmounted(() => {
   fill: none;
   stroke: #00A3FF;
   stroke-width: 2;
-  stroke-dasharray: 400;
-  stroke-dashoffset: 400;
-  animation: grow-line 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  stroke-dasharray: 1000;
+  stroke-dashoffset: 1000;
+  animation: grow-line 1s cubic-bezier(0.4, 0, 0.2, 1) forwards;
   filter: drop-shadow(0 0 5px rgba(0, 163, 255, 0.8));
 }
 

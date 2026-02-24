@@ -57,7 +57,8 @@ const description = computed(() => {
   background: rgba(10, 20, 35, 0.85);
   backdrop-filter: blur(12px);
   border: 1px solid rgba(0, 163, 255, 0.4);
-  border-radius: 12px;
+  border-top: none; /* Top edge is the SVG line */
+  border-radius: 0 0 12px 12px; /* Only bottom corners rounded */
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6), 0 0 20px rgba(0, 163, 255, 0.1);
   color: white;
   padding: 16px;
@@ -65,10 +66,12 @@ const description = computed(() => {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   pointer-events: auto;
   transition: opacity 0.3s ease;
+  overflow: hidden;
+  transform-origin: top;
 }
 
 .poi-panel.left {
-  /* Positioning handled by parent usually, but we can set default relative anchor */
+  /* Positioning handled by parent */
 }
 
 .panel-header {
@@ -76,6 +79,7 @@ const description = computed(() => {
   justify-content: space-between;
   align-items: flex-start;
   margin-bottom: 12px;
+  padding-top: 4px; /* Space from the SVG line */
   cursor: grab;
   user-select: none;
 }
@@ -150,13 +154,21 @@ const description = computed(() => {
   transform: translateY(0);
 }
 
-/* Entrance Animation */
-@keyframes slideFade {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+/* Entrance Animation: Expand Downwards */
+@keyframes expandDown {
+  from {
+    opacity: 0;
+    max-height: 0;
+    transform: scaleY(0);
+  }
+  to {
+    opacity: 1;
+    max-height: 500px; /* arbitrary large value */
+    transform: scaleY(1);
+  }
 }
 
 .poi-panel {
-  animation: slideFade 0.4s ease-out;
+  animation: expandDown 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 </style>
