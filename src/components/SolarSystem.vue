@@ -63,6 +63,7 @@
 
     <div v-if="poiUI.visible" class="poi-panel-wrapper" :style="poiPanelStyle">
       <POIPanel
+        :key="selectedPOI.name"
         :poi="selectedPOI"
         :side="poiUI.side"
         @close="selectedPOI = null"

@@ -57,7 +57,7 @@ const description = computed(() => {
   background: rgba(10, 20, 35, 0.85);
   backdrop-filter: blur(12px);
   border: 2px solid #00A3FF;
-  border-radius: 12px;
+  border-radius: 0 0 12px 12px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6), 0 0 20px rgba(0, 163, 255, 0.1);
   color: white;
   padding: 16px;
