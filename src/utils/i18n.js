@@ -39,6 +39,22 @@ const dict = {
       neptune: 'Neptune',
       moon: 'Moon'
     },
+    earth: {
+      pois: {
+        mount_everest: 'Mount Everest',
+        mount_everest_desc: 'The highest mountain on Earth, standing at 8,848 meters. The ultimate "Roof of the World" challenge for any explorer!',
+        mariana_trench: 'Mariana Trench',
+        mariana_trench_desc: 'The deepest point in Earth\'s oceans, reaching 11,000 meters. A mysterious realm of extreme pressure and unique life.'
+      }
+    },
+    moon: {
+      pois: {
+        apollo_11: 'Apollo 11 Landing Site',
+        apollo_11_desc: 'Where humans first set foot on another world in 1969. "One small step for man, one giant leap for mankind."',
+        tycho_crater: 'Tycho Crater',
+        tycho_crater_desc: 'A prominent impact crater with a spectacular ray system. It\'s one of the Moon\'s youngest and brightest features.'
+      }
+    },
     zodiac_names: [
       'Aries', 'Taurus', 'Gemini', 'Cancer', 'Leo', 'Virgo',
       'Libra', 'Scorpio', 'Sagittarius', 'Capricorn', 'Aquarius', 'Pisces'
@@ -68,10 +84,15 @@ const dict = {
       map_hint_collapsed: 'Click to Expand',
       pois: {
         olympus_mons: 'Olympus Mons',
+        olympus_mons_desc: 'The largest volcano in the solar system, 21.9 km high. It\'s so wide that its peak curves over the horizon. A hiker\'s ultimate dream!',
         valles_marineris: 'Valles Marineris',
+        valles_marineris_desc: 'A vast canyon system 4,000 km long and 7 km deep. It makes the Grand Canyon look like a mere crack in the ground.',
         gale_crater: 'Gale Crater',
+        gale_crater_desc: 'An ancient impact basin explored by the Curiosity rover. It contains a record of Mars\' watery past within its layers.',
         jezero_crater: 'Jezero Crater',
+        jezero_crater_desc: 'Site of an ancient river delta where the Perseverance rover is hunting for signs of ancient Martian life.',
         hellas_planitia: 'Hellas Planitia',
+        hellas_planitia_desc: 'The deepest impact basin on Mars. The air is slightly thicker here, making it a unique spot in the Martian desert.',
         land_here: 'Land Here?'
       }
     },
@@ -243,6 +264,22 @@ const dict = {
       neptune: '海王星',
       moon: '月球'
     },
+    earth: {
+      pois: {
+        mount_everest: '珠穆朗玛峰',
+        mount_everest_desc: '地球上海拔最高的山峰，海拔8848米。它是探险者心中梦寐以求的“世界之巅”！',
+        mariana_trench: '马里亚纳海沟',
+        mariana_trench_desc: '地球海洋的最深处，深度达11000米。一个充满极端压力和神秘生物的幽暗深渊。'
+      }
+    },
+    moon: {
+      pois: {
+        apollo_11: '阿波罗11号着陆点',
+        apollo_11_desc: '1969年人类首次踏上另一个星球的地方。“这是我个人的一小步，却是人类的一大步。”',
+        tycho_crater: '第谷环形山',
+        tycho_crater_desc: '一个著名的撞击坑，拥有壮观的辐射纹。它是月球上最年轻、最明亮的特征之一。'
+      }
+    },
     zodiac_names: [
       '白羊座', '金牛座', '双子座', '巨蟹座', '狮子座', '处女座',
       '天秤座', '天蝎座', '射手座', '摩羯座', '水瓶座', '双鱼座'
@@ -272,10 +309,15 @@ const dict = {
       map_hint_collapsed: '点击展开',
       pois: {
         olympus_mons: '奥林匹斯山',
+        olympus_mons_desc: '太阳系中最大的火山，高21.9公里。它宽广到山顶会没入地平线之下。登山者的终极梦想！',
         valles_marineris: '水手号峡谷',
+        valles_marineris_desc: '全长4000公里、深7公里的巨大峡谷群。它让地球的科罗拉多大峡谷看起来像是一道地表的裂缝。',
         gale_crater: '盖尔撞击坑',
+        gale_crater_desc: '好奇号火星车探索过的古老撞击盆地。它的地层中记录了火星过去曾拥有水源的证据。',
         jezero_crater: '耶泽罗撞击坑',
+        jezero_crater_desc: '古老的河流三角洲遗址。毅力号火星车目前正在这里搜寻古代火星生命的痕迹。',
         hellas_planitia: '希腊平原',
+        hellas_planitia_desc: '火星上最深的撞击盆地。这里的空气比别处稍厚一些，是火星荒漠中一个独特的地带。',
         land_here: '确认降落？'
       }
     },
