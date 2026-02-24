@@ -3,9 +3,9 @@
     class="poi-panel"
     :class="[side]"
   >
-    <div class="panel-header">
+    <div class="panel-header" @mousedown="$emit('drag-start', $event)">
       <h3 class="poi-name">{{ name }}</h3>
-      <button class="close-btn" @click="$emit('close')">×</button>
+      <button class="close-btn" @mousedown.stop @click.stop="$emit('close')">×</button>
     </div>
 
     <div class="panel-content">
@@ -35,7 +35,7 @@ const props = defineProps({
   }
 });
 
-defineEmits(['close', 'land']);
+defineEmits(['close', 'land', 'drag-start']);
 
 const name = computed(() => {
   if (!props.poi) return '';
@@ -76,6 +76,12 @@ const description = computed(() => {
   justify-content: space-between;
   align-items: flex-start;
   margin-bottom: 12px;
+  cursor: grab;
+  user-select: none;
+}
+
+.panel-header:active {
+  cursor: grabbing;
 }
 
 .poi-name {

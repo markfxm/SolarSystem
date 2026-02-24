@@ -361,8 +361,8 @@ export function createInteractions({
   }
 
   function dispose() {
-    window.removeEventListener('mousemove', onMouseMove)
-    window.removeEventListener('click', onClick)
+    renderer.domElement.removeEventListener('mousemove', onMouseMove)
+    renderer.domElement.removeEventListener('click', onClick)
     // remove controls listener
     if (controls && controls.removeEventListener) {
       controls.removeEventListener('start', onControlsStart)
@@ -439,8 +439,8 @@ export function createInteractions({
     isFlying = true
   }
 
-  window.addEventListener('mousemove', onMouseMove)
-  window.addEventListener('click', onClick)
+  renderer.domElement.addEventListener('mousemove', onMouseMove)
+  renderer.domElement.addEventListener('click', onClick)
 
   // Ensure manual control interruptions stop tracking
   if (controls && controls.addEventListener) {

@@ -67,6 +67,7 @@
         :side="poiUI.side"
         @close="selectedPOI = null"
         @land="onLandOnMars"
+        @drag-start="handlePoiDragStart"
       />
     </div>
 
@@ -206,6 +207,11 @@ const elementBalance = ref({ fire: 0, earth: 0, air: 0, water: 0 })
 const dominantElement = ref('none')
 const showGrid = ref(false)
 const selectedPOI = ref(null)
+const poiDragOffset = ref({ x: 0, y: 0 })
+const isDraggingPoi = ref(false)
+const poiDragStartMouse = { x: 0, y: 0 }
+const poiDragStartOffset = { x: 0, y: 0 }
+
 const poiUI = ref({
   visible: false,
   x: 0,
@@ -245,6 +251,13 @@ let sunController
 let interactions
 let marsSurface
 let clockTimer
+
+// Scratch variables for POI projection to minimize GC
+const _poiWorldPos = new THREE.Vector3()
+const _planetWorldPos = new THREE.Vector3()
+const _normal = new THREE.Vector3()
+const _viewDir = new THREE.Vector3()
+const _tempV = new THREE.Vector3()
 
 const planetNames = computed(() => ({
   sun: t('planet.sun'),
@@ -441,6 +454,33 @@ function updateOrbitResolution(w, h) {
   })
 }
 
+function handlePoiDragStart(event) {
+  isDraggingPoi.value = true
+  poiDragStartMouse.x = event.clientX
+  poiDragStartMouse.y = event.clientY
+  poiDragStartOffset.x = poiDragOffset.value.x
+  poiDragStartOffset.y = poiDragOffset.value.y
+
+  window.addEventListener('mousemove', handlePoiDragMove)
+  window.addEventListener('mouseup', handlePoiDragEnd)
+}
+
+function handlePoiDragMove(event) {
+  if (!isDraggingPoi.value) return
+  const dx = event.clientX - poiDragStartMouse.x
+  const dy = event.clientY - poiDragStartMouse.y
+  poiDragOffset.value = {
+    x: poiDragStartOffset.x + dx,
+    y: poiDragStartOffset.y + dy
+  }
+}
+
+function handlePoiDragEnd() {
+  isDraggingPoi.value = false
+  window.removeEventListener('mousemove', handlePoiDragMove)
+  window.removeEventListener('mouseup', handlePoiDragEnd)
+}
+
 function onReset() {
   if (!timeController) return
   isSimulating.value = false
@@ -586,6 +626,9 @@ onMounted(async () => {
       if (!name) selectedPOI.value = null
     },
     onPOISelect: poi => {
+      if (selectedPOI.value?.poiId !== poi?.poiId) {
+        poiDragOffset.value = { x: 0, y: 0 }
+      }
       selectedPOI.value = poi
     }
   })
@@ -602,25 +645,21 @@ onMounted(async () => {
         const planetMesh = solar.planetObjects[poi.planetName] || (poi.planetName === 'moon' ? solar.moon : null);
 
         if (planetMesh && poi.dot) {
-          const poiWorldPos = new THREE.Vector3();
-          poi.dot.getWorldPosition(poiWorldPos);
-
-          const cameraPos = engine.camera.position;
-          const planetWorldPos = new THREE.Vector3();
-          planetMesh.getWorldPosition(planetWorldPos);
+          poi.dot.getWorldPosition(_poiWorldPos);
+          planetMesh.getWorldPosition(_planetWorldPos);
 
           // Occlusion check
-          const normal = poiWorldPos.clone().sub(planetWorldPos).normalize();
-          const viewDir = cameraPos.clone().sub(poiWorldPos).normalize();
-          const isFacing = normal.dot(viewDir) > 0.05;
+          _normal.copy(_poiWorldPos).sub(_planetWorldPos).normalize();
+          _viewDir.copy(engine.camera.position).sub(_poiWorldPos).normalize();
+          const isFacing = _normal.dot(_viewDir) > 0.05;
 
           if (isFacing) {
-            const tempV = poiWorldPos.clone().project(engine.camera);
-            const x = (tempV.x * 0.5 + 0.5) * window.innerWidth;
-            const y = (-(tempV.y * 0.5) + 0.5) * window.innerHeight;
+            _tempV.copy(_poiWorldPos).project(engine.camera);
+            const x = (_tempV.x * 0.5 + 0.5) * window.innerWidth;
+            const y = (-(_tempV.y * 0.5) + 0.5) * window.innerHeight;
 
-            const planetPosScreen = planetWorldPos.clone().project(engine.camera);
-            const px = (planetPosScreen.x * 0.5 + 0.5) * window.innerWidth;
+            _tempV.copy(_planetWorldPos).project(engine.camera);
+            const px = (_tempV.x * 0.5 + 0.5) * window.innerWidth;
 
             const side = x < px ? 'left' : 'right';
 
@@ -631,9 +670,9 @@ onMounted(async () => {
             poiUI.value = {
               visible: true,
               x, y, side,
-              linePath: `M ${x} ${y} L ${x + dx} ${y + dy} L ${x + hx} ${y + dy}`,
-              panelX: x + hx,
-              panelY: y + dy
+              linePath: `M ${x} ${y} L ${x + dx} ${y + dy} L ${x + hx + poiDragOffset.value.x} ${y + dy + poiDragOffset.value.y}`,
+              panelX: x + hx + poiDragOffset.value.x,
+              panelY: y + dy + poiDragOffset.value.y
             };
           } else {
             poiUI.value.visible = false;
@@ -722,6 +761,8 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  window.removeEventListener('mousemove', handlePoiDragMove)
+  window.removeEventListener('mouseup', handlePoiDragEnd)
   clearInterval(clockTimer)
   interactions?.dispose()
   engine?.dispose()
