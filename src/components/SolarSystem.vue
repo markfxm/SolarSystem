@@ -53,7 +53,7 @@
     </div>
 
     <!-- POI Overlay -->
-    <svg v-if="poiUI.visible" class="poi-svg-overlay">
+    <svg v-if="selectedPOI && poiUI.visible" class="poi-svg-overlay">
       <path
         :key="selectedPOI?.poiId"
         class="poi-line"
@@ -61,8 +61,9 @@
       />
     </svg>
 
-    <div v-if="poiUI.visible" class="poi-panel-wrapper" :style="poiPanelStyle">
+    <div v-if="selectedPOI && poiUI.visible" class="poi-panel-wrapper" :style="poiPanelStyle">
       <POIPanel
+        v-if="selectedPOI"
         :key="selectedPOI.name"
         :poi="selectedPOI"
         :side="poiUI.side"
