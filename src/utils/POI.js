@@ -2,12 +2,20 @@ import * as THREE from 'three';
 import { t } from './i18n.js';
 
 export const PLANET_POIS = {
+  earth: [
+    { id: 'mount_everest', lat: 27.9881, lon: 86.9250 },
+    { id: 'mariana_trench', lat: 11.3493, lon: 142.1996 }
+  ],
   mars: [
     { id: 'olympus_mons', lat: 18.65, lon: 226.2 },
     { id: 'valles_marineris', lat: -13.9, lon: 300.8 },
     { id: 'gale_crater', lat: -5.4, lon: 137.8 },
     { id: 'jezero_crater', lat: 18.38, lon: 77.58 },
     { id: 'hellas_planitia', lat: -42.4, lon: 70.5 }
+  ],
+  moon: [
+    { id: 'apollo_11', lat: 0.6740, lon: 23.4730 },
+    { id: 'tycho_crater', lat: -43.3, lon: -11.2 }
   ]
 };
 

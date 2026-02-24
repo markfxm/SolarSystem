@@ -52,12 +52,25 @@
       </div>
     </div>
 
-    <!-- POI Landing Prompt -->
-    <div v-if="selectedPOI && selectedPOI.planetName === 'mars'" class="poi-landing-prompt">
-      <div class="poi-name">{{ t(`mars.pois.${selectedPOI.poiId}`) }}</div>
-      <button class="land-btn" @click="onLandOnMars(selectedPOI)">
-        🚀 {{ t('mars.pois.land_here') }}
-      </button>
+    <!-- POI Overlay -->
+    <svg v-if="selectedPOI && poiUI.visible" class="poi-svg-overlay">
+      <path
+        :key="selectedPOI?.poiId"
+        class="poi-line"
+        :d="poiUI.linePath"
+      />
+    </svg>
+
+    <div v-if="selectedPOI && poiUI.visible" class="poi-panel-wrapper" :style="poiPanelStyle">
+      <POIPanel
+        v-if="selectedPOI"
+        :key="selectedPOI.name"
+        :poi="selectedPOI"
+        :side="poiUI.side"
+        @close="selectedPOI = null"
+        @land="onLandOnMars"
+        @drag-start="handlePoiDragStart"
+      />
     </div>
 
     <!-- Top Center Actions -->
@@ -158,9 +171,11 @@ import TourPanel from './TourPanel.vue'
 import StellarMomentModal from './StellarMomentModal.vue'
 import TransitPanel from './TransitPanel.vue'
 import PlanetSurface from './PlanetSurface.vue'
+import POIPanel from './POIPanel.vue'
 
 import { t, currentLang } from '../utils/i18n.js'
 import { captureHighRes, downloadImage } from '../utils/ScreenshotEngine.js'
+import * as THREE from 'three'
 
 import { createEngine } from '../three/engine.js'
 import { createSolarSystem } from '../three/createSolarSystem.js'
@@ -194,10 +209,35 @@ const elementBalance = ref({ fire: 0, earth: 0, air: 0, water: 0 })
 const dominantElement = ref('none')
 const showGrid = ref(false)
 const selectedPOI = ref(null)
+const poiDragOffset = ref({ x: 0, y: 0 })
+const isDraggingPoi = ref(false)
+const poiDragStartMouse = { x: 0, y: 0 }
+const poiDragStartOffset = { x: 0, y: 0 }
+
+const poiUI = ref({
+  visible: false,
+  x: 0,
+  y: 0,
+  side: 'right',
+  linePath: '',
+  panelX: 0,
+  panelY: 0,
+  initialSide: 'right'
+})
 const marsPlayerPos = ref({ x: 0, z: 0 })
 const marsPlayerYaw = ref(0)
 const marsPath = ref([])
 const marsLanderPos = ref({ x: 0, z: -10 })
+
+const poiPanelStyle = computed(() => {
+  return {
+    position: 'absolute',
+    left: `${poiUI.value.panelX}px`,
+    top: `${poiUI.value.panelY}px`,
+    zIndex: 1002,
+    pointerEvents: 'none'
+  };
+});
 
 const viewMode = ref('solar') // 'solar' | 'mars'
 const showCloudOverlay = ref(false)
@@ -211,6 +251,13 @@ let sunController
 let interactions
 let marsSurface
 let clockTimer
+
+// Scratch variables for POI projection to minimize GC
+const _poiWorldPos = new THREE.Vector3()
+const _planetWorldPos = new THREE.Vector3()
+const _normal = new THREE.Vector3()
+const _viewDir = new THREE.Vector3()
+const _tempV = new THREE.Vector3()
 
 const planetNames = computed(() => ({
   sun: t('planet.sun'),
@@ -407,6 +454,33 @@ function updateOrbitResolution(w, h) {
   })
 }
 
+function handlePoiDragStart(event) {
+  isDraggingPoi.value = true
+  poiDragStartMouse.x = event.clientX
+  poiDragStartMouse.y = event.clientY
+  poiDragStartOffset.x = poiDragOffset.value.x
+  poiDragStartOffset.y = poiDragOffset.value.y
+
+  window.addEventListener('mousemove', handlePoiDragMove)
+  window.addEventListener('mouseup', handlePoiDragEnd)
+}
+
+function handlePoiDragMove(event) {
+  if (!isDraggingPoi.value) return
+  const dx = event.clientX - poiDragStartMouse.x
+  const dy = event.clientY - poiDragStartMouse.y
+  poiDragOffset.value = {
+    x: poiDragStartOffset.x + dx,
+    y: poiDragStartOffset.y + dy
+  }
+}
+
+function handlePoiDragEnd() {
+  isDraggingPoi.value = false
+  window.removeEventListener('mousemove', handlePoiDragMove)
+  window.removeEventListener('mouseup', handlePoiDragEnd)
+}
+
 function onReset() {
   if (!timeController) return
   isSimulating.value = false
@@ -552,6 +626,21 @@ onMounted(async () => {
       if (!name) selectedPOI.value = null
     },
     onPOISelect: poi => {
+      if (selectedPOI.value?.poiId !== poi?.poiId) {
+        poiDragOffset.value = { x: 0, y: 0 }
+
+        // Determine initial side
+        if (poi && engine) {
+          poi.dot.getWorldPosition(_poiWorldPos);
+          _tempV.copy(_poiWorldPos).project(engine.camera);
+          const x = (_tempV.x * 0.5 + 0.5) * window.innerWidth;
+          const half = window.innerWidth / 2;
+
+          if (x < half - 100) poiUI.value.initialSide = 'left';
+          else if (x > half + 100) poiUI.value.initialSide = 'right';
+          else poiUI.value.initialSide = Math.random() > 0.5 ? 'left' : 'right';
+        }
+      }
       selectedPOI.value = poi
     }
   })
@@ -561,6 +650,74 @@ onMounted(async () => {
     if (viewMode.value === 'solar') {
       if (timeController) timeController.update(delta)
       if (interactions) interactions.update(delta)
+
+      // Update POI UI if one is selected
+      if (selectedPOI.value && engine && solar) {
+        const poi = selectedPOI.value;
+        const planetMesh = solar.planetObjects[poi.planetName] || (poi.planetName === 'moon' ? solar.moon : null);
+
+        if (planetMesh && poi.dot) {
+          poi.dot.getWorldPosition(_poiWorldPos);
+          planetMesh.getWorldPosition(_planetWorldPos);
+
+          // Occlusion check
+          _normal.copy(_poiWorldPos).sub(_planetWorldPos).normalize();
+          _viewDir.copy(engine.camera.position).sub(_poiWorldPos).normalize();
+          const isFacing = _normal.dot(_viewDir) > 0.05;
+
+          if (isFacing) {
+            _tempV.copy(_poiWorldPos).project(engine.camera);
+            const x = (_tempV.x * 0.5 + 0.5) * window.innerWidth;
+            const y = (-(_tempV.y * 0.5) + 0.5) * window.innerHeight;
+
+            _tempV.copy(_planetWorldPos).project(engine.camera);
+            const px = (_tempV.x * 0.5 + 0.5) * window.innerWidth;
+
+            // Side logic: panel is either to the left or right of the POI
+            const side = poiUI.value.initialSide;
+            const panelWidth = 280;
+            const marginX = 100;
+            const marginY = -120; // Default height offset
+
+            // Current Panel position
+            let panelX = (side === 'left') ? (x - panelWidth - marginX) : (x + marginX);
+            let panelY = y + marginY;
+
+            // Apply drag offset
+            panelX += poiDragOffset.value.x;
+            panelY += poiDragOffset.value.y;
+
+            // Flip side if dragged across the POI
+            const currentSide = (panelX + panelWidth / 2 < x) ? 'left' : 'right';
+
+            // 3-Point Path: POI -> Near Top Corner -> Far Top Corner
+            let p1 = { x, y };
+            let p2, p3;
+
+            if (currentSide === 'left') {
+              p2 = { x: panelX + panelWidth, y: panelY };
+              p3 = { x: panelX, y: panelY };
+            } else {
+              p2 = { x: panelX, y: panelY };
+              p3 = { x: panelX + panelWidth, y: panelY };
+            }
+
+            poiUI.value = {
+              ...poiUI.value,
+              visible: true,
+              x, y,
+              side: currentSide,
+              linePath: `M ${p1.x} ${p1.y} L ${p2.x} ${p2.y} L ${p3.x} ${p3.y}`,
+              panelX,
+              panelY
+            };
+          } else {
+            poiUI.value.visible = false;
+          }
+        }
+      } else {
+        poiUI.value.visible = false;
+      }
 
       // Update POIs visibility and labels
       if (solar && solar.planetObjects) {
@@ -641,6 +798,8 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  window.removeEventListener('mousemove', handlePoiDragMove)
+  window.removeEventListener('mouseup', handlePoiDragEnd)
   clearInterval(clockTimer)
   interactions?.dispose()
   engine?.dispose()
@@ -966,55 +1125,33 @@ onUnmounted(() => {
   border-color: #fff;
 }
 
-/* POI Landing Prompt */
-.poi-landing-prompt {
+/* POI Overlay Styles */
+.poi-svg-overlay {
   position: absolute;
-  bottom: 120px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(0, 20, 40, 0.7);
-  backdrop-filter: blur(12px);
-  padding: 16px 24px;
-  border-radius: 16px;
-  border: 1px solid rgba(0, 163, 255, 0.4);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
   z-index: 1001;
-  box-shadow: 0 10px 40px rgba(0,0,0,0.5);
-  animation: slideUp 0.3s cubic-bezier(0.19, 1, 0.22, 1);
-  pointer-events: auto;
 }
 
-@keyframes slideUp {
-  from { transform: translate(-50%, 20px); opacity: 0; }
-  to { transform: translate(-50%, 0); opacity: 1; }
+.poi-line {
+  fill: none;
+  stroke: #00A3FF;
+  stroke-width: 2;
+  stroke-dasharray: 1000;
+  stroke-dashoffset: 1000;
+  animation: grow-line 1s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  filter: drop-shadow(0 0 5px rgba(0, 163, 255, 0.8));
 }
 
-.poi-name {
-  font-size: 18px;
-  font-weight: 800;
-  color: #fff;
-  text-transform: uppercase;
-  letter-spacing: 2px;
+@keyframes grow-line {
+  to { stroke-dashoffset: 0; }
 }
 
-.poi-landing-prompt .land-btn {
-  padding: 10px 20px;
-  background: #00A3FF;
-  border: none;
-  border-radius: 8px;
-  color: #fff;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.poi-landing-prompt .land-btn:hover {
-  background: #0082CC;
-  transform: scale(1.05);
-  box-shadow: 0 0 20px rgba(0, 163, 255, 0.5);
+.poi-panel-wrapper {
+  pointer-events: none;
 }
 
 </style>
