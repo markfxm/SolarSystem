@@ -56,9 +56,8 @@ const description = computed(() => {
   width: 280px;
   background: rgba(10, 20, 35, 0.85);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(0, 163, 255, 0.4);
-  border-top: none; /* Top edge is the SVG line */
-  border-radius: 0 0 12px 12px; /* Only bottom corners rounded */
+  border: 2px solid #00A3FF;
+  border-radius: 12px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6), 0 0 20px rgba(0, 163, 255, 0.1);
   color: white;
   padding: 16px;
@@ -68,6 +67,7 @@ const description = computed(() => {
   transition: opacity 0.3s ease;
   overflow: hidden;
   transform-origin: top;
+  opacity: 0;
 }
 
 .poi-panel.left {
@@ -170,5 +170,6 @@ const description = computed(() => {
 
 .poi-panel {
   animation: expandDown 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation-delay: 1s;
 }
 </style>
