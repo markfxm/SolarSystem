@@ -1,9 +1,15 @@
+import * as THREE from 'three'
 import { computeD, computeElements, computePosition, computeMoonPosition, computePlanetQuaternion } from '../utils/Astronomy.js'
 
 export function createTimeController(planetObjects, orbitScale, extraRotating = [], moon = null, moonOrbit = null, moonOrbitRadius = 10) {
   let speedMultiplier = 1
   let currentD = computeD(new Date()) // Initialize once at start
   let isFrozen = false
+
+  // Scratch variables to avoid per-frame GC
+  const _earthPos = new THREE.Vector3();
+  const _scratchEl = { a: 1, e: 0, i: 0, N: 0, w: 0, M: 0 };
+  const _scratchPos = { x: 0, y: 0, z: 0, r: 0 };
 
   function setRealTime() {
     speedMultiplier = 1
@@ -24,37 +30,40 @@ export function createTimeController(planetObjects, orbitScale, extraRotating = 
   }
 
   function updatePositions(d, deltaSeconds = 0) {
-    let earthPos = null;
+    let hasEarth = false;
 
     Object.entries(planetObjects).forEach(([name, mesh]) => {
       if (name === 'sun') return; // Sun stays at origin
-      const el = computeElements(name, d)
-      const pos = computePosition(el, orbitScale)
-      mesh.position.set(pos.x, pos.y, pos.z)
+
+      // Use scratch variables to avoid allocations
+      const el = computeElements(name, d, _scratchEl);
+      const pos = computePosition(el, orbitScale, _scratchPos);
+      mesh.position.set(pos.x, pos.y, pos.z);
 
       // Use absolute IAU orientation based on d
       mesh.setRotationFromQuaternion(computePlanetQuaternion(name, d));
 
       if (name === 'earth') {
-        earthPos = mesh.position.clone();
+        _earthPos.copy(mesh.position);
+        hasEarth = true;
       }
-    })
+    });
 
     // Update Moon Position (Geocentric orbit)
-    if (moon && earthPos) {
-      const moonLocal = computeMoonPosition(d);
+    if (moon && hasEarth) {
+      const moonLocal = computeMoonPosition(d, _scratchPos);
       // Apply visual scale for distance
       const r = moonOrbitRadius;
 
       moon.position.set(
-        earthPos.x + moonLocal.x * r,
-        earthPos.y + moonLocal.y * r,
-        earthPos.z + moonLocal.z * r
+        _earthPos.x + moonLocal.x * r,
+        _earthPos.y + moonLocal.y * r,
+        _earthPos.z + moonLocal.z * r
       );
 
       // Update Moon Orbit Line Position (moves with Earth)
       if (moonOrbit) {
-        moonOrbit.position.copy(earthPos);
+        moonOrbit.position.copy(_earthPos);
       }
     }
 
