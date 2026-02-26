@@ -6,6 +6,9 @@ export function createTimeController(planetObjects, orbitScale, extraRotating = 
   let currentD = computeD(new Date()) // Initialize once at start
   let isFrozen = false
 
+  // Pre-cache entries for planetObjects to avoid Object.entries() in the update loop
+  const planetEntries = Object.entries(planetObjects);
+
   // Scratch variables to avoid per-frame GC
   const _earthPos = new THREE.Vector3();
   const _scratchEl = { a: 1, e: 0, i: 0, N: 0, w: 0, M: 0 };
@@ -32,7 +35,7 @@ export function createTimeController(planetObjects, orbitScale, extraRotating = 
   function updatePositions(d, deltaSeconds = 0) {
     let hasEarth = false;
 
-    Object.entries(planetObjects).forEach(([name, mesh]) => {
+    planetEntries.forEach(([name, mesh]) => {
       if (name === 'sun') return; // Sun stays at origin
 
       // Use scratch variables to avoid allocations

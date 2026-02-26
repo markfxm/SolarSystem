@@ -251,6 +251,7 @@ let sunController
 let interactions
 let marsSurface
 let clockTimer
+let planetsWithPOIs = []
 
 // Scratch variables for POI projection to minimize GC
 const _poiWorldPos = new THREE.Vector3()
@@ -602,6 +603,11 @@ onMounted(async () => {
   })
   isLoading.value = false
 
+  // Pre-cache planets that have POIs to avoid Object.entries() in the render loop
+  planetsWithPOIs = Object.entries(solar.planetObjects)
+    .filter(([name, mesh]) => mesh.userData.pois)
+    .map(([name, mesh]) => ({ name, mesh }));
+
   // pass the sun mesh as an extra rotating object so it spins with real speed
   timeController = createTimeController(
     solar.planetObjects,
@@ -720,11 +726,9 @@ onMounted(async () => {
       }
 
       // Update POIs visibility and labels
-      if (solar && solar.planetObjects) {
-        Object.entries(solar.planetObjects).forEach(([name, mesh]) => {
-          if (mesh.userData.pois) {
-            updatePOIs(mesh.userData.pois, engine.camera, mesh.position, name)
-          }
+      if (planetsWithPOIs.length > 0) {
+        planetsWithPOIs.forEach(({ name, mesh }) => {
+          updatePOIs(mesh.userData.pois, engine.camera, mesh.position, name)
         })
       }
     } else if (viewMode.value === 'mars' && marsSurface) {

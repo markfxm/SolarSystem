@@ -97,6 +97,9 @@ export function createPOIMarkers(planetName, radius) {
   return group;
 }
 
+// Scratch variable for POI scaling to avoid per-frame allocations
+const _tempScale = new THREE.Vector3();
+
 /**
  * Updates POI visibility and animations.
  */
@@ -121,8 +124,9 @@ export function updatePOIs(group, camera, planetPosition) {
       // Handle hover scaling (interaction script will set isHovered)
       const targetScale = poiGroup.userData.isHovered ? 1.5 : 1.0;
       const dot = poiGroup.userData.dot;
-      dot.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.1);
-      label.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.1);
+      _tempScale.setScalar(targetScale);
+      dot.scale.lerp(_tempScale, 0.1);
+      label.scale.lerp(_tempScale, 0.1);
     });
   }
 }
