@@ -6,6 +6,9 @@ export class Mars extends BasePlanet {
   }
 
   create(texture) {
+    // To use a Blender model, uncomment the line below and provide the correct path:
+    // this.loadModel('/models/mars.glb', texture);
+
     return this.createMesh(texture);
   }
 

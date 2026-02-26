@@ -54,8 +54,16 @@ export function createInteractions({
   ───────────────────────────── */
 
   function getFlyToPositions(body) {
-    const radius =
-      body.geometry?.parameters?.radius ?? 5
+    let radius = 5
+    if (body.geometry?.parameters?.radius) {
+      radius = body.geometry.parameters.radius
+    } else {
+      // Support for Blender models: compute approximate radius from bounding box
+      const box = new THREE.Box3().setFromObject(body)
+      const size = new THREE.Vector3()
+      box.getSize(size)
+      radius = Math.max(size.x, size.y, size.z) * 0.5
+    }
 
     // Distance and vertical offset for an "above-front" perspective
     const distance = Math.max(radius * 5, 20)
@@ -222,14 +230,20 @@ export function createInteractions({
 
     if (hitPOI) return
 
-    const hits = raycaster.intersectObjects(planets, false)
+    // Use recursive: true to support Blender models (Groups/Scenes)
+    const hits = raycaster.intersectObjects(planets, true)
 
     if (hits.length > 0) {
-      const obj = hits[0].object
-      if (hoveredObject !== obj) {
-        hoveredObject = obj
+      // Find the top-level planet object from the hit (could be a child mesh of a GLB)
+      let current = hits[0].object
+      while (current && !planets.includes(current)) {
+        current = current.parent
+      }
+
+      if (current && hoveredObject !== current) {
+        hoveredObject = current
         onHoverNameChange?.(
-          planetNames[obj.userData.name] ?? ''
+          planetNames[current.userData.name] ?? ''
         )
       }
     } else {
