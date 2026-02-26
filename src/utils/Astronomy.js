@@ -126,23 +126,32 @@ function rev(x) {
   return x - Math.floor(x / 360) * 360;
 }
 
-export function computeElements(planetName, d) {
+// Internal scratch variables to avoid per-frame GC
+const _qResult = new THREE.Quaternion();
+const _q3 = new THREE.Quaternion();
+const _vAxisZ = new THREE.Vector3(0, 0, 1);
+const _posResult = { x: 0, y: 0, z: 0, r: 0 };
+const _elResult = { a: 1, e: 0, i: 0, N: 0, w: 0, M: 0 };
+
+export function computeElements(planetName, d, target = null) {
   const data = planetsData[planetName];
+  const res = target || _elResult;
   if (!data || !data.e) {
-    return { a: 1, e: 0, i: 0, N: 0, w: 0, M: 0 };
+    res.a = 1; res.e = 0; res.i = 0; res.N = 0; res.w = 0; res.M = 0;
+    return res;
   }
-  return {
-    a: data.a,
-    e: data.e[0] + data.e[1] * d,
-    i: data.i[0] + data.i[1] * d,
-    N: data.N[0] + data.N[1] * d,
-    w: data.w[0] + data.w[1] * d,
-    M: data.M[0] + data.M[1] * d
-  };
+  res.a = data.a;
+  res.e = data.e[0] + data.e[1] * d;
+  res.i = data.i[0] + data.i[1] * d;
+  res.N = data.N[0] + data.N[1] * d;
+  res.w = data.w[0] + data.w[1] * d;
+  res.M = data.M[0] + data.M[1] * d;
+  return res;
 }
 
 // Astronomy.js — replace the old computePosition with this one
-export function computePosition(elements, scale = 10) {
+export function computePosition(elements, scale = 10, target = null) {
+  const res = target || _posResult;
   // Work completely in radians from the start
   const a = elements.a;
   const e = elements.e;
@@ -192,57 +201,56 @@ export function computePosition(elements, scale = 10) {
   // Transform Ecliptic (XY-plane, Z-up) to World (XZ-plane, Y-up)
   // New Y = Old Z (North)
   // New Z = -Old Y
-  return {
-    x: x * scale,
-    y: z * scale,
-    z: -y * scale,
-    r: r * scale
-  };
+  res.x = x * scale;
+  res.y = z * scale;
+  res.z = -y * scale;
+  res.r = r * scale;
+  return res;
 }
 
+// Pre-compute constant rotation bases for each planet to save ~90% CPU in computePlanetQuaternion
+const PLANET_QUAT_BASES = {};
+const Q_ADJ = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI / 2);
 
+function initQuatBases() {
+  const epsilon = 23.4392911 * Math.PI / 180;
+  const qEcl = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2 - epsilon);
 
+  Object.keys(ORIENTATION_CONSTANTS).forEach(name => {
+    const c = ORIENTATION_CONSTANTS[name];
+    const alpha = c.alpha0 * Math.PI / 180;
+    const delta = c.delta0 * Math.PI / 180;
+
+    const q1 = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), (alpha + Math.PI / 2));
+    const q2 = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), (Math.PI / 2 - delta));
+
+    // Base = qEcl * q1 * q2
+    PLANET_QUAT_BASES[name] = new THREE.Quaternion().copy(qEcl).multiply(q1).multiply(q2);
+  });
+}
+initQuatBases();
 
 /**
  * Computes the planetary orientation as a Quaternion in Ecliptic J2000 space.
  * Uses IAU 2015 recommended models.
+ * Optimized with pre-computed bases and scratch variables to avoid GC pressure.
  */
 export function computePlanetQuaternion(planetName, d) {
+  const base = PLANET_QUAT_BASES[planetName];
+  if (!base) return _qResult.identity();
+
   const c = ORIENTATION_CONSTANTS[planetName];
-  if (!c) return new THREE.Quaternion();
-
-  const alpha = c.alpha0 * Math.PI / 180;
-  const delta = c.delta0 * Math.PI / 180;
-  // W is the angle of the prime meridian measured from the node.
   const W = (c.W0 + c.Wdot * d) * Math.PI / 180;
-  const epsilon = 23.4392911 * Math.PI / 180; // Obliquity of the Ecliptic
 
-  // 1. ICRF to World (Y-up) transformation
-  // Maps Ecliptic North to +Y and Ecliptic plane to XZ
-  const qEcl = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2 - epsilon);
+  // Use scratch variables to avoid allocations
+  _q3.setFromAxisAngle(_vAxisZ, W);
 
-  // 2. IAU Rotation: Body-Fixed to ICRF
-  // M = Rz(alpha+90) * Rx(90-delta) * Rz(W)
-  const q1 = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), (alpha + Math.PI / 2));
-  const q2 = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), (Math.PI / 2 - delta));
-  const q3 = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), W);
-
-  // 3. Three.js Sphere Adjustment: Map local Y (up) to Body-Fixed Z (pole)
-  const qAdj = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI / 2);
-
-  // Total orientation: qEcl * q1 * q2 * q3 * qAdj
-  const total = new THREE.Quaternion()
-    .copy(qEcl)
-    .multiply(q1)
-    .multiply(q2)
-    .multiply(q3)
-    .multiply(qAdj);
-
-  return total;
+  // Total orientation: qBase * q3(W) * qAdj
+  return _qResult.copy(base).multiply(_q3).multiply(Q_ADJ);
 }
 
 
-export function computeMoonPosition(d) {
+export function computeMoonPosition(d, target = null) {
   // Use accurate Keplerian elements for the Moon relative to Earth
   const el = computeElements('moon', d);
 
@@ -252,5 +260,5 @@ export function computeMoonPosition(d) {
   // which allows timeController to apply the visual radius (MOON_ORBIT_RADIUS).
   el.a = 1;
 
-  return computePosition(el, 1);
+  return computePosition(el, 1, target);
 }
