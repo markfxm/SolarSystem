@@ -23,7 +23,7 @@ const props = defineProps({
   }
 })
 
-import { t } from '../utils/i18n.js'
+import { t } from '../../utils/i18n.js'
 
 const emit = defineEmits(['exit', 'clear-path'])
 

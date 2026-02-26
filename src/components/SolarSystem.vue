@@ -146,7 +146,7 @@
       @close="showTransitPanel = false"
     />
 
-    <PlanetSurface
+    <MarsHUD
       :isVisible="viewMode === 'mars'"
       planetId="mars"
       :planetName="t('planet.mars')"
@@ -170,7 +170,7 @@ import LanguagePanel from './LanguagePanel.vue'
 import TourPanel from './TourPanel.vue'
 import StellarMomentModal from './StellarMomentModal.vue'
 import TransitPanel from './TransitPanel.vue'
-import PlanetSurface from './PlanetSurface.vue'
+import MarsHUD from '../planets/Mars/MarsHUD.vue'
 import POIPanel from './POIPanel.vue'
 
 import { t, currentLang } from '../utils/i18n.js'
@@ -181,7 +181,7 @@ import { createEngine } from '../three/engine.js'
 import { createSolarSystem } from '../three/createSolarSystem.js'
 import { createTimeController } from '../three/timeController.js'
 import { createInteractions } from '../three/interactions.js'
-import { createMarsSurface } from '../three/marsSurface.js'
+import { createMarsSurface } from '../planets/Mars/MarsSurface.js'
 import { updatePOIs } from '../utils/POI.js'
 import { AestheticSnapshotManager } from '../utils/AestheticSnapshot.js'
 import { AstrologyService } from '../utils/AstrologyService.js'

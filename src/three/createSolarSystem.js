@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { createUnifiedPlanet } from '../utils/Planet.js'
+import { PlanetClasses } from '../planets/registry.js'
 import { createNebula } from '../utils/Nebula.js'
 import { computeElements, computePosition, computeD, computePlanetQuaternion } from '../utils/Astronomy.js'
 import { createEllipticalOrbit } from '../utils/EllipticalOrbit.js'
@@ -36,7 +36,7 @@ const lowResMaps = {
   saturn: '/saturn.jpg',
   uranus: '/uranus.jpg',
   neptune: '/neptune.jpg',
-  moon: '/mercury.jpg' // Placeholder for moon
+  moon: '/mercury.jpg'
 }
 
 const highResMaps = {
@@ -60,41 +60,6 @@ const loadTexture = (path) =>
     textureLoader.load(path, resolve, undefined, reject)
   })
 
-async function createSaturnRing(saturn) {
-  const baseRadius = sizes.saturn * sizeScale;
-  const innerRadius = baseRadius * 1.11;
-  const outerRadius = baseRadius * 2.33;
-
-  const ringAlpha = await loadTexture('/hq/8k_saturn_ring_alpha.png');
-
-  const ringGeo = new THREE.RingGeometry(innerRadius, outerRadius, 128);
-  const pos = ringGeo.attributes.position;
-  const uv = ringGeo.attributes.uv;
-  const v3 = new THREE.Vector3();
-
-  for (let i = 0; i < pos.count; i++) {
-    v3.fromBufferAttribute(pos, i);
-    const r = v3.length();
-    const v = (r - innerRadius) / (outerRadius - innerRadius);
-    uv.setXY(i, v, 0);
-  }
-
-  const ringMat = new THREE.MeshStandardMaterial({
-    map: ringAlpha,
-    alphaMap: ringAlpha,
-    transparent: true,
-    side: THREE.DoubleSide,
-    emissive: 0xffffff,
-    emissiveIntensity: 0.15,
-    roughness: 0.3,
-    metalness: 0.0,
-  });
-
-  const ringMesh = new THREE.Mesh(ringGeo, ringMat);
-  ringMesh.rotation.x = -Math.PI / 2;
-  saturn.add(ringMesh);
-}
-
 export async function createSolarSystem(scene, zodiacNames = [], onProgress = () => {}) {
   // 1. Initial Load: Load all low-res textures
   const totalSteps = Object.keys(lowResMaps).length;
@@ -107,12 +72,10 @@ export async function createSolarSystem(scene, zodiacNames = [], onProgress = ()
     return tex;
   }
 
-  // Sequential loading of initial textures to avoid CPU/Network spikes on weaker devices
   const lowResTextures = {};
   const keys = Object.keys(lowResMaps);
   for (const key of keys) {
     lowResTextures[key] = await loadLowRes(key);
-    // Tiny delay between each load to yield main thread
     await new Promise(r => setTimeout(r, 20));
   }
 
@@ -122,52 +85,59 @@ export async function createSolarSystem(scene, zodiacNames = [], onProgress = ()
     jupiter: jupiterTex, saturn: saturnTex, uranus: uranusTex, neptune: neptuneTex, moon: moonTex
   } = lowResTextures;
 
-  // Sun
-  const sun = new THREE.Mesh(
-    new THREE.SphereGeometry(sizes.sun, 48, 48), // Reduced detail
-    new THREE.MeshBasicMaterial({ map: sunTex })
-  )
-  sun.userData.name = 'sun'
-  sun.name = 'sun'
-  sun.userData.isSun = true
-  scene.add(sun)
+  const planetInstances = {};
+  const planetObjects = {};
 
-  // Planet factory
-  const createPlanet = (size, tex, name, isEarth = false, extraTex = null) => {
-    const planet = createUnifiedPlanet(size, tex, scene, isEarth, extraTex, name)
-    planet.userData.name = name
-    planet.userData.isPlanet = true
+  // Factory function to create planet via classes
+  const initPlanet = (name, radius, ...createArgs) => {
+    const PlanetClass = PlanetClasses[name];
+    const instance = new PlanetClass(radius, scene);
+    const mesh = instance.create(...createArgs);
+    planetInstances[name] = instance;
+    planetObjects[name] = mesh;
 
-    const elements = computeElements(name, 0)
-    const orbit = createEllipticalOrbit(elements, orbitScale, 512, 0xd4aaff, 0.92)
-    orbit.userData.isOrbit = true
-    scene.add(orbit)
-
-    return planet
+    if (name !== 'sun' && name !== 'moon') {
+      const elements = computeElements(name, 0);
+      const orbit = createEllipticalOrbit(elements, orbitScale, 512, 0xd4aaff, 0.92);
+      orbit.userData.isOrbit = true;
+      scene.add(orbit);
+    }
+    return mesh;
   }
 
-  // Planets
-  const mercury = createPlanet(sizes.mercury * sizeScale, mercuryTex, 'mercury')
-  const venus = createPlanet(sizes.venus * sizeScale, venusTex, 'venus')
-  const earth = createPlanet(sizes.earth * sizeScale, earthDayTex, 'earth', true, earthNightTex)
-  const mars = createPlanet(sizes.mars * sizeScale, marsTex, 'mars')
-  const jupiter = createPlanet(sizes.jupiter * sizeScale, jupiterTex, 'jupiter')
-  const saturn = createPlanet(sizes.saturn * sizeScale, saturnTex, 'saturn')
-  const uranus = createPlanet(sizes.uranus * sizeScale, uranusTex, 'uranus')
-  const neptune = createPlanet(sizes.neptune * sizeScale, neptuneTex, 'neptune')
+  // Instantiate all
+  initPlanet('sun', sizes.sun, sunTex);
+  initPlanet('mercury', sizes.mercury * sizeScale, mercuryTex);
+  initPlanet('venus', sizes.venus * sizeScale, venusTex);
+  initPlanet('earth', sizes.earth * sizeScale, earthDayTex, earthNightTex);
+  initPlanet('mars', sizes.mars * sizeScale, marsTex);
+  initPlanet('jupiter', sizes.jupiter * sizeScale, jupiterTex);
+  initPlanet('saturn', sizes.saturn * sizeScale, saturnTex);
+  initPlanet('uranus', sizes.uranus * sizeScale, uranusTex);
+  initPlanet('neptune', sizes.neptune * sizeScale, neptuneTex);
 
-  // Load Saturn rings asynchronously to avoid blocking initial scene visibility
-  createSaturnRing(saturn).catch(err => console.error("Failed to load Saturn rings:", err));
+  // Saturn Rings
+  planetInstances.saturn.addRings(textureLoader).catch(console.error);
 
-  const planets = [sun, mercury, venus, earth, mars, jupiter, saturn, uranus, neptune]
-  const planetObjects = { sun, mercury, venus, earth, mars, jupiter, saturn, uranus, neptune }
+  // Moon
+  const moonInstance = new PlanetClasses.moon(sizes.earth * sizeScale * 0.27, scene);
+  const moon = moonInstance.create(moonTex);
+  moon.userData.isMoon = true;
+  planetInstances.moon = moonInstance;
+  planetObjects.moon = moon;
 
-  Object.entries(planetObjects).forEach(([name, mesh]) => {
-    // Pre-compute bounding sphere for faster raycasting interaction
-    if (mesh.geometry) {
-      mesh.geometry.computeBoundingSphere();
-    }
-  })
+  const currentD = computeD(new Date());
+  const moonEl = computeElements('moon', currentD);
+  const visualMoonEl = { ...moonEl, a: 1 };
+  const moonOrbit = createEllipticalOrbit(visualMoonEl, MOON_ORBIT_RADIUS, 128, 0x888888, 0.5);
+  moonOrbit.userData.isOrbit = true;
+  scene.add(moonOrbit);
+
+  const planets = Object.values(planetObjects);
+
+  planets.forEach(mesh => {
+    if (mesh.geometry) mesh.geometry.computeBoundingSphere();
+  });
 
   // Initial positions & orientations
   const startD = computeD(new Date());
@@ -200,97 +170,35 @@ export async function createSolarSystem(scene, zodiacNames = [], onProgress = ()
   zodiacRing.visible = false;
   scene.add(zodiacRing);
 
-  // Moon
-  const moon = createUnifiedPlanet(sizes.earth * sizeScale * 0.27, moonTex, scene, false, null, 'moon');
-  moon.userData.name = 'moon';
-  moon.userData.isMoon = true;
-
-  const currentD = computeD(new Date());
-  const moonEl = computeElements('moon', currentD);
-  const visualMoonEl = { ...moonEl, a: 1 };
-  const moonOrbit = createEllipticalOrbit(visualMoonEl, MOON_ORBIT_RADIUS, 128, 0x888888, 0.5);
-  moonOrbit.userData.isOrbit = true;
-  scene.add(moonOrbit);
-
   const aspectsManager = new AspectLinesManager(scene, planetObjects);
   const auraManager = new AuraManager(scene, planetObjects);
 
-  // Track HQ texture status to avoid redundant loads
-  const hqStatus = {}; // { [key]: 'loading' | 'loaded' }
+  const hqStatus = {};
 
-  // --- Background HQ Loading ---
-  const loadHQ = async (planetName, key, isEarth = false) => {
+  const loadHQ = async (planetName, key) => {
     if (hqStatus[key]) return;
     hqStatus[key] = 'loading';
 
     try {
       const hqTex = await loadTexture(highResMaps[key]);
-      const mesh = planetName === 'moon' ? moon : planetObjects[planetName];
-      if (mesh) {
-        if (mesh.material.uniforms) {
-          // ShaderMaterial (Planets)
-          if (key.includes('night')) {
-             const oldTex = mesh.material.uniforms.nightTexture.value;
-             mesh.material.uniforms.nightTexture.value = hqTex;
-             if (oldTex && oldTex !== hqTex) oldTex.dispose();
-          } else {
-             const oldTex = mesh.material.uniforms.dayTexture.value;
-             mesh.material.uniforms.dayTexture.value = hqTex;
-             if (oldTex && oldTex !== hqTex) oldTex.dispose();
-          }
-        } else {
-          // MeshBasicMaterial (Sun)
-          const oldTex = mesh.material.map;
-          mesh.material.map = hqTex;
-          mesh.material.needsUpdate = true;
-          if (oldTex && oldTex !== hqTex) oldTex.dispose();
-        }
+      const instance = planetInstances[planetName];
+      if (instance) {
+        const isNight = key.includes('night');
+        instance.updateHQ(hqTex, isNight);
         hqStatus[key] = 'loaded';
         console.log(`🚀 HQ Texture loaded for ${planetName} (${key})`);
       }
     } catch (e) {
-      delete hqStatus[key]; // Allow retry on failure
+      delete hqStatus[key];
       console.warn(`Failed to load HQ texture for ${planetName}`, e);
     }
   }
 
-  // Sequentially load HQ textures in background.
-  // We only load the most critical ones (Sun, Earth) automatically to save performance.
-  const startBackgroundLoading = async () => {
-    // Initial delay to let the app settle
-    await new Promise(r => setTimeout(r, 2000));
-
-    // Priority 1: Sun and Earth (the most visible bodies)
-    // We load them one by one instead of Promise.all to reduce peak CPU/GPU spikes
-    await loadHQ('sun', 'sun');
-    await new Promise(r => setTimeout(r, 1500));
-    await loadHQ('earth', 'earth_day');
-    await new Promise(r => setTimeout(r, 1000));
-    await loadHQ('earth', 'earth_night');
-
-    // For other planets, we load them much more slowly in the background
-    // to avoid impacting interaction performance.
-    await new Promise(r => setTimeout(r, 8000));
-    const others = ['mars', 'jupiter', 'saturn', 'venus', 'mercury', 'moon', 'uranus', 'neptune'];
-    for (const p of others) {
-      // If user hasn't already triggered HQ for this planet via interaction
-      if (!hqStatus[p]) {
-        await loadHQ(p, p);
-        await new Promise(r => setTimeout(r, 3000)); // Large gap between each planet
-      }
-    }
-  }
-
-  // Start background loading after a short delay
-  // DEACTIVATED: User prefers not to load HQ textures automatically at startup to avoid lag.
-  // HQ textures will be loaded on-demand via prioritizeHQ() when a planet is selected or focused.
-  // setTimeout(startBackgroundLoading, 500);
-
   return {
     scene,
-    planets: [...planets, moon],
+    planets,
     planetObjects,
-    sun,
+    sun: planetObjects.sun,
     moon,
     moonOrbit,
     MOON_ORBIT_RADIUS,
@@ -298,7 +206,6 @@ export async function createSolarSystem(scene, zodiacNames = [], onProgress = ()
     zodiacRing,
     aspectsManager,
     auraManager,
-    // Provide a method to prioritize a planet's HQ load
     prioritizeHQ: (name) => {
        if (name === 'earth') {
          loadHQ('earth', 'earth_day');
