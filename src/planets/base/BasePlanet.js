@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { createLatLonGrid } from '../../utils/Grid.js';
 import { createPOIMarkers } from '../../utils/POI.js';
 
@@ -10,6 +11,7 @@ const vertexShader = `
 
   void main() {
     vUv = uv;
+    // Transform normal to World Space to match world-space light calculation
     vNormal = normalize(mat3(modelMatrix) * normal);
     vec4 worldPos = modelMatrix * vec4(position, 1.0);
     vWorldPosition = worldPos.xyz;
@@ -30,22 +32,28 @@ const fragmentShader = `
   const float extraFill    = 0.1;
 
   void main() {
+    // Re-normalize the interpolated normal in the fragment shader
+    // to prevent faceted/jagged artifacts from linear interpolation.
+    vec3 normal = normalize(vNormal);
+
     vec3 dayColor   = texture2D(dayTexture, vUv).rgb;
     vec3 nightColor = useNight ? texture2D(nightTexture, vUv).rgb : vec3(0.0);
 
+    // Light direction from Sun (at origin) to surface point
     vec3 lightDir   = normalize(-vWorldPosition);
-    float cosAngle  = dot(vNormal, lightDir);
+    float cosAngle  = dot(normal, lightDir);
 
     float direct    = max(0.0, cosAngle) * directBoost;
     float ambient   = ambientLevel + extraFill;
 
-    float mixFactor = smoothstep(-0.2, 0.2, cosAngle);
+    // Wider smoothstep for softer day/night transition
+    float mixFactor = smoothstep(-0.25, 0.25, cosAngle);
 
     vec3 baseColor  = mix(nightColor, dayColor, mixFactor);
     vec3 color      = baseColor * (direct + ambient);
 
     if (useNight) {
-        float nightIntensity = smoothstep(0.2, -0.2, cosAngle);
+        float nightIntensity = smoothstep(0.2, -0.3, cosAngle);
         color += nightColor * nightIntensity * 2.0;
     }
 
@@ -58,7 +66,14 @@ export class BasePlanet {
     this.name = name;
     this.radius = radius;
     this.scene = scene;
-    this.mesh = null;
+    // this.mesh now acts as the main container for the planet (a Group)
+    this.mesh = new THREE.Group();
+    this.mesh.userData.name = this.name;
+    this.mesh.userData.isPlanet = true;
+    this.mesh.userData.radius = this.radius;
+    this.scene.add(this.mesh);
+
+    this.planetBody = null; // The actual mesh (sphere or model)
   }
 
   createMesh(dayTexture, nightTexture = null) {
@@ -73,12 +88,12 @@ export class BasePlanet {
       fragmentShader
     });
 
-    this.mesh = new THREE.Mesh(geometry, material);
-    this.mesh.userData.name = this.name;
-    this.mesh.userData.originalRadius = this.radius;
-    this.mesh.userData.isPlanet = true;
+    this.planetBody = new THREE.Mesh(geometry, material);
+    this.planetBody.userData.name = this.name;
+    this.planetBody.userData.originalRadius = this.radius;
+    this.planetBody.userData.isPlanetBody = true;
 
-    this.scene.add(this.mesh);
+    this.mesh.add(this.planetBody);
 
     // Add common features
     this.addGrid();
@@ -88,12 +103,14 @@ export class BasePlanet {
   }
 
   addGrid() {
+    if (this.mesh.userData.grid) return;
     const grid = createLatLonGrid(this.radius);
     this.mesh.add(grid);
     this.mesh.userData.grid = grid;
   }
 
   addPOIs() {
+    if (this.mesh.userData.pois) return;
     const pois = createPOIMarkers(this.name, this.radius);
     if (pois) {
       this.mesh.add(pois);
@@ -113,13 +130,11 @@ export class BasePlanet {
       }
     };
 
-    if (this.mesh.isMesh) {
-      applyToMaterial(this.mesh.material);
-    } else {
-      this.mesh.traverse(child => {
-        if (child.isMesh) applyToMaterial(child.material);
-      });
-    }
+    this.mesh.traverse(child => {
+      if (child.isMesh && child.material && child.material.uniforms) {
+        applyToMaterial(child.material);
+      }
+    });
   }
 
   /**
@@ -135,51 +150,82 @@ export class BasePlanet {
       loader.load(url, (gltf) => {
         const model = gltf.scene;
 
+        // Center and Auto-scale model to fit the desired radius
+        const box = new THREE.Box3().setFromObject(model);
+        const center = new THREE.Vector3();
+        box.getCenter(center);
+        model.position.sub(center); // Center the model's geometry
+
+        const size = new THREE.Vector3();
+        box.getSize(size);
+        const maxDim = Math.max(size.x, size.y, size.z);
+        const scale = (this.radius * 2) / maxDim;
+        model.scale.multiplyScalar(scale); // Apply scale on top of existing scale
+
         model.traverse(child => {
           if (child.isMesh) {
-            // Setup Day/Night shader for the model
-            // If textures aren't provided, we try to use the ones from the GLB material
-            const meshDayTex = dayTexture || child.material.map;
-            const meshNightTex = nightTexture || (child.material.emissiveMap || new THREE.Texture());
+            // Fix for jagged shading:
+            // 1. Merge duplicate vertices (common in GLTF exports) to allow smooth normal calculation
+            // 2. Recompute normals
+            if (child.geometry) {
+                child.geometry = BufferGeometryUtils.mergeVertices(child.geometry);
+                child.geometry.computeVertexNormals();
+            }
 
-            child.material = new THREE.ShaderMaterial({
+            // Setup Day/Night shader for the model
+            const meshDayTex = dayTexture || (child.material && child.material.map) || new THREE.Texture();
+            const meshNightTex = nightTexture || (child.material && child.material.emissiveMap) || new THREE.Texture();
+
+            const newMaterial = new THREE.ShaderMaterial({
               uniforms: {
                 dayTexture: { value: meshDayTex },
                 nightTexture: { value: meshNightTex },
-                useNight: { value: true }, // Enable night lights for models by default
+                useNight: { value: !!nightTexture || (child.material && !!child.material.emissiveMap) },
               },
               vertexShader,
               fragmentShader
             });
 
+            // Dispose old material if it exists
+            if (child.material) {
+              if (Array.isArray(child.material)) {
+                child.material.forEach(m => m.dispose());
+              } else {
+                child.material.dispose();
+              }
+            }
+            child.material = newMaterial;
+
             // Ensure the model works with our interaction system
             child.userData.name = this.name;
             child.userData.isPlanet = true;
+            child.userData.isPlanetBody = true;
           }
         });
 
-        // Replace placeholder mesh if it exists
-        if (this.mesh) {
-          // Keep common components (Grid, POIs)
-          const children = [...this.mesh.children];
-          children.forEach(c => {
-            if (c.userData.isGrid || c.userData.isPOIGroup) { // Identify our components
-               model.add(c);
-            } else {
-               // Fallback: add everything that isn't the geometry itself
-               model.add(c);
+        // Remove and dispose old body if it exists
+        if (this.planetBody) {
+          this.mesh.remove(this.planetBody);
+          this.planetBody.traverse(child => {
+            if (child.isMesh) {
+              child.geometry.dispose();
+              if (Array.isArray(child.material)) {
+                child.material.forEach(m => m.dispose());
+              } else {
+                child.material.dispose();
+              }
             }
           });
-
-          this.scene.remove(this.mesh);
         }
 
-        this.mesh = model;
-        this.mesh.userData.name = this.name;
-        this.mesh.userData.isPlanet = true;
-        this.mesh.userData.isModel = true; // Mark as imported model
+        this.planetBody = model;
+        this.mesh.add(this.planetBody);
+        this.mesh.userData.isModel = true;
 
-        this.scene.add(this.mesh);
+        // Add common features if not already added
+        if (!this.mesh.userData.grid) this.addGrid();
+        if (!this.mesh.userData.pois) this.addPOIs();
+
         resolve(this.mesh);
       }, undefined, (err) => {
         console.error(`Error loading model for ${this.name}:`, err);
