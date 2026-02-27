@@ -4,6 +4,12 @@ import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js';
 import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
 import { ASPECT_TYPES } from './AstrologyService.js';
 
+// Pre-allocated scratch variables to eliminate per-frame GC pressure
+const _v1 = new THREE.Vector3();
+const _v2 = new THREE.Vector3();
+const _posArray = new Float32Array(6);
+const _resolution = new THREE.Vector2();
+
 export class AspectLinesManager {
     constructor(scene, planetObjects) {
         this.scene = scene;
@@ -17,32 +23,50 @@ export class AspectLinesManager {
 
     update(aspects) {
         const activeKeys = new Set();
+        _resolution.set(window.innerWidth, window.innerHeight);
 
-        aspects.forEach(item => {
-            const key = [item.p1, item.p2].sort().join('-');
+        // Pre-update matrices for all planets involved to ensure sync and avoid redundant calculations
+        // We use a Set to ensure each planet's matrix is updated exactly once per manager update
+        const planetsToUpdate = new Set();
+        for (let i = 0; i < aspects.length; i++) {
+            planetsToUpdate.add(aspects[i].p1);
+            planetsToUpdate.add(aspects[i].p2);
+        }
+        for (const name of planetsToUpdate) {
+            const obj = this.planetObjects[name];
+            if (obj) obj.updateMatrixWorld();
+        }
+
+        // Process aspects
+        for (let i = 0; i < aspects.length; i++) {
+            const item = aspects[i];
+
+            // Robust key generation that doesn't rely on input order but avoids array allocation
+            const key = item.p1 < item.p2 ? item.p1 + '-' + item.p2 : item.p2 + '-' + item.p1;
             activeKeys.add(key);
 
             const p1Obj = this.planetObjects[item.p1];
             const p2Obj = this.planetObjects[item.p2];
 
-            if (!p1Obj || !p2Obj) return;
+            if (!p1Obj || !p2Obj) continue;
 
-            p1Obj.updateMatrixWorld();
-            p2Obj.updateMatrixWorld();
-            const pos1 = new THREE.Vector3().setFromMatrixPosition(p1Obj.matrixWorld);
-            const pos2 = new THREE.Vector3().setFromMatrixPosition(p2Obj.matrixWorld);
+            // Use getWorldPosition with scratch variables for robustness and performance
+            p1Obj.getWorldPosition(_v1);
+            p2Obj.getWorldPosition(_v2);
 
             if (!this.lines.has(key)) {
                 // Create new line using Line2
                 const geometry = new LineGeometry();
-                geometry.setPositions([pos1.x, pos1.y, pos1.z, pos2.x, pos2.y, pos2.z]);
+                _posArray[0] = _v1.x; _posArray[1] = _v1.y; _posArray[2] = _v1.z;
+                _posArray[3] = _v2.x; _posArray[4] = _v2.y; _posArray[5] = _v2.z;
+                geometry.setPositions(_posArray);
 
                 const material = new LineMaterial({
                     color: item.aspect.color,
                     linewidth: 2.0, // Artistic thickness
                     transparent: true,
                     opacity: 0,
-                    resolution: new THREE.Vector2(window.innerWidth, window.innerHeight)
+                    resolution: _resolution
                 });
 
                 const line = new Line2(geometry, material);
@@ -59,37 +83,42 @@ export class AspectLinesManager {
             } else {
                 // Update position of existing line
                 const data = this.lines.get(key);
-                data.line.geometry.setPositions([pos1.x, pos1.y, pos1.z, pos2.x, pos2.y, pos2.z]);
+                _posArray[0] = _v1.x; _posArray[1] = _v1.y; _posArray[2] = _v1.z;
+                _posArray[3] = _v2.x; _posArray[4] = _v2.y; _posArray[5] = _v2.z;
+                data.line.geometry.setPositions(_posArray);
 
-                // If aspect type changed (rare but possible with orbs), update color
+                // LineMaterial requires resolution update to correctly handle window resizing
+                data.line.material.resolution.copy(_resolution);
+
+                // If aspect type changed (possible with moving orbs), update color
                 if (data.aspectType !== item.aspect.type) {
                     data.line.material.color.set(item.aspect.color);
                     data.aspectType = item.aspect.type;
                 }
             }
-        });
+        }
 
-        // Remove/Fade out inactive lines
-        for (const [key, data] of this.lines.entries()) {
+        // Cleanup and Animation loop
+        for (const [key, data] of this.lines) {
             if (!activeKeys.has(key)) {
                 data.line.userData.targetOpacity = 0;
+                // Dispose once fully faded
                 if (data.line.material.opacity <= 0.01) {
                     this.group.remove(data.line);
                     data.line.geometry.dispose();
                     data.line.material.dispose();
                     this.lines.delete(key);
+                    continue;
                 }
             } else {
                 data.line.userData.targetOpacity = 0.6;
             }
-        }
 
-        // Animate opacity
-        this.lines.forEach(data => {
+            // Animate opacity (Linear interpolation)
             const line = data.line;
             const target = line.userData.targetOpacity;
             line.material.opacity += (target - line.material.opacity) * 0.1;
-        });
+        }
     }
 
     setVisible(visible) {
@@ -98,10 +127,10 @@ export class AspectLinesManager {
 
     dispose() {
         this.scene.remove(this.group);
-        this.lines.forEach(data => {
+        for (const data of this.lines.values()) {
             data.line.geometry.dispose();
             data.line.material.dispose();
-        });
+        }
         this.lines.clear();
     }
 }
