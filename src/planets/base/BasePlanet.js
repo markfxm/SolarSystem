@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { createLatLonGrid } from '../../utils/Grid.js';
 import { createPOIMarkers } from '../../utils/POI.js';
 
@@ -156,20 +157,23 @@ export class BasePlanet {
 
         model.traverse(child => {
           if (child.isMesh) {
-            // Ensure the geometry has normals for the shader to work
-            if (!child.geometry.attributes.normal) {
-              child.geometry.computeVertexNormals();
+            // Fix for jagged shading:
+            // 1. Merge duplicate vertices (common in GLTF exports) to allow smooth normal calculation
+            // 2. Recompute normals
+            if (child.geometry) {
+                child.geometry = BufferGeometryUtils.mergeVertices(child.geometry);
+                child.geometry.computeVertexNormals();
             }
 
             // Setup Day/Night shader for the model
-            const meshDayTex = dayTexture || child.material.map || new THREE.Texture();
-            const meshNightTex = nightTexture || (child.material.emissiveMap || new THREE.Texture());
+            const meshDayTex = dayTexture || (child.material && child.material.map) || new THREE.Texture();
+            const meshNightTex = nightTexture || (child.material && child.material.emissiveMap) || new THREE.Texture();
 
             child.material = new THREE.ShaderMaterial({
               uniforms: {
                 dayTexture: { value: meshDayTex },
                 nightTexture: { value: meshNightTex },
-                useNight: { value: !!nightTexture || !!child.material.emissiveMap },
+                useNight: { value: !!nightTexture || (child.material && !!child.material.emissiveMap) },
               },
               vertexShader,
               fragmentShader
