@@ -11,6 +11,7 @@ const vertexShader = `
 
   void main() {
     vUv = uv;
+    // Transform normal to World Space to match world-space light calculation
     vNormal = normalize(mat3(modelMatrix) * normal);
     vec4 worldPos = modelMatrix * vec4(position, 1.0);
     vWorldPosition = worldPos.xyz;
@@ -31,22 +32,28 @@ const fragmentShader = `
   const float extraFill    = 0.1;
 
   void main() {
+    // Re-normalize the interpolated normal in the fragment shader
+    // to prevent faceted/jagged artifacts from linear interpolation.
+    vec3 normal = normalize(vNormal);
+
     vec3 dayColor   = texture2D(dayTexture, vUv).rgb;
     vec3 nightColor = useNight ? texture2D(nightTexture, vUv).rgb : vec3(0.0);
 
+    // Light direction from Sun (at origin) to surface point
     vec3 lightDir   = normalize(-vWorldPosition);
-    float cosAngle  = dot(vNormal, lightDir);
+    float cosAngle  = dot(normal, lightDir);
 
     float direct    = max(0.0, cosAngle) * directBoost;
     float ambient   = ambientLevel + extraFill;
 
-    float mixFactor = smoothstep(-0.2, 0.2, cosAngle);
+    // Wider smoothstep for softer day/night transition
+    float mixFactor = smoothstep(-0.25, 0.25, cosAngle);
 
     vec3 baseColor  = mix(nightColor, dayColor, mixFactor);
     vec3 color      = baseColor * (direct + ambient);
 
     if (useNight) {
-        float nightIntensity = smoothstep(0.2, -0.2, cosAngle);
+        float nightIntensity = smoothstep(0.2, -0.3, cosAngle);
         color += nightColor * nightIntensity * 2.0;
     }
 
@@ -169,7 +176,7 @@ export class BasePlanet {
             const meshDayTex = dayTexture || (child.material && child.material.map) || new THREE.Texture();
             const meshNightTex = nightTexture || (child.material && child.material.emissiveMap) || new THREE.Texture();
 
-            child.material = new THREE.ShaderMaterial({
+            const newMaterial = new THREE.ShaderMaterial({
               uniforms: {
                 dayTexture: { value: meshDayTex },
                 nightTexture: { value: meshNightTex },
@@ -179,6 +186,16 @@ export class BasePlanet {
               fragmentShader
             });
 
+            // Dispose old material if it exists
+            if (child.material) {
+              if (Array.isArray(child.material)) {
+                child.material.forEach(m => m.dispose());
+              } else {
+                child.material.dispose();
+              }
+            }
+            child.material = newMaterial;
+
             // Ensure the model works with our interaction system
             child.userData.name = this.name;
             child.userData.isPlanet = true;
@@ -186,9 +203,19 @@ export class BasePlanet {
           }
         });
 
-        // Remove old body if it exists
+        // Remove and dispose old body if it exists
         if (this.planetBody) {
           this.mesh.remove(this.planetBody);
+          this.planetBody.traverse(child => {
+            if (child.isMesh) {
+              child.geometry.dispose();
+              if (Array.isArray(child.material)) {
+                child.material.forEach(m => m.dispose());
+              } else {
+                child.material.dispose();
+              }
+            }
+          });
         }
 
         this.planetBody = model;
