@@ -9,6 +9,7 @@ const _v1 = new THREE.Vector3();
 const _v2 = new THREE.Vector3();
 const _posArray = new Float32Array(6);
 const _resolution = new THREE.Vector2();
+const _planetsToUpdate = new Set();
 
 export class AspectLinesManager {
     constructor(scene, planetObjects) {
@@ -23,16 +24,23 @@ export class AspectLinesManager {
 
     update(aspects) {
         const activeKeys = new Set();
-        _resolution.set(window.innerWidth, window.innerHeight);
+
+        // Only update resolution scratch and individual materials if window size actually changed
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+        const resChanged = _resolution.x !== w || _resolution.y !== h;
+        if (resChanged) {
+            _resolution.set(w, h);
+        }
 
         // Pre-update matrices for all planets involved to ensure sync and avoid redundant calculations
-        // We use a Set to ensure each planet's matrix is updated exactly once per manager update
-        const planetsToUpdate = new Set();
+        // Reuse scratch Set to avoid per-frame allocations
+        _planetsToUpdate.clear();
         for (let i = 0; i < aspects.length; i++) {
-            planetsToUpdate.add(aspects[i].p1);
-            planetsToUpdate.add(aspects[i].p2);
+            _planetsToUpdate.add(aspects[i].p1);
+            _planetsToUpdate.add(aspects[i].p2);
         }
-        for (const name of planetsToUpdate) {
+        for (const name of _planetsToUpdate) {
             const obj = this.planetObjects[name];
             if (obj) obj.updateMatrixWorld();
         }
@@ -87,8 +95,11 @@ export class AspectLinesManager {
                 _posArray[3] = _v2.x; _posArray[4] = _v2.y; _posArray[5] = _v2.z;
                 data.line.geometry.setPositions(_posArray);
 
-                // LineMaterial requires resolution update to correctly handle window resizing
-                data.line.material.resolution.copy(_resolution);
+                // LineMaterial requires resolution update to correctly handle window resizing.
+                // Optimized to only copy if resolution changed.
+                if (resChanged) {
+                    data.line.material.resolution.copy(_resolution);
+                }
 
                 // If aspect type changed (possible with moving orbs), update color
                 if (data.aspectType !== item.aspect.type) {
