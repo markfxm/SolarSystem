@@ -391,7 +391,7 @@ export function createInteractions({
      Init
   ───────────────────────────── */
 
-  const HOME_CAMERA_POS = new THREE.Vector3(0, 5000, 15000)
+  const HOME_CAMERA_POS = new THREE.Vector3(0, 500, 1500)
   const HOME_LOOK_AT = new THREE.Vector3(0, 0, 0)
 
   function goHome() {
