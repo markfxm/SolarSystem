@@ -62,28 +62,38 @@ const loadTexture = (path) =>
 
 export async function createSolarSystem(scene, zodiacNames = [], onProgress = () => {}) {
   // 1. Initial Load: Load all low-res textures
-  const totalSteps = Object.keys(lowResMaps).length;
+  const keys = Object.keys(lowResMaps);
+  const totalSteps = keys.length;
   let loadedSteps = 0;
 
-  const loadLowRes = async (key) => {
-    const tex = await loadTexture(lowResMaps[key]);
-    loadedSteps++;
-    onProgress((loadedSteps / totalSteps) * 100);
-    return tex;
-  }
-
   const lowResTextures = {};
-  const keys = Object.keys(lowResMaps);
-  for (const key of keys) {
-    lowResTextures[key] = await loadLowRes(key);
-    await new Promise(r => setTimeout(r, 20));
+
+  const loadLowRes = async (key) => {
+    try {
+      const tex = await loadTexture(lowResMaps[key]);
+      loadedSteps++;
+      onProgress((loadedSteps / totalSteps) * 100);
+      lowResTextures[key] = tex;
+      return tex;
+    } catch (e) {
+      console.error(`Failed to load texture: ${key}`, e);
+      // Fallback to a tiny procedural texture to prevent crashes
+      const canvas = document.createElement('canvas');
+      canvas.width = canvas.height = 2;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#333';
+      ctx.fillRect(0,0,2,2);
+      const fallback = new THREE.CanvasTexture(canvas);
+      lowResTextures[key] = fallback;
+      return fallback;
+    }
   }
 
-  const {
-    sun: sunTex, mercury: mercuryTex, venus: venusTex,
-    earth_day: earthDayTex, earth_night: earthNightTex, mars: marsTex,
-    jupiter: jupiterTex, saturn: saturnTex, uranus: uranusTex, neptune: neptuneTex, moon: moonTex
-  } = lowResTextures;
+  // Start loading everything in parallel
+  const allLoadingPromises = keys.map(key => loadLowRes(key));
+
+  // Wait for ALL textures to resolve before proceeding to render
+  await Promise.all(allLoadingPromises);
 
   const planetInstances = {};
   const planetObjects = {};
@@ -92,6 +102,8 @@ export async function createSolarSystem(scene, zodiacNames = [], onProgress = ()
   const initPlanet = (name, radius, ...createArgs) => {
     const PlanetClass = PlanetClasses[name];
     const instance = new PlanetClass(radius, scene);
+
+    // If textures are missing (still loading), pass nulls - BasePlanet should handle or we update later
     const mesh = instance.create(...createArgs);
     planetInstances[name] = instance;
     planetObjects[name] = mesh;
@@ -105,23 +117,23 @@ export async function createSolarSystem(scene, zodiacNames = [], onProgress = ()
     return mesh;
   }
 
-  // Instantiate all
-  initPlanet('sun', sizes.sun, sunTex);
-  initPlanet('mercury', sizes.mercury * sizeScale, mercuryTex);
-  initPlanet('venus', sizes.venus * sizeScale, venusTex);
-  initPlanet('earth', sizes.earth * sizeScale, earthDayTex, earthNightTex);
-  initPlanet('mars', sizes.mars * sizeScale, marsTex);
-  initPlanet('jupiter', sizes.jupiter * sizeScale, jupiterTex);
-  initPlanet('saturn', sizes.saturn * sizeScale, saturnTex);
-  initPlanet('uranus', sizes.uranus * sizeScale, uranusTex);
-  initPlanet('neptune', sizes.neptune * sizeScale, neptuneTex);
+  // Instantiate all - use loaded textures if available, or wait for them if critical
+  initPlanet('sun', sizes.sun, lowResTextures.sun);
+  initPlanet('mercury', sizes.mercury * sizeScale, lowResTextures.mercury);
+  initPlanet('venus', sizes.venus * sizeScale, lowResTextures.venus);
+  initPlanet('earth', sizes.earth * sizeScale, lowResTextures.earth_day, lowResTextures.earth_night);
+  initPlanet('mars', sizes.mars * sizeScale, lowResTextures.mars);
+  initPlanet('jupiter', sizes.jupiter * sizeScale, lowResTextures.jupiter);
+  initPlanet('saturn', sizes.saturn * sizeScale, lowResTextures.saturn);
+  initPlanet('uranus', sizes.uranus * sizeScale, lowResTextures.uranus);
+  initPlanet('neptune', sizes.neptune * sizeScale, lowResTextures.neptune);
 
   // Saturn Rings
   planetInstances.saturn.addRings(textureLoader).catch(console.error);
 
   // Moon
   const moonInstance = new PlanetClasses.moon(sizes.earth * sizeScale * 0.27, scene);
-  const moon = moonInstance.create(moonTex);
+  const moon = moonInstance.create(lowResTextures.moon);
   moon.userData.isMoon = true;
   planetInstances.moon = moonInstance;
   planetObjects.moon = moon;

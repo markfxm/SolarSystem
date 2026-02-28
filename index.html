@@ -5,8 +5,60 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>my-solar-system</title>
+    <style>
+      body { background: #000; margin: 0; }
+      #initial-loader {
+        position: fixed;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: radial-gradient(circle at center, #0a0a1a 0%, #000000 100%);
+        color: #fff;
+        font-family: system-ui, -apple-system, sans-serif;
+        z-index: 9999;
+        transition: opacity 1s ease-in-out;
+        pointer-events: auto;
+      }
+      .spinner {
+        width: 60px;
+        height: 60px;
+        border: 3px solid rgba(100, 180, 255, 0.1);
+        border-top: 3px solid #64b4ff;
+        border-radius: 50%;
+        animation: spin 1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+        margin-bottom: 20px;
+        box-shadow: 0 0 20px rgba(100, 180, 255, 0.2);
+      }
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+      .loader-text {
+        color: #fff;
+        font-size: 18px;
+        font-weight: 500;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        text-shadow: 0 0 10px rgba(100, 180, 255, 0.5);
+        margin-bottom: 8px;
+      }
+      .loader-subtext {
+        color: #64b4ff;
+        font-size: 14px;
+        font-family: monospace;
+      }
+    </style>
   </head>
   <body>
+    <!-- Unified Loader outside #app to survive hydration -->
+    <div id="initial-loader">
+      <div class="spinner"></div>
+      <div id="initial-loader-text" class="loader-text">Mission Control: Preparing Spacecraft...</div>
+      <div id="initial-loader-subtext" class="loader-subtext">0%</div>
+    </div>
+
     <div id="app"></div>
     <script type="module" src="/src/main.js"></script>
   </body>

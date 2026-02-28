@@ -11,9 +11,10 @@ export function createEngine(container) {
     45,
     window.innerWidth / window.innerHeight,
     0.1,
-    200000
+    500000
   )
-  camera.position.set(0, 500, 1500)
+  // Initial far position for fly-in animation
+  camera.position.set(0, 20000, 40000)
 
   // Renderer
   const renderer = new THREE.WebGLRenderer({ antialias: true })
