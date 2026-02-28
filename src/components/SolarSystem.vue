@@ -593,31 +593,53 @@ onMounted(async () => {
   // Sync initial loader text with localized version
   const loaderTextEl = document.getElementById('initial-loader-text')
   const loaderSubtextEl = document.getElementById('initial-loader-subtext')
+  const loaderBarEl = document.getElementById('initial-loader-bar')
   if (loaderTextEl) {
     loaderTextEl.innerText = t('loading.preparing') || 'Mission Control: Preparing Spacecraft...'
   }
 
-  solar = await createSolarSystem(engine.scene, t('zodiac_names'), (progress) => {
-    const p = Math.round(progress)
-    loadingProgress.value = p
-    if (loaderSubtextEl) {
-      loaderSubtextEl.innerText = `${p}%`
+  let actualProgress = 0
+  let displayedProgress = 0
+  const minDelay = 2500
+  let loadingComplete = false
+
+  const updateLoaderUI = () => {
+    // Calculate time-based progress (0 to 100 over 2.5s)
+    const elapsed = Date.now() - startTime
+    const timeProgress = Math.min((elapsed / minDelay) * 100, 100)
+
+    // The displayed progress is the minimum of actual assets loaded and the time-based floor
+    // BUT we also want it to look smooth, so we lerp towards the target
+    const targetProgress = loadingComplete ? 100 : Math.min(actualProgress, timeProgress)
+
+    if (displayedProgress < targetProgress) {
+      displayedProgress += (targetProgress - displayedProgress) * 0.1
+      if (targetProgress - displayedProgress < 0.1) displayedProgress = targetProgress
     }
+
+    const rounded = Math.round(displayedProgress)
+    if (loaderSubtextEl) loaderSubtextEl.innerText = `${rounded}%`
+    if (loaderBarEl) loaderBarEl.style.width = `${rounded}%`
+
+    if (displayedProgress < 100 || !loadingComplete || (Date.now() - startTime < minDelay)) {
+      requestAnimationFrame(updateLoaderUI)
+    } else {
+      // Finalizing
+      const initialLoader = document.getElementById('initial-loader')
+      if (initialLoader) {
+        initialLoader.style.opacity = '0'
+        setTimeout(() => initialLoader.remove(), 1000)
+      }
+    }
+  }
+  requestAnimationFrame(updateLoaderUI)
+
+  solar = await createSolarSystem(engine.scene, t('zodiac_names'), (progress) => {
+    actualProgress = progress
+    loadingProgress.value = Math.round(progress)
   })
 
-  // Enforce minimum loading time of 2.5s
-  const elapsed = Date.now() - startTime
-  const minDelay = 2500
-  if (elapsed < minDelay) {
-    await new Promise(r => setTimeout(r, minDelay - elapsed))
-  }
-
-  // Progressively hide the loading screen
-  const initialLoader = document.getElementById('initial-loader')
-  if (initialLoader) {
-    initialLoader.style.opacity = '0'
-    setTimeout(() => initialLoader.remove(), 1000)
-  }
+  loadingComplete = true
 
   // Camera Fly-in Animation
   if (engine && engine.camera && engine.controls) {
