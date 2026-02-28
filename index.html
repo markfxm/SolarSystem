@@ -48,6 +48,23 @@
         color: #64b4ff;
         font-size: 14px;
         font-family: monospace;
+        margin-top: 8px;
+      }
+      .progress-container {
+        width: 240px;
+        height: 4px;
+        background: rgba(100, 180, 255, 0.1);
+        border-radius: 2px;
+        overflow: hidden;
+        margin-top: 15px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+      }
+      .progress-bar {
+        width: 0%;
+        height: 100%;
+        background: linear-gradient(90deg, #64b4ff, #88ccff);
+        box-shadow: 0 0 15px rgba(100, 180, 255, 0.6);
+        transition: width 0.2s ease-out;
       }
     </style>
   </head>
@@ -56,6 +73,9 @@
     <div id="initial-loader">
       <div class="spinner"></div>
       <div id="initial-loader-text" class="loader-text">Mission Control: Preparing Spacecraft...</div>
+      <div class="progress-container">
+        <div id="initial-loader-bar" class="progress-bar"></div>
+      </div>
       <div id="initial-loader-subtext" class="loader-subtext">0%</div>
     </div>
 
