@@ -13,6 +13,12 @@ export const ASPECT_TYPES = {
     SEXTILE: { angle: 60, orb: 6, color: 0xffcc33, label: 'aspect.sextile' }
 };
 
+// Pre-cache entries to avoid Object.entries() in high-frequency loops
+const ASPECT_TYPE_LIST = Object.entries(ASPECT_TYPES);
+const HELIOCENTRIC_PLANETS = ['mercury', 'venus', 'earth', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune'];
+const GEOCENTRIC_PLANETS = ['sun', 'moon', 'mercury', 'venus', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune'];
+const ALL_BODIES = ['sun', 'moon', 'mercury', 'venus', 'earth', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune'];
+
 export const ZODIAC_ELEMENTS = {
     aries: 'fire', leo: 'fire', sagittarius: 'fire',
     taurus: 'earth', virgo: 'earth', capricorn: 'earth',
@@ -39,29 +45,29 @@ export class AstrologyService {
 
     static calculateHeliocentricChart(date) {
         const d = computeD(date);
-        const planets = ['mercury', 'venus', 'earth', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune'];
         const results = {};
 
-        planets.forEach(name => {
+        for (let i = 0; i < HELIOCENTRIC_PLANETS.length; i++) {
+            const name = HELIOCENTRIC_PLANETS[i];
             const elements = computeElements(name, d);
             const pos = computePosition(elements, 1);
             const longitudeRad = Math.atan2(pos.y, pos.x);
             let longitudeDeg = longitudeRad * (180 / Math.PI);
             results[name] = this.getSignAndDegree(longitudeDeg);
-        });
+        }
 
         return results;
     }
 
     static calculateGeocentricChart(date) {
         const d = computeD(date);
-        const planets = ['sun', 'moon', 'mercury', 'venus', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune'];
         const results = {};
 
         const earthElements = computeElements('earth', d);
         const earthPos = computePosition(earthElements, 1);
 
-        planets.forEach(name => {
+        for (let i = 0; i < GEOCENTRIC_PLANETS.length; i++) {
+            const name = GEOCENTRIC_PLANETS[i];
             let relX, relY;
 
             if (name === 'sun') {
@@ -83,7 +89,7 @@ export class AstrologyService {
             const longitudeDeg = longitudeRad * (180 / Math.PI);
 
             results[name] = this.getSignAndDegree(longitudeDeg);
-        });
+        }
 
         return results;
     }
@@ -98,7 +104,11 @@ export class AstrologyService {
         let diff = Math.abs(long1 - long2);
         if (diff > 180) diff = 360 - diff;
 
-        for (const [type, data] of Object.entries(ASPECT_TYPES)) {
+        // Use pre-cached list to avoid allocations
+        for (let i = 0; i < ASPECT_TYPE_LIST.length; i++) {
+            const entry = ASPECT_TYPE_LIST[i];
+            const type = entry[0];
+            const data = entry[1];
             const orb = Math.abs(diff - data.angle);
             if (orb <= data.orb) {
                 return { type, orb, ...data };
@@ -109,15 +119,21 @@ export class AstrologyService {
 
     static calculateAspects(chart) {
         const aspects = [];
-        const bodies = Object.keys(chart);
+        // Use pre-cached inclusive list to avoid Object.keys() allocation
+        const bodies = ALL_BODIES;
 
         for (let i = 0; i < bodies.length; i++) {
-            for (let j = i + 1; j < bodies.length; j++) {
-                const b1 = bodies[i];
-                const b2 = bodies[j];
+            const b1 = bodies[i];
+            const c1 = chart[b1];
+            if (!c1) continue;
 
-                const long1 = chart[b1].index * 30 + chart[b1].degree;
-                const long2 = chart[b2].index * 30 + chart[b2].degree;
+            for (let j = i + 1; j < bodies.length; j++) {
+                const b2 = bodies[j];
+                const c2 = chart[b2];
+                if (!c2) continue;
+
+                const long1 = c1.index * 30 + c1.degree;
+                const long2 = c2.index * 30 + c2.degree;
 
                 const aspect = this.findAspect(long1, long2);
                 if (aspect) {
@@ -185,17 +201,19 @@ export class AstrologyService {
 
     static calculateElementBalance(chart) {
         const balance = { fire: 0, earth: 0, air: 0, water: 0 };
-        const bodies = Object.keys(chart);
 
-        bodies.forEach(name => {
-            const signId = chart[name].signId;
-            const element = ZODIAC_ELEMENTS[signId];
+        // Use for...in to avoid any array allocations from keys/values/entries
+        for (const name in chart) {
+            const info = chart[name];
+            const element = ZODIAC_ELEMENTS[info.signId];
             if (element) balance[element]++;
-        });
+        }
 
         let maxVal = -1;
         let dominant = 'none';
-        for (const [el, count] of Object.entries(balance)) {
+        // Direct loop to find dominant element
+        for (const el in balance) {
+            const count = balance[el];
             if (count > maxVal) {
                 maxVal = count;
                 dominant = el;

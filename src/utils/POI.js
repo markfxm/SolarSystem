@@ -102,6 +102,7 @@ const _tempScale = new THREE.Vector3();
 
 /**
  * Updates POI visibility and animations.
+ * Optimized: Removed per-frame translation calls.
  */
 export function updatePOIs(group, camera, planetPosition) {
   if (!group) return;
@@ -111,24 +112,35 @@ export function updatePOIs(group, camera, planetPosition) {
   group.visible = isVisible;
 
   if (isVisible) {
-    group.children.forEach(poiGroup => {
-      // Update labels if language changed
-      const currentText = t(`mars.pois.${poiGroup.userData.poiId}`);
-      const label = poiGroup.userData.label;
-      if (poiGroup.userData.lastText !== currentText) {
-        updateLabelCanvas(label.material.map.image, currentText);
-        label.material.map.needsUpdate = true;
-        poiGroup.userData.lastText = currentText;
-      }
-
+    const children = group.children;
+    for (let i = 0; i < children.length; i++) {
+      const poiGroup = children[i];
       // Handle hover scaling (interaction script will set isHovered)
       const targetScale = poiGroup.userData.isHovered ? 1.5 : 1.0;
       const dot = poiGroup.userData.dot;
+      const label = poiGroup.userData.label;
+
       _tempScale.setScalar(targetScale);
       dot.scale.lerp(_tempScale, 0.1);
       label.scale.lerp(_tempScale, 0.1);
-    });
+    }
   }
+}
+
+/**
+ * Manually refresh all POI labels in a group for the current language.
+ * Called only when language changes.
+ */
+export function refreshPOILabels(group) {
+  if (!group) return;
+  group.children.forEach(poiGroup => {
+    const currentText = t(`mars.pois.${poiGroup.userData.poiId}`);
+    const label = poiGroup.userData.label;
+    if (label && label.material.map) {
+      updateLabelCanvas(label.material.map.image, currentText);
+      label.material.map.needsUpdate = true;
+    }
+  });
 }
 
 function createLabelMesh(poi, radius) {
