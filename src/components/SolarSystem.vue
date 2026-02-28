@@ -2,17 +2,8 @@
   <div class="solar-system-root">
     <div ref="container" class="three-container"></div>
 
-    <!-- Loading Screen -->
-    <div v-if="isLoading" class="loading-screen">
-      <div class="loader-content">
-        <div class="loader-spinner"></div>
-        <div class="loader-text">{{ t('loading.preparing') || 'Mission Control: Preparing Spacecraft...' }}</div>
-        <div class="loader-subtext">{{ loadingProgress }}%</div>
-      </div>
-    </div>
-
     <!-- HUD -->
-    <div v-if="viewMode === 'solar'" class="hud">
+    <div v-if="!isLoading && viewMode === 'solar'" class="hud">
       <div class="time-container">
         <div class="time-real">
           <span class="label">{{ t('control.realTime') || 'Real Time' }}:</span>
@@ -74,7 +65,7 @@
     </div>
 
     <!-- Top Center Actions -->
-    <div v-if="viewMode === 'solar'" class="top-center-actions">
+    <div v-if="!isLoading && viewMode === 'solar'" class="top-center-actions">
       <button 
         class="stellar-btn"
         @click="openStellarModal"
@@ -123,14 +114,14 @@
 
     <!-- Navigation Panel -->
     <PlanetNavigationPanel
-      v-if="viewMode === 'solar'"
+      v-if="!isLoading && viewMode === 'solar'"
       :selectedBody="selectedPlanetId"
       @select="onPlanetSelected"
       @info="onShowInfo"
     />
 
     <TimeControlPanel
-      v-if="viewMode === 'solar'"
+      v-if="!isLoading && viewMode === 'solar'"
       ref="timePanel"
       @speed-change="onSpeedChange"
       @reset="onReset"
@@ -598,12 +589,22 @@ onMounted(async () => {
 
   engine = createEngine(container.value)
 
+  // Sync initial loader text with localized version
+  const loaderTextEl = document.getElementById('initial-loader-text')
+  const loaderSubtextEl = document.getElementById('initial-loader-subtext')
+  if (loaderTextEl) {
+    loaderTextEl.innerText = t('loading.preparing') || 'Mission Control: Preparing Spacecraft...'
+  }
+
   solar = await createSolarSystem(engine.scene, t('zodiac_names'), (progress) => {
-    loadingProgress.value = Math.round(progress)
+    const p = Math.round(progress)
+    loadingProgress.value = p
+    if (loaderSubtextEl) {
+      loaderSubtextEl.innerText = `${p}%`
+    }
   })
 
   // Progressively hide the loading screen
-  // First, remove the static index.html loader if it's there
   const initialLoader = document.getElementById('initial-loader')
   if (initialLoader) {
     initialLoader.style.opacity = '0'
@@ -1051,58 +1052,6 @@ onUnmounted(() => {
 @keyframes pulse {
   0%, 100% { opacity: 0.7; transform: scale(1); }
   50% { opacity: 1; transform: scale(1.05); }
-}
-
-/* Loading Screen */
-.loading-screen {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: radial-gradient(circle at center, #0a0a1a 0%, #000000 100%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 9999;
-}
-
-.loader-content {
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 20px;
-}
-
-.loader-spinner {
-  width: 60px;
-  height: 60px;
-  border: 3px solid rgba(100, 180, 255, 0.1);
-  border-top: 3px solid #64b4ff;
-  border-radius: 50%;
-  animation: spin 1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-  box-shadow: 0 0 20px rgba(100, 180, 255, 0.2);
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-.loader-text {
-  color: #fff;
-  font-size: 18px;
-  font-weight: 500;
-  letter-spacing: 2px;
-  text-transform: uppercase;
-  text-shadow: 0 0 10px rgba(100, 180, 255, 0.5);
-}
-
-.loader-subtext {
-  color: #64b4ff;
-  font-size: 14px;
-  font-family: monospace;
 }
 
 /* Mars Surface UI */
