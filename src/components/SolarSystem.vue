@@ -601,6 +601,15 @@ onMounted(async () => {
   solar = await createSolarSystem(engine.scene, t('zodiac_names'), (progress) => {
     loadingProgress.value = Math.round(progress)
   })
+
+  // Progressively hide the loading screen
+  // First, remove the static index.html loader if it's there
+  const initialLoader = document.getElementById('initial-loader')
+  if (initialLoader) {
+    initialLoader.style.opacity = '0'
+    setTimeout(() => initialLoader.remove(), 500)
+  }
+
   isLoading.value = false
 
   // Pre-cache planets that have POIs to avoid Object.entries() in the render loop
