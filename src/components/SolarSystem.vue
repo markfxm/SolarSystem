@@ -585,6 +585,7 @@ function onStellarDiscard() {
 }
 
 onMounted(async () => {
+  const startTime = Date.now()
   clockTimer = startClock()
 
   engine = createEngine(container.value)
@@ -604,11 +605,48 @@ onMounted(async () => {
     }
   })
 
+  // Enforce minimum loading time of 2.5s
+  const elapsed = Date.now() - startTime
+  const minDelay = 2500
+  if (elapsed < minDelay) {
+    await new Promise(r => setTimeout(r, minDelay - elapsed))
+  }
+
   // Progressively hide the loading screen
   const initialLoader = document.getElementById('initial-loader')
   if (initialLoader) {
     initialLoader.style.opacity = '0'
-    setTimeout(() => initialLoader.remove(), 500)
+    setTimeout(() => initialLoader.remove(), 1000)
+  }
+
+  // Camera Fly-in Animation
+  if (engine && engine.camera && engine.controls) {
+    const targetPos = new THREE.Vector3(0, 500, 1500)
+    const duration = 2000
+    const startPos = engine.camera.position.clone()
+    const startTimeAnim = Date.now()
+
+    // Disable controls during animation
+    engine.controls.enabled = false
+
+    const animateCamera = () => {
+      const now = Date.now()
+      const progress = Math.min((now - startTimeAnim) / duration, 1)
+
+      // Smooth easing (Cubic Out)
+      const ease = 1 - Math.pow(1 - progress, 3)
+
+      engine.camera.position.lerpVectors(startPos, targetPos, ease)
+      engine.controls.target.set(0, 0, 0) // Ensure looking at sun
+
+      if (progress < 1) {
+        requestAnimationFrame(animateCamera)
+      } else {
+        // Re-enable controls when finished
+        engine.controls.enabled = true
+      }
+    }
+    animateCamera()
   }
 
   isLoading.value = false
