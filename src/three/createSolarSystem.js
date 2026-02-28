@@ -66,8 +66,6 @@ export async function createSolarSystem(scene, zodiacNames = [], onProgress = ()
   const totalSteps = keys.length;
   let loadedSteps = 0;
 
-  // We consider Sun and Earth as "critical" for the initial view
-  const criticalKeys = ['sun', 'earth_day', 'earth_night'];
   const lowResTextures = {};
 
   const loadLowRes = async (key) => {
@@ -94,13 +92,8 @@ export async function createSolarSystem(scene, zodiacNames = [], onProgress = ()
   // Start loading everything in parallel
   const allLoadingPromises = keys.map(key => loadLowRes(key));
 
-  // But only WAIT for critical textures to resolve the initial promise
-  const criticalPromises = criticalKeys.map(key => {
-     // If it's already in the process of loading, this will just wait for it
-     return allLoadingPromises[keys.indexOf(key)];
-  });
-
-  await Promise.all(criticalPromises);
+  // Wait for ALL textures to resolve before proceeding to render
+  await Promise.all(allLoadingPromises);
 
   const planetInstances = {};
   const planetObjects = {};
@@ -144,26 +137,6 @@ export async function createSolarSystem(scene, zodiacNames = [], onProgress = ()
   moon.userData.isMoon = true;
   planetInstances.moon = moonInstance;
   planetObjects.moon = moon;
-
-  // Background update: for any planets that were initialized with missing textures,
-  // update them once their specific promise resolves.
-  keys.forEach(key => {
-    if (!criticalKeys.includes(key)) {
-      const pIndex = keys.indexOf(key);
-      allLoadingPromises[pIndex].then(tex => {
-        // Update the planet instance with the new texture
-        // Mapping key to planet name
-        let pName = key;
-        if (key === 'earth_day' || key === 'earth_night') pName = 'earth';
-
-        const instance = planetInstances[pName];
-        if (instance && instance.updateHQ) {
-           // We can reuse updateHQ to swap textures even for low-res
-           instance.updateHQ(tex, key.includes('night'));
-        }
-      });
-    }
-  });
 
   const currentD = computeD(new Date());
   const moonEl = computeElements('moon', currentD);
