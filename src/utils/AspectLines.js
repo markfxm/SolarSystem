@@ -10,6 +10,7 @@ const _v2 = new THREE.Vector3();
 const _posArray = new Float32Array(6);
 const _resolution = new THREE.Vector2();
 const _planetsToUpdate = new Set();
+const _activeKeys = new Set();
 
 export class AspectLinesManager {
     constructor(scene, planetObjects) {
@@ -20,17 +21,21 @@ export class AspectLinesManager {
         this.scene.add(this.group);
 
         this.lines = new Map(); // Key: "p1-p2", Value: { line, aspectType }
+        this.lastResolution = new THREE.Vector2(-1, -1);
     }
 
     update(aspects) {
-        const activeKeys = new Set();
+        _activeKeys.clear();
 
-        // Only update resolution scratch and individual materials if window size actually changed
+        // Update resolution scratch
         const w = window.innerWidth;
         const h = window.innerHeight;
-        const resChanged = _resolution.x !== w || _resolution.y !== h;
+        _resolution.set(w, h);
+
+        // Each instance tracks its own last resolution to support multi-viewport correctly
+        const resChanged = this.lastResolution.x !== w || this.lastResolution.y !== h;
         if (resChanged) {
-            _resolution.set(w, h);
+            this.lastResolution.copy(_resolution);
         }
 
         // Pre-update matrices for all planets involved to ensure sync and avoid redundant calculations
@@ -51,7 +56,7 @@ export class AspectLinesManager {
 
             // Robust key generation that doesn't rely on input order but avoids array allocation
             const key = item.p1 < item.p2 ? item.p1 + '-' + item.p2 : item.p2 + '-' + item.p1;
-            activeKeys.add(key);
+            _activeKeys.add(key);
 
             const p1Obj = this.planetObjects[item.p1];
             const p2Obj = this.planetObjects[item.p2];
@@ -96,7 +101,7 @@ export class AspectLinesManager {
                 data.line.geometry.setPositions(_posArray);
 
                 // LineMaterial requires resolution update to correctly handle window resizing.
-                // Optimized to only copy if resolution changed.
+                // Optimized to only copy if resolution changed for this instance.
                 if (resChanged) {
                     data.line.material.resolution.copy(_resolution);
                 }
@@ -111,7 +116,7 @@ export class AspectLinesManager {
 
         // Cleanup and Animation loop
         for (const [key, data] of this.lines) {
-            if (!activeKeys.has(key)) {
+            if (!_activeKeys.has(key)) {
                 data.line.userData.targetOpacity = 0;
                 // Dispose once fully faded
                 if (data.line.material.opacity <= 0.01) {
