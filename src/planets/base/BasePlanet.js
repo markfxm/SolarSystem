@@ -163,10 +163,7 @@ export class BasePlanet {
           // Keep common components (Grid, POIs)
           const children = [...this.mesh.children];
           children.forEach(c => {
-            if (c.userData.isGrid || c.userData.isPOIGroup) { // Identify our components
-               model.add(c);
-            } else {
-               // Fallback: add everything that isn't the geometry itself
+            if (c.userData.isGrid || c.userData.isPOIGroup) {
                model.add(c);
             }
           });

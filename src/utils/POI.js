@@ -29,6 +29,10 @@ export function createPOIMarkers(planetName, radius) {
 
   const group = new THREE.Group();
   group.name = `POIs_${planetName}`;
+  group.userData = {
+    isPOIGroup: true,
+    planetName: planetName
+  };
 
   // Shared geometry and material for the dots
   const dotGeometry = new THREE.CircleGeometry(radius * 0.015, 32);
@@ -63,7 +67,7 @@ export function createPOIMarkers(planetName, radius) {
     poiGroup.add(dot);
 
     // 2. Text Label (Now also stuck to surface - Cyberpunk style)
-    const labelMesh = createLabelMesh(poi, radius);
+    const labelMesh = createLabelMesh(poi, radius, planetName);
     // Position label slightly above the dot and offset radially
     const labelOffset = radius * 0.045;
     const labelPos = pos.clone().add(pos.clone().normalize().multiplyScalar(0.002)); // Minimal hover
@@ -85,7 +89,7 @@ export function createPOIMarkers(planetName, radius) {
     poiGroup.userData = {
       ...poi,
       isPOI: true,
-      planetName,
+      planetName: planetName,
       poiId: poi.id,
       dot: dot,
       label: labelMesh
@@ -134,7 +138,8 @@ export function updatePOIs(group, camera, planetPosition) {
 export function refreshPOILabels(group) {
   if (!group) return;
   group.children.forEach(poiGroup => {
-    const currentText = t(`mars.pois.${poiGroup.userData.poiId}`);
+    const planet = poiGroup.userData.planetName;
+    const currentText = t(`${planet}.pois.${poiGroup.userData.poiId}`);
     const label = poiGroup.userData.label;
     if (label && label.material.map) {
       updateLabelCanvas(label.material.map.image, currentText);
@@ -143,12 +148,12 @@ export function refreshPOILabels(group) {
   });
 }
 
-function createLabelMesh(poi, radius) {
+function createLabelMesh(poi, radius, planetName) {
   const canvas = document.createElement('canvas');
   canvas.width = 512;
   canvas.height = 128;
 
-  const text = t(`mars.pois.${poi.id}`);
+  const text = t(`${planetName}.pois.${poi.id}`);
   updateLabelCanvas(canvas, text);
 
   const texture = new THREE.CanvasTexture(canvas);
@@ -181,10 +186,24 @@ function updateLabelCanvas(canvas, text) {
   // Stronger shadow for better readability against planet surface
   ctx.shadowBlur = 8;
   ctx.shadowColor = 'rgba(0, 0, 0, 1.0)';
-  // Slightly bolder and larger font
-  ctx.font = '400 52px "Segoe UI", Arial, sans-serif';
+
+  // Dynamic font sizing to prevent truncation
+  let fontSize = 52;
+  ctx.font = `400 ${fontSize}px "Segoe UI", Arial, sans-serif`;
+
+  // Measure text and scale down if it exceeds canvas width (with some padding)
+  const maxWidth = w - 40;
+  let metrics = ctx.measureText(text);
+
+  if (metrics.width > maxWidth) {
+    fontSize = Math.floor(fontSize * (maxWidth / metrics.width));
+    // Set a minimum font size to keep it readable
+    if (fontSize < 24) fontSize = 24;
+    ctx.font = `400 ${fontSize}px "Segoe UI", Arial, sans-serif`;
+  }
+
   ctx.fillStyle = 'white';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(text, 256, h / 2);
+  ctx.fillText(text, w / 2, h / 2);
 }
