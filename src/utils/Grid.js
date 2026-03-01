@@ -8,6 +8,7 @@ import * as THREE from 'three';
 export function createLatLonGrid(radius) {
   const group = new THREE.Group();
   group.name = 'LatLonGrid';
+  group.userData.isGrid = true;
 
   // Offset slightly to avoid Z-fighting with the planet surface
   // Increased from 1.005 to 1.02 to prevent labels from clipping into the sphere
