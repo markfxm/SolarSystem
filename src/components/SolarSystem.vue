@@ -173,7 +173,7 @@ import { createSolarSystem } from '../three/createSolarSystem.js'
 import { createTimeController } from '../three/timeController.js'
 import { createInteractions } from '../three/interactions.js'
 import { createMarsSurface } from '../planets/Mars/MarsSurface.js'
-import { updatePOIs } from '../utils/POI.js'
+import { updatePOIs, refreshPOILabels } from '../utils/POI.js'
 import { AestheticSnapshotManager } from '../utils/AestheticSnapshot.js'
 import { AstrologyService } from '../utils/AstrologyService.js'
 
@@ -863,10 +863,20 @@ onMounted(async () => {
     updateOrbitResolution(window.innerWidth, window.innerHeight)
   })
 
-  // Watch for language changes to update Zodiac names
+  // Watch for language changes to update Zodiac names and POI labels
   watch(currentLang, () => {
-    if (solar && solar.zodiacRing) {
-      solar.zodiacRing.updateLabels(t('zodiac_names'))
+    if (solar) {
+      if (solar.zodiacRing) {
+        solar.zodiacRing.updateLabels(t('zodiac_names'))
+      }
+      // Refresh POI labels for all relevant planets
+      if (planetsWithPOIs.length > 0) {
+        planetsWithPOIs.forEach(({ mesh }) => {
+          if (mesh.userData.pois) {
+            refreshPOILabels(mesh.userData.pois)
+          }
+        })
+      }
     }
   })
 

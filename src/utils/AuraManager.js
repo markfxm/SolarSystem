@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { ZODIAC_ELEMENTS } from './AstrologyService.js';
 
 /**
  * Manages glowing "Auras" around planets based on their astrological elements.
@@ -43,13 +44,15 @@ export class AuraManager {
             return;
         }
 
-        const bodies = Object.keys(chart);
-        bodies.forEach(name => {
+        const time = performance.now() * 0.001;
+
+        // Use for...in to avoid array allocations from keys/entries
+        for (const name in chart) {
             const mesh = this.planetObjects[name];
-            if (!mesh) return;
+            if (!mesh) continue;
 
             const signId = chart[name].signId;
-            const element = this.getElement(signId);
+            const element = ZODIAC_ELEMENTS[signId];
             const color = this.colors[element] || 0xffffff;
 
             let aura = this.auras.get(name);
@@ -61,7 +64,6 @@ export class AuraManager {
             aura.material.color.set(color);
 
             // Dynamic pulse based on if it's the dominant element
-            const time = performance.now() * 0.001;
             const pulseSpeed = (element === dominantElement) ? 3.0 : 1.5;
             const pulseBase = (element === dominantElement) ? 1.4 : 1.25;
             const scale = pulseBase + Math.sin(time * pulseSpeed) * 0.1;
@@ -73,12 +75,12 @@ export class AuraManager {
                 mesh.userData.auraRadius = mesh.geometry.boundingSphere.radius;
             }
             const radius = mesh.userData.auraRadius;
-            const size = radius * mesh.scale.x * scale * 3.5; // Increased from 2.5 to 3.5
+            const size = radius * mesh.scale.x * scale * 3.5;
             aura.scale.set(size, size, size);
 
             // Match position
             aura.position.copy(mesh.position);
-        });
+        }
     }
 
     createAura(name, mesh) {
@@ -98,16 +100,6 @@ export class AuraManager {
 
     hideAll() {
         this.auras.forEach(a => a.visible = false);
-    }
-
-    getElement(signId) {
-        const mapping = {
-            aries: 'fire', leo: 'fire', sagittarius: 'fire',
-            taurus: 'earth', virgo: 'earth', capricorn: 'earth',
-            gemini: 'air', libra: 'air', aquarius: 'air',
-            cancer: 'water', scorpio: 'water', pisces: 'water'
-        };
-        return mapping[signId];
     }
 
     dispose() {
