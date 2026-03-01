@@ -43,8 +43,7 @@ export class AstrologyService {
         };
     }
 
-    static calculateHeliocentricChart(date) {
-        const d = computeD(date);
+    static calculateHeliocentricChart(d) {
         const results = {};
 
         for (let i = 0; i < HELIOCENTRIC_PLANETS.length; i++) {
@@ -59,8 +58,7 @@ export class AstrologyService {
         return results;
     }
 
-    static calculateGeocentricChart(date) {
-        const d = computeD(date);
+    static calculateGeocentricChart(d) {
         const results = {};
 
         const earthElements = computeElements('earth', d);

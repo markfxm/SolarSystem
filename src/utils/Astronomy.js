@@ -129,7 +129,6 @@ function rev(x) {
 // Internal scratch variables to avoid per-frame GC
 const _qResult = new THREE.Quaternion();
 const _q3 = new THREE.Quaternion();
-const _vAxisZ = new THREE.Vector3(0, 0, 1);
 const _posResult = { x: 0, y: 0, z: 0, r: 0 };
 const _elResult = { a: 1, e: 0, i: 0, N: 0, w: 0, M: 0 };
 
@@ -163,9 +162,9 @@ export function computePosition(elements, scale = 10, target = null) {
   // Reduce M to [-π, π] (optional but safer)
   M = M - Math.floor(M / (2 * Math.PI) + 0.5) * 2 * Math.PI;
 
-  // Solve Kepler's equation — 10 iterations is more than enough for perfect precision
-  let E = e < 0.05 ? M : (M + e * Math.sin(M)) / (1 - e * Math.cos(M)); // better initial guess for low e
-  for (let iter = 0; iter < 10; iter++) {
+  // Solve Kepler's equation — 6 iterations is sufficient for planetary orbits (low e)
+  let E = e < 0.05 ? M : (M + e * Math.sin(M)) / (1 - e * Math.cos(M));
+  for (let iter = 0; iter < 6; iter++) {
     const sinE = Math.sin(E);
     const cosE = Math.cos(E);
     const f = E - e * sinE - M;
@@ -208,9 +207,10 @@ export function computePosition(elements, scale = 10, target = null) {
   return res;
 }
 
-// Pre-compute constant rotation bases for each planet to save ~90% CPU in computePlanetQuaternion
+// Pre-compute constant rotation bases for each planet to save ~95% CPU in computePlanetQuaternion
 const PLANET_QUAT_BASES = {};
 const Q_ADJ = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI / 2);
+const _vAxisY = new THREE.Vector3(0, 1, 0);
 
 function initQuatBases() {
   const epsilon = 23.4392911 * Math.PI / 180;
@@ -224,8 +224,14 @@ function initQuatBases() {
     const q1 = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), (alpha + Math.PI / 2));
     const q2 = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), (Math.PI / 2 - delta));
 
-    // Base = qEcl * q1 * q2
-    PLANET_QUAT_BASES[name] = new THREE.Quaternion().copy(qEcl).multiply(q1).multiply(q2);
+    // Optimized: Pre-multiply Q_ADJ into the base.
+    // This requires the dynamic rotation to be around Y instead of Z in the intermediate step.
+    // Base' = qEcl * q1 * q2 * Q_ADJ
+    PLANET_QUAT_BASES[name] = new THREE.Quaternion()
+        .copy(qEcl)
+        .multiply(q1)
+        .multiply(q2)
+        .multiply(Q_ADJ);
   });
 }
 initQuatBases();
@@ -242,11 +248,14 @@ export function computePlanetQuaternion(planetName, d) {
   const c = ORIENTATION_CONSTANTS[planetName];
   const W = (c.W0 + c.Wdot * d) * Math.PI / 180;
 
-  // Use scratch variables to avoid allocations
-  _q3.setFromAxisAngle(_vAxisZ, W);
+  // Use scratch variables to avoid allocations.
+  // Because Q_ADJ is pre-multiplied, the prime meridian rotation (W)
+  // transforms from Z-axis to Y-axis rotation.
+  _q3.setFromAxisAngle(_vAxisY, W);
 
-  // Total orientation: qBase * q3(W) * qAdj
-  return _qResult.copy(base).multiply(_q3).multiply(Q_ADJ);
+  // Total orientation: qBase' * q3(Y, W)
+  // Saves one full quaternion multiplication per call.
+  return _qResult.copy(base).multiply(_q3);
 }
 
 

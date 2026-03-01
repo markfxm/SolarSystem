@@ -802,9 +802,10 @@ onMounted(async () => {
 
       // Update POIs visibility and labels
       if (planetsWithPOIs.length > 0) {
-        planetsWithPOIs.forEach(({ name, mesh }) => {
-          updatePOIs(mesh.userData.pois, engine.camera, mesh.position, name)
-        })
+        for (let i = 0; i < planetsWithPOIs.length; i++) {
+          const p = planetsWithPOIs[i];
+          updatePOIs(p.mesh.userData.pois, engine.camera, p.mesh.position, p.name);
+        }
       }
     } else if (viewMode.value === 'mars' && marsSurface) {
       marsSurface.update(delta)
@@ -839,8 +840,8 @@ onMounted(async () => {
       // Pulse animations in auraManager still look okay at this rate,
       // but the calculation overhead is significantly reduced.
       if (frameCount % 5 === 0) {
-        const date = timeController.getSimulationDate()
-        const chart = AstrologyService.calculateGeocentricChart(date)
+        const d = timeController.getSimulationD()
+        const chart = AstrologyService.calculateGeocentricChart(d)
         const aspects = AstrologyService.calculateAspects(chart)
         const vibe = AstrologyService.calculateElementBalance(chart)
 
