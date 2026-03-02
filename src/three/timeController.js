@@ -35,8 +35,13 @@ export function createTimeController(planetObjects, orbitScale, extraRotating = 
   function updatePositions(d, deltaSeconds = 0) {
     let hasEarth = false;
 
-    planetEntries.forEach(([name, mesh]) => {
-      if (name === 'sun') return; // Sun stays at origin
+    // Use standard for loop and avoid destructuring to eliminate per-frame allocations
+    for (let i = 0; i < planetEntries.length; i++) {
+      const entry = planetEntries[i];
+      const name = entry[0];
+      const mesh = entry[1];
+
+      if (name === 'sun') continue; // Sun stays at origin
 
       // Use scratch variables to avoid allocations
       const el = computeElements(name, d, _scratchEl);
@@ -50,7 +55,7 @@ export function createTimeController(planetObjects, orbitScale, extraRotating = 
         _earthPos.copy(mesh.position);
         hasEarth = true;
       }
-    });
+    }
 
     // Update Moon Position (Geocentric orbit)
     if (moon && hasEarth) {
@@ -106,6 +111,10 @@ export function createTimeController(planetObjects, orbitScale, extraRotating = 
     updatePositions(currentD)
   }
 
+  function getSimulationD() {
+    return currentD;
+  }
+
   return {
     setRealTime,
     setFastSpeed,
@@ -114,6 +123,7 @@ export function createTimeController(planetObjects, orbitScale, extraRotating = 
     unfreeze,
     resetTime,
     getSimulationDate,
+    getSimulationD,
     setDate
   }
 }

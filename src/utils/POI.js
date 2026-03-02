@@ -124,9 +124,12 @@ export function updatePOIs(group, camera, planetPosition) {
       const dot = poiGroup.userData.dot;
       const label = poiGroup.userData.label;
 
-      _tempScale.setScalar(targetScale);
-      dot.scale.lerp(_tempScale, 0.1);
-      label.scale.lerp(_tempScale, 0.1);
+      // Threshold check to skip scaling logic if already at target
+      if (Math.abs(dot.scale.x - targetScale) > 0.001) {
+        _tempScale.setScalar(targetScale);
+        dot.scale.lerp(_tempScale, 0.1);
+        label.scale.lerp(_tempScale, 0.1);
+      }
     }
   }
 }
