@@ -23,6 +23,13 @@ export function createEllipticalOrbit(elements, scale, segments = 512, color = 0
   const cosI = Math.cos(i);
   const sinI = Math.sin(i);
 
+  // Pre-calculate constant trig for angle addition outside the loop
+  const cosW = Math.cos(w);
+  const sinW = Math.sin(w);
+
+  // Fast-path for planets with zero inclination (e.g. Earth)
+  const isZeroInclination = (i === 0 && N === 0);
+
   for (let k = 0; k <= segments; k++) {
     // Sweep mean anomaly from 0 to 2π
     let M = (k / segments) * 2 * Math.PI;
@@ -36,7 +43,7 @@ export function createEllipticalOrbit(elements, scale, segments = 512, color = 0
       : (M + e * Math.sin(M)) / (1 - e * Math.cos(M));
 
     let sinE, cosE;
-    for (let iter = 0; iter < 10; iter++) {
+    for (let iter = 0; iter < 6; iter++) { // Synced to 6 iterations
       sinE = Math.sin(E);
       cosE = Math.cos(E);
       E -= (E - e * sinE - M) / (1 - e * cosE);
@@ -46,25 +53,27 @@ export function createEllipticalOrbit(elements, scale, segments = 512, color = 0
     cosE = Math.cos(E);
     const denom = 1 - e * cosE;
 
-    // True anomaly ν
+    // True anomaly components
     const cosV = (cosE - e) / denom;
     const sinV = Math.sqrt(1 - e * e) * sinE / denom;
-    const v = Math.atan2(sinV, cosV);
 
     // Distance from Sun
     const r = a * denom;
 
-    // Argument of latitude: ω + ν
-    const omega = v + w;
+    // Orbit plane coordinates using angle addition formulas (optimized trig)
+    const xOrb = r * (cosV * cosW - sinV * sinW);
+    const yOrb = r * (sinV * cosW + cosV * sinW);
 
-    // Position in orbital plane
-    const xOrb = r * Math.cos(omega);
-    const yOrb = r * Math.sin(omega);
-
-    // Apply node and inclination — EXACT SAME MATRIX AS computePosition()
-    const x = xOrb * cosN - yOrb * cosI * sinN;
-    const y = xOrb * sinN + yOrb * cosI * cosN;
-    const z = yOrb * sinI;
+    let x, y, z;
+    if (isZeroInclination) {
+      x = xOrb;
+      y = yOrb;
+      z = 0;
+    } else {
+      x = xOrb * cosN - yOrb * cosI * sinN;
+      y = xOrb * sinN + yOrb * cosI * cosN;
+      z = yOrb * sinI;
+    }
 
     // Transform Ecliptic (XY-plane, Z-up) to World (XZ-plane, Y-up)
     points.push(x * scale, z * scale, -y * scale);

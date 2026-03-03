@@ -60,7 +60,8 @@ export function createPOIMarkers(planetName, radius) {
     );
 
     // 1. Solid White Dot (Stuck to surface)
-    const dot = new THREE.Mesh(dotGeometry, dotMaterial.clone());
+    // Optimized: Share the dotMaterial instead of cloning it for every marker
+    const dot = new THREE.Mesh(dotGeometry, dotMaterial);
     dot.position.copy(pos);
     // Orient to surface normal
     dot.lookAt(pos.clone().multiplyScalar(1.1));
