@@ -35,16 +35,15 @@ export function createEllipticalOrbit(elements, scale, segments = 512, color = 0
       ? M
       : (M + e * Math.sin(M)) / (1 - e * Math.cos(M));
 
+    let sinE, cosE;
     for (let iter = 0; iter < 10; iter++) {
-      const sinE = Math.sin(E);
-      const cosE = Math.cos(E);
-      const f = E - e * sinE - M;
-      const fprime = 1 - e * cosE;
-      E -= f / fprime;
+      sinE = Math.sin(E);
+      cosE = Math.cos(E);
+      E -= (E - e * sinE - M) / (1 - e * cosE);
     }
 
-    const sinE = Math.sin(E);
-    const cosE = Math.cos(E);
+    sinE = Math.sin(E);
+    cosE = Math.cos(E);
     const denom = 1 - e * cosE;
 
     // True anomaly ν
