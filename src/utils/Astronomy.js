@@ -248,6 +248,11 @@ function initQuatBases() {
 }
 initQuatBases();
 
+/**
+ * Computes the planetary orientation as a Quaternion in Ecliptic J2000 space.
+ * Uses IAU 2015 recommended models.
+ * Optimized with pre-computed bases and scratch variables to avoid GC pressure.
+ */
 export function computePlanetQuaternion(planetName, d) {
   const base = PLANET_QUAT_BASES[planetName];
   if (!base) return _qResult.identity();
@@ -256,12 +261,25 @@ export function computePlanetQuaternion(planetName, d) {
   // Constants are already in radians
   const W = c.W0 + c.Wdot * d;
 
+  // Use scratch variables to avoid allocations.
+  // Because Q_ADJ is pre-multiplied, the prime meridian rotation (W)
+  // transforms from Z-axis to Y-axis rotation.
   _q3.setFromAxisAngle(_vAxisY, W);
+
+  // Total orientation: qBase' * q3(Y, W)
+  // Saves one full quaternion multiplication per call.
   return _qResult.copy(base).multiply(_q3);
 }
 
 export function computeMoonPosition(d, target = null) {
+  // Use accurate Keplerian elements for the Moon relative to Earth
   const el = computeElements('moon', d);
+
+  // We want a normalized direction vector for the visual scaler to use.
+  // The real 'a' is 0.00257 AU, which is too small for our visual logic.
+  // We force 'a' to 1 so the result is effectively on a unit sphere (eccentricity aside),
+  // which allows timeController to apply the visual radius (MOON_ORBIT_RADIUS).
   el.a = 1;
+
   return computePosition(el, 1, target);
 }
