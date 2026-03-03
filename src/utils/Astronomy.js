@@ -106,20 +106,34 @@ export const ORIENTATION_CONSTANTS = {
   sun:     { alpha0: 286.13, delta0: 63.87, W0: 84.176, Wdot: 14.1844 }
 };
 
+const J2000_EPOCH = 946728000000;
+const DEG2RAD = Math.PI / 180;
+
+/**
+ * Pre-convert constants to radians at module initialization
+ */
+(function preConvertData() {
+    for (const p in planetsData) {
+        const d = planetsData[p];
+        if (d.e) {
+            d.i[0] *= DEG2RAD; d.i[1] *= DEG2RAD;
+            d.N[0] *= DEG2RAD; d.N[1] *= DEG2RAD;
+            d.w[0] *= DEG2RAD; d.w[1] *= DEG2RAD;
+            d.M[0] *= DEG2RAD; d.M[1] *= DEG2RAD;
+        }
+    }
+    for (const p in ORIENTATION_CONSTANTS) {
+        const c = ORIENTATION_CONSTANTS[p];
+        c.alpha0 *= DEG2RAD;
+        c.delta0 *= DEG2RAD;
+        c.W0 *= DEG2RAD;
+        c.Wdot *= DEG2RAD;
+    }
+})();
+
 export function computeD(date) {
-  // Days since J2000.0 (Jan 1.5, 2000)
-  // Date.UTC(2000, 0, 1, 12) is J2000.0
-  const j2000 = Date.UTC(2000, 0, 1, 12);
-  const current = Date.UTC(
-    date.getUTCFullYear(),
-    date.getUTCMonth(),
-    date.getUTCDate(),
-    date.getUTCHours(),
-    date.getUTCMinutes(),
-    date.getUTCSeconds(),
-    date.getUTCMilliseconds()
-  );
-  return (current - j2000) / 86400000;
+  // Optimized: Single subtraction and division using pre-calculated J2000 epoch
+  return (date.getTime() - J2000_EPOCH) / 86400000;
 }
 
 function rev(x) {
@@ -132,6 +146,10 @@ const _q3 = new THREE.Quaternion();
 const _posResult = { x: 0, y: 0, z: 0, r: 0 };
 const _elResult = { a: 1, e: 0, i: 0, N: 0, w: 0, M: 0 };
 
+/**
+ * Returns orbital elements.
+ * Optimized: Now returns values in radians by default.
+ */
 export function computeElements(planetName, d, target = null) {
   const data = planetsData[planetName];
   const res = target || _elResult;
@@ -148,46 +166,48 @@ export function computeElements(planetName, d, target = null) {
   return res;
 }
 
-// Astronomy.js — replace the old computePosition with this one
+/**
+ * Computes world-space position from orbital elements.
+ * Optimized: Input elements are now in radians. Reuses sin/cos from Kepler solver.
+ */
 export function computePosition(elements, scale = 10, target = null) {
   const res = target || _posResult;
-  // Work completely in radians from the start
   const a = elements.a;
   const e = elements.e;
-  const i = elements.i * Math.PI / 180;
-  const N = elements.N * Math.PI / 180;        // longitude of ascending node
-  const w = elements.w * Math.PI / 180;        // argument of perihelion
-  let M = elements.M * Math.PI / 180;          // mean anomaly in radians
+  const i = elements.i;
+  const N = elements.N;
+  const w = elements.w;
+  let M = elements.M;
 
-  // Reduce M to [-π, π] (optional but safer)
+  // Reduce M to [-π, π]
   M = M - Math.floor(M / (2 * Math.PI) + 0.5) * 2 * Math.PI;
 
-  // Solve Kepler's equation — 6 iterations is sufficient for planetary orbits (low e)
+  // Solve Kepler's equation — 6 iterations
   let E = e < 0.05 ? M : (M + e * Math.sin(M)) / (1 - e * Math.cos(M));
+  let sinE, cosE;
   for (let iter = 0; iter < 6; iter++) {
-    const sinE = Math.sin(E);
-    const cosE = Math.cos(E);
-    const f = E - e * sinE - M;
-    const fprime = 1 - e * cosE;
-    E -= f / fprime;
+    sinE = Math.sin(E);
+    cosE = Math.cos(E);
+    E -= (E - e * sinE - M) / (1 - e * cosE);
   }
 
-  // True anomaly ν
-  const cosV = (Math.cos(E) - e) / (1 - e * Math.cos(E));
-  const sinV = Math.sqrt(1 - e * e) * Math.sin(E) / (1 - e * Math.cos(E));
+  // Final sinE/cosE for current E
+  sinE = Math.sin(E);
+  cosE = Math.cos(E);
+
+  const denom = 1 - e * cosE;
+  // True anomaly ν (optimized trig)
+  const cosV = (cosE - e) / denom;
+  const sinV = Math.sqrt(1 - e * e) * sinE / denom;
   const v = Math.atan2(sinV, cosV);
 
-  // Distance from Sun (or primary body)
-  const r = a * (1 - e * Math.cos(E));
-
-  // Argument of latitude
+  // Distance from primary
+  const r = a * denom;
   const omega = v + w;
 
-  // Heliocentric coordinates in orbital plane
   const xOrb = r * Math.cos(omega);
   const yOrb = r * Math.sin(omega);
 
-  // Rotate by inclination and node
   const cosN = Math.cos(N);
   const sinN = Math.sin(N);
   const cosI = Math.cos(i);
@@ -197,9 +217,7 @@ export function computePosition(elements, scale = 10, target = null) {
   const y = xOrb * sinN + yOrb * cosI * cosN;
   const z = yOrb * sinI;
 
-  // Transform Ecliptic (XY-plane, Z-up) to World (XZ-plane, Y-up)
-  // New Y = Old Z (North)
-  // New Z = -Old Y
+  // Ecliptic to World transform
   res.x = x * scale;
   res.y = z * scale;
   res.z = -y * scale;
@@ -207,26 +225,20 @@ export function computePosition(elements, scale = 10, target = null) {
   return res;
 }
 
-// Pre-compute constant rotation bases for each planet to save ~95% CPU in computePlanetQuaternion
 const PLANET_QUAT_BASES = {};
 const Q_ADJ = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI / 2);
 const _vAxisY = new THREE.Vector3(0, 1, 0);
 
 function initQuatBases() {
-  const epsilon = 23.4392911 * Math.PI / 180;
+  const epsilon = 23.4392911 * DEG2RAD;
   const qEcl = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2 - epsilon);
 
   Object.keys(ORIENTATION_CONSTANTS).forEach(name => {
     const c = ORIENTATION_CONSTANTS[name];
-    const alpha = c.alpha0 * Math.PI / 180;
-    const delta = c.delta0 * Math.PI / 180;
+    // Constants are already in radians
+    const q1 = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), (c.alpha0 + Math.PI / 2));
+    const q2 = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), (Math.PI / 2 - c.delta0));
 
-    const q1 = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), (alpha + Math.PI / 2));
-    const q2 = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), (Math.PI / 2 - delta));
-
-    // Optimized: Pre-multiply Q_ADJ into the base.
-    // This requires the dynamic rotation to be around Y instead of Z in the intermediate step.
-    // Base' = qEcl * q1 * q2 * Q_ADJ
     PLANET_QUAT_BASES[name] = new THREE.Quaternion()
         .copy(qEcl)
         .multiply(q1)
@@ -246,7 +258,8 @@ export function computePlanetQuaternion(planetName, d) {
   if (!base) return _qResult.identity();
 
   const c = ORIENTATION_CONSTANTS[planetName];
-  const W = (c.W0 + c.Wdot * d) * Math.PI / 180;
+  // Constants are already in radians
+  const W = c.W0 + c.Wdot * d;
 
   // Use scratch variables to avoid allocations.
   // Because Q_ADJ is pre-multiplied, the prime meridian rotation (W)
@@ -257,7 +270,6 @@ export function computePlanetQuaternion(planetName, d) {
   // Saves one full quaternion multiplication per call.
   return _qResult.copy(base).multiply(_q3);
 }
-
 
 export function computeMoonPosition(d, target = null) {
   // Use accurate Keplerian elements for the Moon relative to Earth

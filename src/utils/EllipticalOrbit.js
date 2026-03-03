@@ -7,21 +7,16 @@ import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
 /**
  * Creates a perfect elliptical orbit line that EXACTLY matches your computePosition() function
  * Uses the same rotation order, same Kepler solver, same coordinate conventions
+ * Optimized: Input elements are now in radians.
  */
 export function createEllipticalOrbit(elements, scale, segments = 512, color = 0xd4aaff, opacity = 0.88) {
   const points = [];
 
   const a = elements.a;
   const e = elements.e;
-  const i_deg = elements.i;
-  const N_deg = elements.N;        // longitude of ascending node Ω
-  const w_deg = elements.w;        // argument of perihelion ω
-  const M0_deg = elements.M;       // mean anomaly at d=0 (we will sweep full circle)
-
-  // Pre-compute constants in radians (same as in computePosition)
-  const i = i_deg * Math.PI / 180;
-  const N = N_deg * Math.PI / 180;
-  const w = w_deg * Math.PI / 180;
+  const i = elements.i; // Already in radians
+  const N = elements.N; // Already in radians
+  const w = elements.w; // Already in radians
 
   const cosN = Math.cos(N);
   const sinN = Math.sin(N);
@@ -29,9 +24,8 @@ export function createEllipticalOrbit(elements, scale, segments = 512, color = 0
   const sinI = Math.sin(i);
 
   for (let k = 0; k <= segments; k++) {
-    // Sweep mean anomaly from 0° to 360°
-    const M_deg = (k / segments) * 360;
-    let M = M_deg * Math.PI / 180;
+    // Sweep mean anomaly from 0 to 2π
+    let M = (k / segments) * 2 * Math.PI;
 
     // Optional: keep M in [-π, π]
     M = M - Math.floor(M / (2 * Math.PI) + 0.5) * 2 * Math.PI;
@@ -41,21 +35,24 @@ export function createEllipticalOrbit(elements, scale, segments = 512, color = 0
       ? M
       : (M + e * Math.sin(M)) / (1 - e * Math.cos(M));
 
+    let sinE, cosE;
     for (let iter = 0; iter < 10; iter++) {
-      const sinE = Math.sin(E);
-      const cosE = Math.cos(E);
-      const f = E - e * sinE - M;
-      const fprime = 1 - e * cosE;
-      E -= f / fprime;
+      sinE = Math.sin(E);
+      cosE = Math.cos(E);
+      E -= (E - e * sinE - M) / (1 - e * cosE);
     }
 
+    sinE = Math.sin(E);
+    cosE = Math.cos(E);
+    const denom = 1 - e * cosE;
+
     // True anomaly ν
-    const cosV = (Math.cos(E) - e) / (1 - e * Math.cos(E));
-    const sinV = Math.sqrt(1 - e * e) * Math.sin(E) / (1 - e * Math.cos(E));
+    const cosV = (cosE - e) / denom;
+    const sinV = Math.sqrt(1 - e * e) * sinE / denom;
     const v = Math.atan2(sinV, cosV);
 
     // Distance from Sun
-    const r = a * (1 - e * Math.cos(E));
+    const r = a * denom;
 
     // Argument of latitude: ω + ν
     const omega = v + w;

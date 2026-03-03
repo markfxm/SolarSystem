@@ -111,8 +111,9 @@ const _tempScale = new THREE.Vector3();
 export function updatePOIs(group, camera, planetPosition) {
   if (!group) return;
 
-  const distance = camera.position.distanceTo(planetPosition);
-  const isVisible = distance < 40;
+  // Optimized: Use squared distance to avoid expensive square root (Math.sqrt)
+  const distSq = camera.position.distanceToSquared(planetPosition);
+  const isVisible = distSq < 1600; // 40^2
   group.visible = isVisible;
 
   if (isVisible) {
