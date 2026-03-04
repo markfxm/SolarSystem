@@ -41,7 +41,8 @@ export function createTimeController(planetObjects, orbitScale, extraRotating = 
       const name = entry[0];
       const mesh = entry[1];
 
-      if (name === 'sun') continue; // Sun stays at origin
+      // Sun stays at origin, and Moon is handled separately in its geocentric loop
+      if (name === 'sun' || name === 'moon') continue;
 
       // Use scratch variables to avoid allocations
       const el = computeElements(name, d, _scratchEl);

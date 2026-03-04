@@ -196,26 +196,37 @@ export function computePosition(elements, scale = 10, target = null) {
   cosE = Math.cos(E);
 
   const denom = 1 - e * cosE;
-  // True anomaly ν (optimized trig)
+  // True anomaly components (optimized trig to avoid atan2)
   const cosV = (cosE - e) / denom;
   const sinV = Math.sqrt(1 - e * e) * sinE / denom;
-  const v = Math.atan2(sinV, cosV);
 
   // Distance from primary
   const r = a * denom;
-  const omega = v + w;
 
-  const xOrb = r * Math.cos(omega);
-  const yOrb = r * Math.sin(omega);
+  // Orbit plane coordinates using angle addition formulas:
+  // xOrb = r * cos(v + w) = r * (cosV * cosW - sinV * sinW)
+  // yOrb = r * sin(v + w) = r * (sinV * cosW + cosV * sinW)
+  const cosW = Math.cos(w);
+  const sinW = Math.sin(w);
+  const xOrb = r * (cosV * cosW - sinV * sinW);
+  const yOrb = r * (sinV * cosW + cosV * sinW);
 
-  const cosN = Math.cos(N);
-  const sinN = Math.sin(N);
-  const cosI = Math.cos(i);
-  const sinI = Math.sin(i);
+  let x, y, z;
+  // Fast-path for planets with zero inclination (e.g. Earth)
+  if (i === 0 && N === 0) {
+    x = xOrb;
+    y = yOrb;
+    z = 0;
+  } else {
+    const cosN = Math.cos(N);
+    const sinN = Math.sin(N);
+    const cosI = Math.cos(i);
+    const sinI = Math.sin(i);
 
-  const x = xOrb * cosN - yOrb * cosI * sinN;
-  const y = xOrb * sinN + yOrb * cosI * cosN;
-  const z = yOrb * sinI;
+    x = xOrb * cosN - yOrb * cosI * sinN;
+    y = xOrb * sinN + yOrb * cosI * cosN;
+    z = yOrb * sinI;
+  }
 
   // Ecliptic to World transform
   res.x = x * scale;
