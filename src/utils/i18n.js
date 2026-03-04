@@ -7,7 +7,7 @@ export const currentLang = ref(defaultLang)
 
 const dict = {
   en: {
-    nav_title: 'Solar System',
+    nav_title: 'Stellar Web',
     loading: {
       preparing: 'Mission Control: Preparing Spacecraft...',
     },
@@ -232,7 +232,7 @@ const dict = {
     }
   },
   zh: {
-    nav_title: '太阳系',
+    nav_title: '星织',
     loading: {
       preparing: '任务控制中心：飞船准备中...',
     },
