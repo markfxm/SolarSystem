@@ -25,7 +25,8 @@ const dict = {
       home: 'Home',
       reset: 'Reset',
       zodiac: 'Zodiac Ring',
-      grid: 'Grid'
+      grid: 'Grid',
+      fractal: 'Fractal Mode'
     },
     planet: {
       sun: 'Sun',
@@ -250,7 +251,8 @@ const dict = {
       home: '主页',
       reset: '归位',
       zodiac: '十二宫环',
-      grid: '经纬度'
+      grid: '经纬度',
+      fractal: '分形模式'
     },
     planet: {
       sun: '太阳',

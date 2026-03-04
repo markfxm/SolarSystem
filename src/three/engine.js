@@ -55,7 +55,8 @@ export function createEngine(container) {
     function animate() {
       requestAnimationFrame(animate)
       const delta = clock.getDelta()
-      update(delta)
+      const time = clock.getElapsedTime()
+      update(delta, time)
       if (activeCamera === camera) {
         controls.update()
       }

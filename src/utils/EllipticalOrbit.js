@@ -9,7 +9,7 @@ import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
  * Uses the same rotation order, same Kepler solver, same coordinate conventions
  * Optimized: Input elements are now in radians.
  */
-export function createEllipticalOrbit(elements, scale, segments = 512, color = 0xd4aaff, opacity = 0.88) {
+export function createEllipticalOrbit(elements, scale, segments = 512, color = 0xd4aaff, opacity = 0.88, isFractal = false) {
   const points = [];
 
   const a = elements.a;
@@ -76,7 +76,23 @@ export function createEllipticalOrbit(elements, scale, segments = 512, color = 0
     }
 
     // Transform Ecliptic (XY-plane, Z-up) to World (XZ-plane, Y-up)
-    points.push(x * scale, z * scale, -y * scale);
+    let px = x * scale;
+    let py = z * scale;
+    let pz = -y * scale;
+
+    if (isFractal) {
+        // Apply 1.26D (Koch-like) jitter
+        // Using M as a seed for deterministic "fractal" displacement
+        const seed = M * 10.0;
+        const noise = (Math.sin(seed) + Math.sin(seed * 2.3) + Math.sin(seed * 5.7)) / 3.0;
+        const jitter = scale * 0.05 * noise;
+
+        // Displace perpendicular to orbit direction (approx)
+        px += jitter;
+        py += jitter;
+    }
+
+    points.push(px, py, pz);
   }
 
   const geometry = new LineGeometry();

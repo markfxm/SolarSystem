@@ -38,6 +38,14 @@
         {{ t('control.grid') }}
       </button>
 
+      <button
+        class="fractal-toggle-btn"
+        :class="{ active: showFractal }"
+        @click="toggleFractal"
+      >
+        {{ t('control.fractal') }}
+      </button>
+
       <div v-if="hoveredPlanetName" class="hover-name">
         {{ hoveredPlanetName }}
       </div>
@@ -199,6 +207,7 @@ const activeAspects = ref([])
 const elementBalance = ref({ fire: 0, earth: 0, air: 0, water: 0 })
 const dominantElement = ref('none')
 const showGrid = ref(false)
+const showFractal = ref(false)
 const selectedPOI = ref(null)
 const poiDragOffset = ref({ x: 0, y: 0 })
 const isDraggingPoi = ref(false)
@@ -413,6 +422,35 @@ function toggleZodiac() {
 function toggleGrid() {
   showGrid.value = !showGrid.value
   updateGridsVisibility()
+}
+
+function toggleFractal() {
+  showFractal.value = !showFractal.value
+  updateFractalMode()
+}
+
+function updateFractalMode() {
+  if (!solar) return
+
+  // Update planets
+  Object.values(solar.planetObjects).forEach(mesh => {
+    mesh.traverse(child => {
+      if (child.isMesh && child.material && child.material.uniforms) {
+        if (child.material.uniforms.fractalMode) {
+          child.material.uniforms.fractalMode.value = showFractal.value
+        }
+      }
+    })
+  })
+
+  // Update orbits
+  // We need to recreate or update orbits. Since createEllipticalOrbit returns a new mesh,
+  // we'll try a simpler approach: finding orbits and updating their geometry if possible,
+  // or just recreate them for now (though recreate is heavier).
+  // Better: createSolarSystem could expose an updateOrbits method.
+  if (solar.updateOrbits) {
+    solar.updateOrbits(showFractal.value)
+  }
 }
 
 function updateGridsVisibility() {
@@ -727,9 +765,21 @@ onMounted(async () => {
   })
 
   let frameCount = 0
-  engine.start(delta => {
+  engine.start((delta, time) => {
     if (viewMode.value === 'solar') {
       if (timeController) timeController.update(delta)
+
+      if (showFractal.value && solar) {
+        Object.values(solar.planetObjects).forEach(mesh => {
+          mesh.traverse(child => {
+            if (child.isMesh && child.material && child.material.uniforms) {
+              if (child.material.uniforms.time) {
+                child.material.uniforms.time.value = time
+              }
+            }
+          })
+        })
+      }
       if (interactions) interactions.update(delta)
 
       // Update POI UI if one is selected
@@ -1050,6 +1100,32 @@ onUnmounted(() => {
 
 .grid-toggle-btn:hover {
   background: rgba(150,255,200,0.4);
+  transform: translateY(-2px);
+}
+
+.fractal-toggle-btn {
+  margin-top: 0;
+  align-self: flex-start;
+  pointer-events: auto;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  background: rgba(30,30,40,0.9);
+  border: 1px solid rgba(255,100,255,0.35);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all .18s ease;
+}
+
+.fractal-toggle-btn.active {
+  background: rgba(255,100,255,0.25);
+  border-color: rgba(255,100,255,0.8);
+  box-shadow: 0 0 15px rgba(255,100,255,0.3);
+}
+
+.fractal-toggle-btn:hover {
+  background: rgba(255,100,255,0.4);
   transform: translateY(-2px);
 }
 
