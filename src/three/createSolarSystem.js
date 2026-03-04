@@ -112,6 +112,7 @@ export async function createSolarSystem(scene, zodiacNames = [], onProgress = ()
       const elements = computeElements(name, 0);
       const orbit = createEllipticalOrbit(elements, orbitScale, 512, 0xd4aaff, 0.92);
       orbit.userData.isOrbit = true;
+      orbit.userData.planetName = name;
       scene.add(orbit);
     }
     return mesh;
@@ -143,9 +144,46 @@ export async function createSolarSystem(scene, zodiacNames = [], onProgress = ()
   const visualMoonEl = { ...moonEl, a: 1 };
   const moonOrbit = createEllipticalOrbit(visualMoonEl, MOON_ORBIT_RADIUS, 128, 0x888888, 0.5);
   moonOrbit.userData.isOrbit = true;
+  moonOrbit.userData.isMoonOrbit = true;
   scene.add(moonOrbit);
 
   const planets = Object.values(planetObjects);
+
+  const updateOrbits = (isFractal) => {
+    const toRemove = [];
+    scene.traverse(obj => {
+      if (obj.userData && obj.userData.isOrbit) {
+        toRemove.push(obj);
+      }
+    });
+
+    toRemove.forEach(obj => {
+      const name = obj.userData.planetName;
+      const isMoonOrbit = obj.userData.isMoonOrbit;
+
+      let newOrbit;
+      if (isMoonOrbit) {
+          const currentD = computeD(new Date());
+          const moonEl = computeElements('moon', currentD);
+          const visualMoonEl = { ...moonEl, a: 1 };
+          newOrbit = createEllipticalOrbit(visualMoonEl, MOON_ORBIT_RADIUS, 128, 0x888888, 0.5, isFractal);
+          newOrbit.userData.isMoonOrbit = true;
+      } else if (name) {
+          const elements = computeElements(name, 0);
+          newOrbit = createEllipticalOrbit(elements, orbitScale, 512, 0xd4aaff, 0.92, isFractal);
+          newOrbit.userData.planetName = name;
+      }
+
+      if (newOrbit) {
+          newOrbit.userData.isOrbit = true;
+          newOrbit.visible = obj.visible;
+          scene.add(newOrbit);
+          scene.remove(obj);
+          if (obj.geometry) obj.geometry.dispose();
+          if (obj.material) obj.material.dispose();
+      }
+    });
+  }
 
   planets.forEach(mesh => {
     if (mesh.geometry) mesh.geometry.computeBoundingSphere();
@@ -218,6 +256,7 @@ export async function createSolarSystem(scene, zodiacNames = [], onProgress = ()
     zodiacRing,
     aspectsManager,
     auraManager,
+    updateOrbits,
     prioritizeHQ: (name) => {
        if (name === 'earth') {
          loadHQ('earth', 'earth_day');
