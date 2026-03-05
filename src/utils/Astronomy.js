@@ -106,8 +106,10 @@ export const ORIENTATION_CONSTANTS = {
   sun:     { alpha0: 286.13, delta0: 63.87, W0: 84.176, Wdot: 14.1844 }
 };
 
-const J2000_EPOCH = 946728000000;
-const DEG2RAD = Math.PI / 180;
+export const J2000_EPOCH = 946728000000;
+export const DEG2RAD = Math.PI / 180;
+export const RAD2DEG = 180 / Math.PI;
+export const TWO_PI = Math.PI * 2;
 
 /**
  * Pre-convert constants to radians at module initialization
@@ -134,10 +136,6 @@ const DEG2RAD = Math.PI / 180;
 export function computeD(date) {
   // Optimized: Single subtraction and division using pre-calculated J2000 epoch
   return (date.getTime() - J2000_EPOCH) / 86400000;
-}
-
-function rev(x) {
-  return x - Math.floor(x / 360) * 360;
 }
 
 // Internal scratch variables to avoid per-frame GC
@@ -180,7 +178,7 @@ export function computePosition(elements, scale = 10, target = null) {
   let M = elements.M;
 
   // Reduce M to [-π, π]
-  M = M - Math.floor(M / (2 * Math.PI) + 0.5) * 2 * Math.PI;
+  M = M - Math.floor(M / TWO_PI + 0.5) * TWO_PI;
 
   // Solve Kepler's equation — 6 iterations
   let E = e < 0.05 ? M : (M + e * Math.sin(M)) / (1 - e * Math.cos(M));
@@ -262,24 +260,29 @@ initQuatBases();
 /**
  * Computes the planetary orientation as a Quaternion in Ecliptic J2000 space.
  * Uses IAU 2015 recommended models.
- * Optimized with pre-computed bases and scratch variables to avoid GC pressure.
+ * Optimized with pre-computed bases and unrolled quaternion math to avoid GC and redundant trig.
  */
 export function computePlanetQuaternion(planetName, d) {
   const base = PLANET_QUAT_BASES[planetName];
   if (!base) return _qResult.identity();
 
   const c = ORIENTATION_CONSTANTS[planetName];
-  // Constants are already in radians
-  const W = c.W0 + c.Wdot * d;
+  // Constants are already in radians. W is the prime meridian rotation.
+  const halfW = (c.W0 + c.Wdot * d) * 0.5;
 
-  // Use scratch variables to avoid allocations.
-  // Because Q_ADJ is pre-multiplied, the prime meridian rotation (W)
-  // transforms from Z-axis to Y-axis rotation.
-  _q3.setFromAxisAngle(_vAxisY, W);
+  const s = Math.sin(halfW);
+  const cW = Math.cos(halfW);
 
-  // Total orientation: qBase' * q3(Y, W)
-  // Saves one full quaternion multiplication per call.
-  return _qResult.copy(base).multiply(_q3);
+  // Unrolled quaternion multiplication: qResult = base * q(Y, W)
+  // where q(Y, W) has x=0, y=sin(W/2), z=0, w=cos(W/2)
+  const bx = base._x, by = base._y, bz = base._z, bw = base._w;
+
+  _qResult._x = bx * cW - bz * s;
+  _qResult._y = by * cW + bw * s;
+  _qResult._z = bz * cW + bx * s;
+  _qResult._w = bw * cW - by * s;
+
+  return _qResult;
 }
 
 export function computeMoonPosition(d, target = null) {
