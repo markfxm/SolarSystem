@@ -1,5 +1,17 @@
 import * as THREE from 'three';
 
+// Module-level caches to reuse assets across all planets
+const textureCache = new Map();
+const materialCache = new Map();
+
+// Shared material for all grid lines
+const sharedLineMaterial = new THREE.LineBasicMaterial({
+  color: 0xaaaaaa, // Light gray instead of pure white to appear thinner
+  transparent: true,
+  opacity: 0.6,
+  depthTest: true
+});
+
 /**
  * Creates a longitude and latitude grid for a planet.
  * @param {number} radius - The radius of the planet.
@@ -14,15 +26,10 @@ export function createLatLonGrid(radius) {
   // Increased from 1.005 to 1.02 to prevent labels from clipping into the sphere
   const gridRadius = radius * 1.02;
 
-  const lineMaterial = new THREE.LineBasicMaterial({
-    color: 0xaaaaaa, // Light gray instead of pure white to appear thinner
-    transparent: true,
-    opacity: 0.6,
-    depthTest: true
-  });
-
   // Scale labels relative to planet size
   const labelScale = radius * 0.08; // Reduced size
+
+  const allPoints = [];
 
   // Latitudes (-90 to 90, every 30 degrees)
   for (let lat = -90; lat <= 90; lat += 30) {
@@ -40,15 +47,16 @@ export function createLatLonGrid(radius) {
     const y = gridRadius * Math.sin(phi);
     const r = gridRadius * Math.cos(phi);
 
-    const points = [];
     const segments = 128; // High resolution circles
-    for (let i = 0; i <= segments; i++) {
-      const theta = (i / segments) * Math.PI * 2;
-      points.push(new THREE.Vector3(r * Math.cos(theta), y, r * Math.sin(theta)));
+    for (let i = 0; i < segments; i++) {
+      const theta1 = (i / segments) * Math.PI * 2;
+      const theta2 = ((i + 1) / segments) * Math.PI * 2;
+
+      allPoints.push(
+        r * Math.cos(theta1), y, r * Math.sin(theta1),
+        r * Math.cos(theta2), y, r * Math.sin(theta2)
+      );
     }
-    const geometry = new THREE.BufferGeometry().setFromPoints(points);
-    const line = new THREE.Line(geometry, lineMaterial);
-    group.add(line);
 
     // Latitude Label placed on the "Prime Meridian" of the sphere (x=r, z=0)
     const labelText = lat === 0 ? '0°' : `${Math.abs(lat)}°${lat > 0 ? 'N' : 'S'}`;
@@ -63,18 +71,21 @@ export function createLatLonGrid(radius) {
   for (let lon = 0; lon < 360; lon += 30) {
     // Negative longitude to match Three.js SphereGeometry UV mapping (East is negative theta)
     const theta = THREE.MathUtils.degToRad(-lon);
-    const points = [];
     const segments = 64;
-    for (let i = 0; i <= segments; i++) {
-      const phi = (i / segments) * Math.PI - Math.PI / 2; // -PI/2 to PI/2 (South to North)
-      const x = gridRadius * Math.cos(phi) * Math.cos(theta);
-      const y = gridRadius * Math.sin(phi);
-      const z = gridRadius * Math.cos(phi) * Math.sin(theta);
-      points.push(new THREE.Vector3(x, y, z));
+    for (let i = 0; i < segments; i++) {
+      const phi1 = (i / segments) * Math.PI - Math.PI / 2;
+      const phi2 = ((i + 1) / segments) * Math.PI - Math.PI / 2;
+
+      const x1 = gridRadius * Math.cos(phi1) * Math.cos(theta);
+      const y1 = gridRadius * Math.sin(phi1);
+      const z1 = gridRadius * Math.cos(phi1) * Math.sin(theta);
+
+      const x2 = gridRadius * Math.cos(phi2) * Math.cos(theta);
+      const y2 = gridRadius * Math.sin(phi2);
+      const z2 = gridRadius * Math.cos(phi2) * Math.sin(theta);
+
+      allPoints.push(x1, y1, z1, x2, y2, z2);
     }
-    const geometry = new THREE.BufferGeometry().setFromPoints(points);
-    const line = new THREE.Line(geometry, lineMaterial);
-    group.add(line);
 
     // Longitude Label (placed on Equator)
     // Avoid redundant label at (lat 0, lon 0)
@@ -86,6 +97,13 @@ export function createLatLonGrid(radius) {
     }
   }
 
+  // Optimized: Create one LineSegments object instead of many individual Lines
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(allPoints, 3));
+  // Optimized: Use shared material
+  const segmentsMesh = new THREE.LineSegments(geometry, sharedLineMaterial);
+  group.add(segmentsMesh);
+
   // Initially hidden
   group.visible = false;
   return group;
@@ -93,37 +111,45 @@ export function createLatLonGrid(radius) {
 
 /**
  * Creates a sprite with text drawn on a canvas.
+ * Optimized: Uses module-level caches to reuse textures and materials.
  */
 function createTextSprite(text, scale) {
-  const canvas = document.createElement('canvas');
-  const size = 128;
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext('2d');
+  let material = materialCache.get(text);
 
-  // Use a smaller, regular weight font
-  ctx.font = '32px Arial';
-  ctx.fillStyle = 'white';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
+  if (!material) {
+    const canvas = document.createElement('canvas');
+    const size = 128;
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
 
-  // Add a semi-transparent black stroke for better readability against various planetary backgrounds
-  ctx.strokeStyle = 'rgba(0, 0, 0, 0.7)';
-  ctx.lineWidth = 6;
-  ctx.strokeText(text, size / 2, size / 2);
-  ctx.fillText(text, size / 2, size / 2);
+    // Use a smaller, regular weight font
+    ctx.font = '32px Arial';
+    ctx.fillStyle = 'white';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
 
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.minFilter = THREE.LinearFilter; // Avoid pixelation
+    // Add a semi-transparent black stroke for better readability against various planetary backgrounds
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.7)';
+    ctx.lineWidth = 6;
+    ctx.strokeText(text, size / 2, size / 2);
+    ctx.fillText(text, size / 2, size / 2);
 
-  const spriteMaterial = new THREE.SpriteMaterial({
-    map: texture,
-    transparent: true,
-    depthTest: true,
-    sizeAttenuation: true
-  });
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.minFilter = THREE.LinearFilter; // Avoid pixelation
 
-  const sprite = new THREE.Sprite(spriteMaterial);
+    material = new THREE.SpriteMaterial({
+      map: texture,
+      transparent: true,
+      depthTest: true,
+      sizeAttenuation: true
+    });
+
+    textureCache.set(text, texture);
+    materialCache.set(text, material);
+  }
+
+  const sprite = new THREE.Sprite(material);
   sprite.scale.set(scale, scale, 1);
   return sprite;
 }

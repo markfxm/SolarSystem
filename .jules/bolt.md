@@ -5,3 +5,7 @@
 ## 2025-05-15 - [Coordinate Math & Trig Reuse]
 **Learning:** In the Kepler solver, the final `sinE` and `cosE` are already computed. Re-using them for the true anomaly and distance calculations (denominator `1 - e * cosE`) avoids 2-4 redundant `Math.sin/cos` calls per celestial body per frame.
 **Action:** Audit hot-path math functions for opportunities to pass or reuse intermediate trigonometric results.
+
+## 2025-05-15 - [Geometry Batching & Texture Caching in Utilities]
+**Learning:** Utility-generated geometry (like planetary grids or POI markers) often creates hundreds of redundant Line and Sprite objects, each adding a draw call. Caching the CanvasTextures and SpriteMaterials based on their content (e.g., degree labels) and merging disparate lines into a single `LineSegments` object dramatically reduces the overhead without changing the visual output.
+**Action:** Always check if repeating UI/Grid elements can be batched into a single geometry and if their textures can be shared via a module-level cache.
