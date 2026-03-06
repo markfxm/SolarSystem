@@ -25,7 +25,8 @@ const dict = {
       home: 'Home',
       reset: 'Reset',
       zodiac: 'Zodiac Ring',
-      grid: 'Grid'
+      grid: 'Grid',
+      holographic: 'Holographic'
     },
     planet: {
       sun: 'Sun',
@@ -250,7 +251,8 @@ const dict = {
       home: '主页',
       reset: '归位',
       zodiac: '十二宫环',
-      grid: '经纬度'
+      grid: '经纬度',
+      holographic: '全息视图'
     },
     planet: {
       sun: '太阳',

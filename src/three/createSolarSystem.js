@@ -6,6 +6,7 @@ import { createEllipticalOrbit } from '../utils/EllipticalOrbit.js'
 import { createZodiacRing } from '../utils/ZodiacRing.js';
 import { AspectLinesManager } from '../utils/AspectLines.js';
 import { AuraManager } from '../utils/AuraManager.js';
+import { getHolographicLineColor } from '../utils/HolographicMaterial.js';
 
 const orbitScale = 260
 const sizeScale = 1.2
@@ -226,6 +227,36 @@ export async function createSolarSystem(scene, zodiacNames = [], onProgress = ()
        } else if (highResMaps[name]) {
          loadHQ(name, name);
        }
+    },
+    setHolographic: (enabled) => {
+      // 1. Toggle Planets
+      Object.values(planetInstances).forEach(instance => {
+        if (instance.setHolographic) instance.setHolographic(enabled);
+      });
+
+      // 2. Toggle Orbits
+      scene.traverse(obj => {
+        if (obj.userData.isOrbit && obj.material) {
+          if (enabled) {
+            if (!obj.userData.originalColor) {
+              obj.userData.originalColor = obj.material.color.clone();
+            }
+            obj.material.color.set(getHolographicLineColor());
+          } else if (obj.userData.originalColor) {
+            obj.material.color.copy(obj.userData.originalColor);
+          }
+        }
+      });
+
+      // 3. Environment Adjustments
+      scene.traverse(obj => {
+        if (obj.userData.isStarfield || obj.userData.isNebula) {
+          obj.visible = !enabled; // Hide natural environment for blueprint look
+        }
+      });
+
+      // 4. Update Grid visibility if active
+      // (This will be handled by the UI toggle in SolarSystem.vue if needed)
     }
   };
 }

@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { createLatLonGrid } from '../../utils/Grid.js';
 import { createPOIMarkers } from '../../utils/POI.js';
+import { createHolographicMaterial } from '../../utils/HolographicMaterial.js';
 
 const vertexShader = `
   varying vec2 vUv;
@@ -59,6 +60,9 @@ export class BasePlanet {
     this.radius = radius;
     this.scene = scene;
     this.mesh = null;
+    this.originalMaterial = null;
+    this.holographicMaterial = null;
+    this.isHolographic = false;
   }
 
   createMesh(dayTexture, nightTexture = null) {
@@ -73,6 +77,7 @@ export class BasePlanet {
       fragmentShader
     });
 
+    this.originalMaterial = material;
     this.mesh = new THREE.Mesh(geometry, material);
     this.mesh.userData.name = this.name;
     this.mesh.userData.originalRadius = this.radius;
@@ -122,6 +127,44 @@ export class BasePlanet {
     }
   }
 
+  setHolographic(enabled) {
+    this.isHolographic = enabled;
+    if (!this.mesh) return;
+
+    if (enabled) {
+      if (!this.holographicMaterial) {
+        this.holographicMaterial = createHolographicMaterial();
+      }
+
+      const applyHolo = (obj) => {
+        if (obj.isMesh) {
+          if (!obj.userData.originalMaterial) {
+            obj.userData.originalMaterial = obj.material;
+          }
+          obj.material = this.holographicMaterial;
+        }
+      };
+
+      if (this.mesh.isMesh) {
+        applyHolo(this.mesh);
+      } else {
+        this.mesh.traverse(applyHolo);
+      }
+    } else {
+      const restoreOrig = (obj) => {
+        if (obj.isMesh && obj.userData.originalMaterial) {
+          obj.material = obj.userData.originalMaterial;
+        }
+      };
+
+      if (this.mesh.isMesh) {
+        restoreOrig(this.mesh);
+      } else {
+        this.mesh.traverse(restoreOrig);
+      }
+    }
+  }
+
   /**
    * Template for loading Blender GLB models with Day/Night switching support.
    * @param {string} url - Path to the .glb file
@@ -151,6 +194,7 @@ export class BasePlanet {
               vertexShader,
               fragmentShader
             });
+            child.userData.originalMaterial = child.material;
 
             // Ensure the model works with our interaction system
             child.userData.name = this.name;

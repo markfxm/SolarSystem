@@ -38,6 +38,14 @@
         {{ t('control.grid') }}
       </button>
 
+      <button
+        class="holo-toggle-btn"
+        :class="{ active: showHolo }"
+        @click="toggleHolo"
+      >
+        {{ t('control.holographic') || 'Holographic' }}
+      </button>
+
       <div v-if="hoveredPlanetName" class="hover-name">
         {{ hoveredPlanetName }}
       </div>
@@ -194,6 +202,7 @@ const captureDate = ref(new Date())
 const capturedImage = ref('')
 const showZodiac = ref(false) // Controls 3D features (Ring, Lines, Auras)
 const showTransitPanel = ref(false) // Controls UI Panel
+const showHolo = ref(false)
 const currentChart = ref({})
 const activeAspects = ref([])
 const elementBalance = ref({ fire: 0, earth: 0, air: 0, water: 0 })
@@ -413,6 +422,13 @@ function toggleZodiac() {
 function toggleGrid() {
   showGrid.value = !showGrid.value
   updateGridsVisibility()
+}
+
+function toggleHolo() {
+  showHolo.value = !showHolo.value
+  if (solar && solar.setHolographic) {
+    solar.setHolographic(showHolo.value)
+  }
 }
 
 function updateGridsVisibility() {
@@ -1050,6 +1066,32 @@ onUnmounted(() => {
 
 .grid-toggle-btn:hover {
   background: rgba(150,255,200,0.4);
+  transform: translateY(-2px);
+}
+
+.holo-toggle-btn {
+  margin-top: 0;
+  align-self: flex-start;
+  pointer-events: auto;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  background: rgba(30,30,40,0.9);
+  border: 1px solid rgba(0,255,255,0.35);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all .18s ease;
+}
+
+.holo-toggle-btn.active {
+  background: rgba(0,255,255,0.25);
+  border-color: rgba(0,255,255,0.8);
+  box-shadow: 0 0 15px rgba(0,255,255,0.3);
+}
+
+.holo-toggle-btn:hover {
+  background: rgba(0,255,255,0.4);
   transform: translateY(-2px);
 }
 
