@@ -138,9 +138,15 @@ export class BasePlanet {
 
       const applyHolo = (obj) => {
         if (obj.isMesh) {
+          // Skip Grid and POIs as they are already high-tech/UI elements
+          if (obj.userData.isGrid || obj.userData.isPOIGroup) return;
+
           if (!obj.userData.originalMaterial) {
             obj.userData.originalMaterial = obj.material;
           }
+
+          // For rings, we keep the original material but adjust it for a blueprint look
+          // Actually, standard wireframe is fine for rings too
           obj.material = this.holographicMaterial;
         }
       };

@@ -45,6 +45,7 @@ export class Saturn extends BasePlanet {
 
       const ringMesh = new THREE.Mesh(ringGeo, ringMat);
       ringMesh.rotation.x = -Math.PI / 2;
+      ringMesh.userData.isRing = true; // For identification
       this.mesh.add(ringMesh);
     } catch (err) {
       console.error("Failed to load Saturn rings:", err);
