@@ -20,7 +20,7 @@ export class Saturn extends BasePlanet {
         textureLoader.load('/hq/8k_saturn_ring_alpha.png', resolve, undefined, reject);
       });
 
-      const ringGeo = new THREE.RingGeometry(innerRadius, outerRadius, 128);
+      const ringGeo = new THREE.RingGeometry(innerRadius, outerRadius, 128, 8);
       const pos = ringGeo.attributes.position;
       const uv = ringGeo.attributes.uv;
       const v3 = new THREE.Vector3();
@@ -45,6 +45,17 @@ export class Saturn extends BasePlanet {
 
       const ringMesh = new THREE.Mesh(ringGeo, ringMat);
       ringMesh.rotation.x = -Math.PI / 2;
+      ringMesh.userData.isRing = true; // For identification
+
+      if (this.isHolographic) {
+        if (!this.holographicMaterial) {
+          const { createHolographicMaterial } = await import('../../utils/HolographicMaterial.js');
+          this.holographicMaterial = createHolographicMaterial();
+        }
+        ringMesh.userData.originalMaterial = ringMat;
+        ringMesh.material = this.holographicMaterial;
+      }
+
       this.mesh.add(ringMesh);
     } catch (err) {
       console.error("Failed to load Saturn rings:", err);
