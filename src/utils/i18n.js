@@ -1,4 +1,4 @@
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 
 const SAVED_LANG_KEY = 'preferredLanguage'
 const defaultLang = localStorage.getItem(SAVED_LANG_KEY) || 'en'
@@ -461,21 +461,52 @@ const dict = {
 }
 
 
+// Performance Caches
+const pathCache = new Map();
+const translationCache = new Map();
+
+// Clear translation cache on language change
+watch(currentLang, () => {
+  translationCache.clear();
+});
+
+/**
+ * Optimized translation function.
+ * Uses caching for paths and resolved strings to minimize per-frame overhead.
+ */
 export function t(path, vars = null) {
-  const parts = path.split('.')
-  let cur = dict[currentLang.value] || dict.en
-  for (const p of parts) {
-    cur = cur?.[p]
-    if (cur === undefined) return path
+  // 1. Fast path: check cache for static translations
+  if (!vars) {
+    const cached = translationCache.get(path);
+    if (cached !== undefined) return cached;
   }
 
+  // 2. Optimized path splitting
+  let parts = pathCache.get(path);
+  if (!parts) {
+    parts = path.split('.');
+    pathCache.set(path, parts);
+  }
+
+  // 3. Dictionary traversal
+  let cur = dict[currentLang.value] || dict.en;
+  for (let i = 0; i < parts.length; i++) {
+    cur = cur?.[parts[i]];
+    if (cur === undefined) return path;
+  }
+
+  // 4. Variable replacement or Caching
   if (vars && typeof cur === 'string') {
-    Object.keys(vars).forEach(key => {
-      cur = cur.replace(new RegExp(`\\{${key}\\}`, 'g'), vars[key])
-    })
+    // Use replaceAll for a clean and efficient replacement of all occurrences
+    for (const key in vars) {
+      cur = cur.replaceAll(`{${key}}`, String(vars[key]));
+    }
+  } else if (typeof cur === 'string') {
+    // Cache resolved static string
+    translationCache.set(path, cur);
   }
 
-  return cur
+  return cur;
 }
 
 export function setLang(lang) {
