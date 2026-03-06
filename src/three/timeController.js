@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { computeD, computeElements, computePosition, computeMoonPosition, computePlanetQuaternion } from '../utils/Astronomy.js'
+import { J2000_EPOCH, computeD, computeElements, computePosition, computeMoonPosition, computePlanetQuaternion } from '../utils/Astronomy.js'
 
 export function createTimeController(planetObjects, orbitScale, extraRotating = [], moon = null, moonOrbit = null, moonOrbitRadius = 10) {
   let speedMultiplier = 1
@@ -102,8 +102,8 @@ export function createTimeController(planetObjects, orbitScale, extraRotating = 
   }
 
   function getSimulationDate() {
-    const j2000 = Date.UTC(2000, 0, 1, 12)
-    return new Date(j2000 + currentD * 86400000)
+    // Optimized: Use pre-calculated J2000 epoch instead of Date.UTC calls
+    return new Date(J2000_EPOCH + currentD * 86400000)
   }
 
   function setDate(date) {

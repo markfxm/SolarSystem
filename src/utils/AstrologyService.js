@@ -1,4 +1,4 @@
-import { computeD, computeElements, computePosition } from './Astronomy.js';
+import { computeD, computeElements, computePosition, RAD2DEG } from './Astronomy.js';
 
 export const ZODIAC_SIGNS = [
     'aries', 'taurus', 'gemini', 'cancer', 'leo', 'virgo',
@@ -51,7 +51,7 @@ export class AstrologyService {
             const elements = computeElements(name, d);
             const pos = computePosition(elements, 1);
             const longitudeRad = Math.atan2(pos.y, pos.x);
-            let longitudeDeg = longitudeRad * (180 / Math.PI);
+            let longitudeDeg = longitudeRad * RAD2DEG;
             results[name] = this.getSignAndDegree(longitudeDeg);
         }
 
@@ -84,7 +84,7 @@ export class AstrologyService {
             }
 
             const longitudeRad = Math.atan2(relY, relX);
-            const longitudeDeg = longitudeRad * (180 / Math.PI);
+            const longitudeDeg = longitudeRad * RAD2DEG;
 
             results[name] = this.getSignAndDegree(longitudeDeg);
         }

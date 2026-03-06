@@ -164,11 +164,12 @@ export async function createSolarSystem(scene, zodiacNames = [], onProgress = ()
 
   // Environment
   const starGeo = new THREE.BufferGeometry()
-  const vertices = []
-  for (let i = 0; i < 15000; i++) {
-    vertices.push((Math.random() - 0.5) * 200000, (Math.random() - 0.5) * 200000, (Math.random() - 0.5) * 200000)
+  const starCount = 15000;
+  const starVertices = new Float32Array(starCount * 3);
+  for (let i = 0; i < starCount * 3; i++) {
+    starVertices[i] = (Math.random() - 0.5) * 200000;
   }
-  starGeo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3))
+  starGeo.setAttribute('position', new THREE.BufferAttribute(starVertices, 3))
   const starPoints = new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 2 }))
   starPoints.userData.isStarfield = true
   scene.add(starPoints)
