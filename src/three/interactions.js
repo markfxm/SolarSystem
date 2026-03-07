@@ -32,6 +32,7 @@ export function createInteractions({
   const _trackingDelta = new THREE.Vector3()
   const _tempVec3 = new THREE.Vector3()
   const _tempLookAt = new THREE.Vector3()
+  const _poiCandidates = [] // Scratch array to avoid per-event allocations
   let lastMouseMoveTime = 0
 
   // Fly / tracking state
@@ -194,19 +195,25 @@ export function createInteractions({
 
     // Check for POIs first (they are smaller and "on top")
     let hitPOI = null
-    const poiCandidates = []
-    planets.forEach(p => {
+    _poiCandidates.length = 0 // Clear scratch array without reallocation
+    for (let i = 0; i < planets.length; i++) {
+      const p = planets[i]
       if (p.userData.pois && p.userData.pois.visible) {
-        p.userData.pois.children.forEach(poiGroup => {
+        const poiGroups = p.userData.pois.children
+        for (let j = 0; j < poiGroups.length; j++) {
+          const poiGroup = poiGroups[j]
+          const children = poiGroup.children
           // Raycast against both dot and label for better hit area
-          poiCandidates.push(...poiGroup.children)
+          for (let k = 0; k < children.length; k++) {
+            _poiCandidates.push(children[k])
+          }
           // Reset hover state
           poiGroup.userData.isHovered = false
-        })
+        }
       }
-    })
+    }
 
-    const poiHits = raycaster.intersectObjects(poiCandidates, false)
+    const poiHits = raycaster.intersectObjects(_poiCandidates, false)
     if (poiHits.length > 0) {
       // Find the parent POI group
       hitPOI = poiHits[0].object.parent
