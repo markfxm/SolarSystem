@@ -9,3 +9,7 @@
 ## 2025-05-15 - [Geometry Batching & Texture Caching in Utilities]
 **Learning:** Utility-generated geometry (like planetary grids or POI markers) often creates hundreds of redundant Line and Sprite objects, each adding a draw call. Caching the CanvasTextures and SpriteMaterials based on their content (e.g., degree labels) and merging disparate lines into a single `LineSegments` object dramatically reduces the overhead without changing the visual output.
 **Action:** Always check if repeating UI/Grid elements can be batched into a single geometry and if their textures can be shared via a module-level cache.
+
+## 2025-05-15 - [i18n String Lookup & Variable Replacement]
+**Learning:** In high-frequency render loops (60fps), calling an i18n `t()` function that performs string splitting, deep object traversal, and `RegExp` creation for every call creates significant GC pressure and CPU overhead. Caching split path parts and fully resolved static strings reduces the lookup to O(1) in the hot path. Using `String.prototype.replaceAll` for variable substitution is faster and more readable than manual splitting or `new RegExp` in a loop.
+**Action:** Always cache string lookups and path resolutions for any function called within a `requestAnimationFrame` or high-frequency update loop. Avoid creating `RegExp` objects or temporary arrays inside these functions.
