@@ -14,42 +14,27 @@
           {{ simulationTime }}
         </div>
       </div>
-      <button
-        class="home-btn"
-        @click="onHomeClick"
-      >
-        {{ t('control.home') }}
-      </button>
-
-      <button
-        class="zodiac-toggle-btn"
-        :class="{ active: showZodiac }"
-        @click="toggleZodiac"
-      >
-        {{ t('control.zodiac') }}
-      </button>
-
-      <button
-        v-if="selectedPlanetId"
-        class="grid-toggle-btn"
-        :class="{ active: showGrid }"
-        @click="toggleGrid"
-      >
-        {{ t('control.grid') }}
-      </button>
-
-      <button
-        class="holo-toggle-btn"
-        :class="{ active: showHolo }"
-        @click="toggleHolo"
-      >
-        {{ t('control.holographic') || 'Holographic' }}
-      </button>
-
       <div v-if="hoveredPlanetName" class="hover-name">
         {{ hoveredPlanetName }}
       </div>
     </div>
+
+    <!-- System Console (Unified Controls) -->
+    <SystemConsole
+      v-if="!isLoading && viewMode === 'solar'"
+      ref="systemConsole"
+      :showZodiac="showZodiac"
+      :showGrid="showGrid"
+      :showHolo="showHolo"
+      :hasSelectedPlanet="!!selectedPlanetId"
+      positionTop="30%"
+      @home="onHomeClick"
+      @toggle-zodiac="toggleZodiac"
+      @toggle-grid="toggleGrid"
+      @toggle-holo="toggleHolo"
+      @speed-change="onSpeedChange"
+      @reset="onReset"
+    />
 
     <!-- POI Overlay -->
     <svg v-if="selectedPOI && poiUI.visible" class="poi-svg-overlay">
@@ -128,13 +113,6 @@
       @info="onShowInfo"
     />
 
-    <TimeControlPanel
-      v-if="!isLoading && viewMode === 'solar'"
-      ref="timePanel"
-      @speed-change="onSpeedChange"
-      @reset="onReset"
-    />
-
     <TransitPanel
       :visible="showTransitPanel"
       :chart="currentChart"
@@ -164,7 +142,7 @@
 import { ref, shallowRef, onMounted, onUnmounted, computed, watch } from 'vue'
 
 import PlanetNavigationPanel from './PlanetNavigationPanel.vue'
-import TimeControlPanel from './TimeControlPanel.vue'
+import SystemConsole from './SystemConsole.vue'
 import LanguagePanel from './LanguagePanel.vue'
 import TourPanel from './TourPanel.vue'
 import StellarMomentModal from './StellarMomentModal.vue'
@@ -186,7 +164,7 @@ import { AestheticSnapshotManager } from '../utils/AestheticSnapshot.js'
 import { AstrologyService } from '../utils/AstrologyService.js'
 
 const container = shallowRef(null)
-const timePanel = ref(null)
+const systemConsole = ref(null)
 
 const hoveredPlanetName = ref('')
 const selectedPlanetId = ref(null)
@@ -493,14 +471,9 @@ function onReset() {
   if (!timeController) return
   isSimulating.value = false
   timeController.resetTime()
-  // Force reset the slider component if needed? 
-  // Ideally TimeControlPanel should update itself if we pass props back, 
-  // but for now the panel emits speed-change when slider moves, so reset logic might need to be two-way.
-  // Actually, timeController.resetTime() resets internal state.
-  // The panel slider position also needs to be reset visually.
-  const panelRef = timePanel.value
-  if (panelRef && panelRef.resetVisuals) {
-    panelRef.resetVisuals()
+
+  if (systemConsole.value) {
+    systemConsole.value.resetSpeedVisuals()
   }
 }
 
@@ -546,7 +519,7 @@ async function onStellarCapture(date) {
   await new Promise(r => requestAnimationFrame(r))
   await new Promise(r => setTimeout(r, 100)) // slight buffer for heavy scenes
 
-  const uiElements = document.querySelectorAll('.hud, .language-panel, .tour-panel, .planet-nav-panel, .time-control-panel, .stellar-modal-overlay')
+  const uiElements = document.querySelectorAll('.hud, .language-panel, .tour-panel, .planet-nav-panel, .system-console, .stellar-modal-overlay')
   
   const aesthetic = new AestheticSnapshotManager(engine.scene, engine.camera, solar.planetObjects)
 
@@ -936,14 +909,9 @@ onUnmounted(() => {
   top: 16px;
   left: 16px;
   color: #fff;
-  pointer-events: none; /* 保持父层不可点，子元素可覆盖 */
+  pointer-events: none;
   font-family: system-ui, sans-serif;
-
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start; /* 左对齐 */
-  gap: 8px;
-  z-index: 1000; /* Ensure on top of PlanetSurface overlay */
+  z-index: 1000;
 }
 
 .time-container {
@@ -997,103 +965,6 @@ onUnmounted(() => {
   opacity: 0.6;
 }
 
-/* Home 按钮左对齐并可点击 */
-.home-btn {
-  margin-top: 0;
-  align-self: flex-start; /* 确保左对齐 */
-  pointer-events: auto; /* 允许点击 */
-  padding: 8px 12px;
-  font-size: 13px;
-  font-weight: 600;
-  color: #fff;
-  background: rgba(30,30,40,0.9);
-  border: 1px solid rgba(120,160,255,0.35);
-  border-radius: 10px;
-  cursor: pointer;
-  transition: background .18s ease, transform .18s ease;
-}
-.home-btn:hover {
-  background: rgba(60,100,220,0.9);
-  transform: translateY(-2px);
-}
-
-.zodiac-toggle-btn {
-  margin-top: 0;
-  align-self: flex-start;
-  pointer-events: auto;
-  padding: 8px 12px;
-  font-size: 13px;
-  font-weight: 600;
-  color: #fff;
-  background: rgba(30,30,40,0.9);
-  border: 1px solid rgba(212,170,255,0.35);
-  border-radius: 10px;
-  cursor: pointer;
-  transition: all .18s ease;
-}
-
-.zodiac-toggle-btn.active {
-  background: rgba(212,170,255,0.25);
-  border-color: rgba(212,170,255,0.8);
-  box-shadow: 0 0 15px rgba(212,170,255,0.3);
-}
-
-.zodiac-toggle-btn:hover {
-  background: rgba(212,170,255,0.4);
-  transform: translateY(-2px);
-}
-
-.grid-toggle-btn {
-  margin-top: 0;
-  align-self: flex-start;
-  pointer-events: auto;
-  padding: 8px 12px;
-  font-size: 13px;
-  font-weight: 600;
-  color: #fff;
-  background: rgba(30,30,40,0.9);
-  border: 1px solid rgba(150,255,200,0.35);
-  border-radius: 10px;
-  cursor: pointer;
-  transition: all .18s ease;
-}
-
-.grid-toggle-btn.active {
-  background: rgba(150,255,200,0.25);
-  border-color: rgba(150,255,200,0.8);
-  box-shadow: 0 0 15px rgba(150,255,200,0.3);
-}
-
-.grid-toggle-btn:hover {
-  background: rgba(150,255,200,0.4);
-  transform: translateY(-2px);
-}
-
-.holo-toggle-btn {
-  margin-top: 0;
-  align-self: flex-start;
-  pointer-events: auto;
-  padding: 8px 12px;
-  font-size: 13px;
-  font-weight: 600;
-  color: #fff;
-  background: rgba(30,30,40,0.9);
-  border: 1px solid rgba(0,255,255,0.35);
-  border-radius: 10px;
-  cursor: pointer;
-  transition: all .18s ease;
-}
-
-.holo-toggle-btn.active {
-  background: rgba(0,255,255,0.25);
-  border-color: rgba(0,255,255,0.8);
-  box-shadow: 0 0 15px rgba(0,255,255,0.3);
-}
-
-.holo-toggle-btn:hover {
-  background: rgba(0,255,255,0.4);
-  transform: translateY(-2px);
-}
 
 /* 保留 hover-name 样式 */
 .hover-name {
