@@ -80,7 +80,7 @@
             <div v-for="(item, idx) in aspects" :key="idx" class="aspect-item">
                 <span class="a-names">
                 <span>{{ t('planet.' + item.p1) }} & {{ t('planet.' + item.p2) }}</span>
-                <span class="a-type" :style="{ color: getColor(item.aspect.color) }">
+                <span class="a-type" :style="{ color: item.aspect.colorStr }">
                     {{ t(item.aspect.label) }}
                 </span>
                 </span>
@@ -141,10 +141,6 @@ const guidance = computed(() => {
 
 function formatDegree(deg) {
   return AstrologyService.formatDegree(deg)
-}
-
-function getColor(hex) {
-  return '#' + hex.toString(16).padStart(6, '0')
 }
 </script>
 
