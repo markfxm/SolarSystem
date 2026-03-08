@@ -207,8 +207,13 @@ function resetVisuals() {
   isOpen.value = false // Optional: close panel on reset? Maybe keep it open. Let's keep it open.
 }
 
+function setOpen(val) {
+  isOpen.value = val
+}
+
 defineExpose({
-  resetVisuals
+  resetVisuals,
+  setOpen
 })
 </script>
 
