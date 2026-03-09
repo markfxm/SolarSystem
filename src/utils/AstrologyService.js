@@ -13,6 +13,12 @@ export const ASPECT_TYPES = {
     SEXTILE: { angle: 60, orb: 6, color: 0xffcc33, label: 'aspect.sextile' }
 };
 
+// Add pre-formatted color strings for UI performance
+for (const key in ASPECT_TYPES) {
+    const aspect = ASPECT_TYPES[key];
+    aspect.colorStr = '#' + aspect.color.toString(16).padStart(6, '0');
+}
+
 // Pre-cache entries to avoid Object.entries() in high-frequency loops
 const ASPECT_TYPE_LIST = Object.entries(ASPECT_TYPES);
 const HELIOCENTRIC_PLANETS = ['mercury', 'venus', 'earth', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune'];
@@ -26,7 +32,21 @@ export const ZODIAC_ELEMENTS = {
     cancer: 'water', scorpio: 'water', pisces: 'water'
 };
 
+const ASPECT_PRIORITY = {
+    'CONJUNCTION': 1,
+    'OPPOSITION': 2,
+    'SQUARE': 3,
+    'TRINE': 4,
+    'SEXTILE': 5
+};
+
 const CALIBRATION_OFFSET = 1.7;
+
+// Scratch variables to avoid per-frame GC and fix re-entrancy bugs
+const _earthElements = { a: 1, e: 0, i: 0, N: 0, w: 0, M: 0 };
+const _earthPos = { x: 0, y: 0, z: 0, r: 0 };
+const _pElements = { a: 1, e: 0, i: 0, N: 0, w: 0, M: 0 };
+const _pPos = { x: 0, y: 0, z: 0, r: 0 };
 
 export class AstrologyService {
     static getSignAndDegree(longitude) {
@@ -48,8 +68,8 @@ export class AstrologyService {
 
         for (let i = 0; i < HELIOCENTRIC_PLANETS.length; i++) {
             const name = HELIOCENTRIC_PLANETS[i];
-            const elements = computeElements(name, d);
-            const pos = computePosition(elements, 1);
+            const elements = computeElements(name, d, _pElements);
+            const pos = computePosition(elements, 1, _pPos);
             const longitudeRad = Math.atan2(pos.y, pos.x);
             let longitudeDeg = longitudeRad * RAD2DEG;
             results[name] = this.getSignAndDegree(longitudeDeg);
@@ -61,8 +81,9 @@ export class AstrologyService {
     static calculateGeocentricChart(d) {
         const results = {};
 
-        const earthElements = computeElements('earth', d);
-        const earthPos = computePosition(earthElements, 1);
+        // Use dedicated scratch variables to avoid being overwritten by planet loop
+        const earthElements = computeElements('earth', d, _earthElements);
+        const earthPos = computePosition(earthElements, 1, _earthPos);
 
         for (let i = 0; i < GEOCENTRIC_PLANETS.length; i++) {
             const name = GEOCENTRIC_PLANETS[i];
@@ -72,13 +93,13 @@ export class AstrologyService {
                 relX = -earthPos.x;
                 relY = -earthPos.y;
             } else if (name === 'moon') {
-                const elements = computeElements('moon', d);
-                const pPos = computePosition(elements, 1);
+                const elements = computeElements('moon', d, _pElements);
+                const pPos = computePosition(elements, 1, _pPos);
                 relX = pPos.x;
                 relY = pPos.y;
             } else {
-                const elements = computeElements(name, d);
-                const pPos = computePosition(elements, 1);
+                const elements = computeElements(name, d, _pElements);
+                const pPos = computePosition(elements, 1, _pPos);
                 relX = pPos.x - earthPos.x;
                 relY = pPos.y - earthPos.y;
             }
@@ -105,11 +126,11 @@ export class AstrologyService {
         // Use pre-cached list to avoid allocations
         for (let i = 0; i < ASPECT_TYPE_LIST.length; i++) {
             const entry = ASPECT_TYPE_LIST[i];
-            const type = entry[0];
             const data = entry[1];
             const orb = Math.abs(diff - data.angle);
             if (orb <= data.orb) {
-                return { type, orb, ...data };
+                // Return original data to include colorStr
+                return { type: entry[0], orb, ...data };
             }
         }
         return null;
@@ -117,21 +138,27 @@ export class AstrologyService {
 
     static calculateAspects(chart) {
         const aspects = [];
-        // Use pre-cached inclusive list to avoid Object.keys() allocation
         const bodies = ALL_BODIES;
+
+        // Pre-calculate longitudes to avoid redundant math in inner loop
+        const longitudes = {};
+        for (let i = 0; i < bodies.length; i++) {
+            const b = bodies[i];
+            const c = chart[b];
+            if (c) {
+                longitudes[b] = c.index * 30 + c.degree;
+            }
+        }
 
         for (let i = 0; i < bodies.length; i++) {
             const b1 = bodies[i];
-            const c1 = chart[b1];
-            if (!c1) continue;
+            const long1 = longitudes[b1];
+            if (long1 === undefined) continue;
 
             for (let j = i + 1; j < bodies.length; j++) {
                 const b2 = bodies[j];
-                const c2 = chart[b2];
-                if (!c2) continue;
-
-                const long1 = c1.index * 30 + c1.degree;
-                const long2 = c2.index * 30 + c2.degree;
+                const long2 = longitudes[b2];
+                if (long2 === undefined) continue;
 
                 const aspect = this.findAspect(long1, long2);
                 if (aspect) {
@@ -146,28 +173,23 @@ export class AstrologyService {
         if (!aspects || aspects.length === 0) return null;
 
         let major = null;
-        const priorityMap = {
-            'CONJUNCTION': 1,
-            'OPPOSITION': 2,
-            'SQUARE': 3,
-            'TRINE': 4,
-            'SEXTILE': 5
-        };
 
-        aspects.forEach(item => {
+        for (let i = 0; i < aspects.length; i++) {
+            const item = aspects[i];
             if (!major) {
                 major = item;
             } else {
                 const orbDiff = item.aspect.orb - major.aspect.orb;
+                // Favor smaller orbs, then priority
                 if (orbDiff < -1.0) {
                     major = item;
                 } else if (Math.abs(orbDiff) <= 1.0) {
-                    if (priorityMap[item.aspect.type.toUpperCase()] < priorityMap[major.aspect.type.toUpperCase()]) {
+                    if (ASPECT_PRIORITY[item.aspect.type] < ASPECT_PRIORITY[major.aspect.type]) {
                         major = item;
                     }
                 }
             }
-        });
+        }
 
         return major;
     }
@@ -200,7 +222,6 @@ export class AstrologyService {
     static calculateElementBalance(chart) {
         const balance = { fire: 0, earth: 0, air: 0, water: 0 };
 
-        // Use for...in to avoid any array allocations from keys/values/entries
         for (const name in chart) {
             const info = chart[name];
             const element = ZODIAC_ELEMENTS[info.signId];
@@ -209,7 +230,6 @@ export class AstrologyService {
 
         let maxVal = -1;
         let dominant = 'none';
-        // Direct loop to find dominant element
         for (const el in balance) {
             const count = balance[el];
             if (count > maxVal) {
