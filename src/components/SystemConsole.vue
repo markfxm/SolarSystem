@@ -133,34 +133,34 @@ defineExpose({
   display: flex;
   flex-direction: row;
   align-items: flex-start;
-  gap: 12px;
+  gap: 1vw;
   pointer-events: none;
 }
 
 .button-stack {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 0.8vh;
 }
 
 .console-btn {
   pointer-events: auto;
-  min-width: 90px;
-  padding: 12px 16px;
-  font-size: 14px;
+  min-width: 5vw;
+  padding: 1.2vh 1vw;
+  font-size: clamp(10px, 1.2vh, 14px);
   font-weight: 700;
   color: #fff;
   background: rgba(18, 22, 40, 0.9);
   border: 1px solid rgba(100, 150, 255, 0.3);
   border-left: none;
-  border-radius: 0 12px 12px 0;
+  border-radius: 0 1.2vh 1.2vh 0;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
   text-align: left;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  box-shadow: 4px 4px 20px rgba(0, 0, 0, 0.5);
+  box-shadow: 0.4vh 0.4vh 2vh rgba(0, 0, 0, 0.5);
   backdrop-filter: blur(8px);
 }
 
@@ -199,28 +199,28 @@ defineExpose({
 
 .expanded-menu {
   pointer-events: auto;
-  margin-top: 54px; /* Align with menu button */
+  margin-top: calc(1.2vh * 2 + 1.2vh + 10px); /* Adjust to align with menu button */
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 0.5vh;
   background: rgba(15, 20, 35, 0.95);
   border: 1px solid rgba(100, 150, 255, 0.25);
-  border-radius: 12px;
-  padding: 10px;
-  box-shadow: 10px 10px 40px rgba(0, 0, 0, 0.8);
+  border-radius: 1.2vh;
+  padding: 0.8vh;
+  box-shadow: 1vh 1vh 4vh rgba(0, 0, 0, 0.8);
   backdrop-filter: blur(15px);
-  min-width: 140px;
+  min-width: 8vw;
 }
 
 .menu-item {
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(100, 150, 255, 0.1);
   color: #88ccff;
-  padding: 10px 14px;
-  border-radius: 8px;
+  padding: 0.8vh 1vw;
+  border-radius: 0.8vh;
   cursor: pointer;
   text-align: left;
-  font-size: 13px;
+  font-size: clamp(10px, 1.1vh, 13px);
   font-weight: 600;
   transition: all 0.2s ease;
   display: flex;
@@ -258,7 +258,7 @@ defineExpose({
 
 /* Adjust TimeControlPanel position when used inside SystemConsole */
 .nested-speed-panel {
-  margin-top: 54px;
+  margin-top: calc(1.2vh * 2 + 1.2vh + 10px);
 }
 
 :deep(.panel-wrapper) {
