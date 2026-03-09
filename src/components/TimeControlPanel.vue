@@ -268,57 +268,63 @@ defineExpose({
 .panel {
   position: relative;
   background: rgba(18, 22, 40, 0.85);
-  padding: 12px;
-  padding-bottom: 12px;
-  border-radius: 12px;
+  padding: 1vh;
+  padding-bottom: 1.2vh;
+  border-radius: 1vh;
   border: 1px solid rgba(100, 150, 255, 0.08);
-  box-shadow: 0 6px 24px rgba(0,0,0,0.6);
+  box-shadow: 0 0.5vh 2vh rgba(0,0,0,0.6);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
-  width: 92px;
+  gap: 0.8vh;
+  width: 5vw;
+  min-width: 80px;
+  max-width: 110px;
   box-sizing: border-box;
 }
 
 /* panel title */
 .panel-title {
   position: absolute;
-  top: 8px;
+  top: 0.7vh;
   left: 50%;
   transform: translateX(-50%);
   color: #cfe8ff;
-  font-size: 13px;
+  font-size: clamp(10px, 1.1vh, 14px);
   font-weight: 700;
   user-select: none;
   pointer-events: none;
   z-index: 30;
   margin: 0;
+  white-space: nowrap;
 }
 
 /* slider area */
 .slider-wrap {
   position: relative;
-  width: 56px;
-  height: 320px;
+  width: 100%;
+  height: 25vh;
   display: flex;
   align-items: center;
   justify-content: center;
   user-select: none;
-  padding-top: 48px;
-  padding-bottom: 8px;
+  padding-top: calc(25vh * 48 / 320);
+  padding-bottom: calc(25vh * 8 / 320);
+  box-sizing: border-box;
 }
 
 .slider-track {
   position: absolute;
   left: 50%;
-  top: 48px;
-  bottom: 8px;
+  top: calc(25vh * 48 / 320);
+  bottom: calc(25vh * 8 / 320);
   transform: translateX(-50%);
-  width: 8px;
+  width: 0.4vw;
+  min-width: 4px;
+  max-width: 8px;
   background: linear-gradient(180deg, rgba(100,150,255,0.25), rgba(255,255,255,0.04));
-  border-radius: 8px;
-  box-shadow: inset 0 0 6px rgba(0,0,0,0.6);
+  border-radius: 0.8vh;
+  box-shadow: inset 0 0 0.5vh rgba(0,0,0,0.6);
   z-index: 1;
   border: 1px solid rgba(255,255,255,0.03);
 }
@@ -326,10 +332,12 @@ defineExpose({
 /* knob & arrow */
 .knob {
   position: absolute;
-  left: calc(50% - 40px);
+  right: calc(50% + 0.3vw);
   transform: translateY(-50%);
-  width: 36px;
-  height: 24px;
+  width: 1.8vw;
+  min-width: 28px;
+  height: 2vh;
+  min-height: 18px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -341,18 +349,18 @@ defineExpose({
 .knob:active { cursor: grabbing; }
 
 .knob-arrow {
-  width: 28px;
-  height: 16px;
+  width: 100%;
+  height: 80%;
   background: linear-gradient(90deg, #2b6ef6, #64b5f6);
   -webkit-clip-path: polygon(0 0, 76% 0, 100% 50%, 76% 100%, 0 100%);
   clip-path: polygon(0 0, 76% 0, 100% 50%, 76% 100%, 0 100%);
-  border-radius: 4px;
-  box-shadow: 0 2px 8px rgba(30,100,220,0.35);
+  border-radius: 0.3vh;
+  box-shadow: 0 0.2vh 0.8vh rgba(30,100,220,0.35);
   border: 1px solid rgba(255,255,255,0.06);
   transition: transform .08s ease;
 }
-.knob:hover .knob-arrow { transform: translateX(2px); }
-.knob:active .knob-arrow { transform: translateX(4px); }
+.knob:hover .knob-arrow { transform: translateX(0.2vw); }
+.knob:active .knob-arrow { transform: translateX(0.4vw); }
 
 /* presets */
 .preset {
@@ -363,8 +371,10 @@ defineExpose({
   border: none;
   cursor: pointer;
   padding: 0;
-  width: 22px;
-  height: 22px;
+  width: 1.2vw;
+  height: 1.2vw;
+  min-width: 18px;
+  min-height: 18px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -372,11 +382,13 @@ defineExpose({
   z-index: 20;
 }
 .preset-dot {
-  width: 10px;
-  height: 10px;
+  width: 0.6vw;
+  height: 0.6vw;
+  min-width: 10px;
+  min-height: 10px;
   background: linear-gradient(90deg, #88bfff, #2b6ef6);
   border-radius: 50%;
-  box-shadow: 0 2px 6px rgba(43,110,246,0.22);
+  box-shadow: 0 0.2vh 0.5vh rgba(43,110,246,0.22);
   border: 1px solid rgba(255,255,255,0.06);
 }
 
@@ -384,21 +396,21 @@ defineExpose({
 .current {
   color: #cfe8ff;
   font-weight: 700;
-  font-size: 13px;
+  font-size: clamp(10px, 1.1vh, 14px);
   user-select: none;
   font-variant-numeric: tabular-nums;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.05vh;
 }
 
 .reset-btn {
   width: 100%;
-  margin-top: 4px;
-  padding: 6px 0;
+  margin-top: 0.4vh;
+  padding: 0.6vh 0;
   background: rgba(30,30,40,0.5);
   border: 1px solid rgba(120,160,255,0.2);
-  border-radius: 6px;
+  border-radius: 0.6vh;
   color: #aaddee;
-  font-size: 12px;
+  font-size: clamp(9px, 1vh, 12px);
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
