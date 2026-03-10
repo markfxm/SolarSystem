@@ -11,9 +11,7 @@
       @click="panelState = 1"
       aria-label="open solar system panel"
     >
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-        <path d="M15 6L9 12L15 18" />
-      </svg>
+      <span class="tron-arrow left"></span>
     </button>
 
     <!-- Stage 1 & 2 Container -->
@@ -21,9 +19,7 @@
       <!-- Stage 1: Solar System Rectangle Button -->
       <div v-if="panelState === 1" class="solar-button-group">
         <button class="collapse-btn-small" @click="panelState = 0" title="Collapse">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
-            <path d="M5 12h14M13 5l7 7-7 7" />
-          </svg>
+          <span class="tron-arrow right"></span>
         </button>
         <button
           class="solar-button"
@@ -37,9 +33,7 @@
       <div v-if="panelState === 2" class="panel-content">
         <!-- Side Toggle for Stage 2 -->
         <button class="side-toggle-btn" @click="panelState = 1" :title="t('nav.back_to_button')">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
-            <path d="M5 12h14M13 5l7 7-7 7" />
-          </svg>
+          <span class="tron-arrow right"></span>
         </button>
 
         <div class="panel-header">
@@ -358,6 +352,22 @@ const bodies = computed(() => [
 .info-icon {
   font-size: 16px;
   font-weight: 800;
+}
+
+.tron-arrow {
+  width: 6px; height: 6px;
+  border-top: 2px solid currentColor;
+  border-right: 2px solid currentColor;
+  transition: all 0.3s ease;
+  display: inline-block;
+}
+
+.tron-arrow.left {
+  transform: rotate(225deg);
+}
+
+.tron-arrow.right {
+  transform: rotate(45deg);
 }
 
 @keyframes slideIn {
