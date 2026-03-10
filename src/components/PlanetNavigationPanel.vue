@@ -11,9 +11,7 @@
       @click="panelState = 1"
       aria-label="open solar system panel"
     >
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-        <path d="M15 6L9 12L15 18" />
-      </svg>
+      <span class="tron-arrow left"></span>
     </button>
 
     <!-- Stage 1 & 2 Container -->
@@ -21,9 +19,7 @@
       <!-- Stage 1: Solar System Rectangle Button -->
       <div v-if="panelState === 1" class="solar-button-group">
         <button class="collapse-btn-small" @click="panelState = 0" title="Collapse">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
-            <path d="M5 12h14M13 5l7 7-7 7" />
-          </svg>
+          <span class="tron-arrow right"></span>
         </button>
         <button
           class="solar-button"
@@ -37,9 +33,7 @@
       <div v-if="panelState === 2" class="panel-content">
         <!-- Side Toggle for Stage 2 -->
         <button class="side-toggle-btn" @click="panelState = 1" :title="t('nav.back_to_button')">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
-            <path d="M5 12h14M13 5l7 7-7 7" />
-          </svg>
+          <span class="tron-arrow right"></span>
         </button>
 
         <div class="panel-header">
@@ -124,7 +118,7 @@ const bodies = computed(() => [
   height: 80px;
   background: rgba(10, 20, 35, 0.6);
   backdrop-filter: blur(15px);
-  border: 1px solid rgba(var(--glow-rgb), 0.2);
+  border: 1px solid rgba(var(--glow-rgb), 0.3);
   border-right: none;
   border-radius: 8px 0 0 8px;
   color: var(--glow-color);
@@ -138,6 +132,7 @@ const bodies = computed(() => [
 
 .arrow-trigger:hover {
   background: rgba(var(--glow-rgb), 0.1);
+  border-color: var(--glow-color);
   color: white;
   text-shadow: 0 0 10px var(--glow-color);
 }
@@ -147,13 +142,18 @@ const bodies = computed(() => [
   align-items: center;
   background: rgba(10, 20, 35, 0.6);
   backdrop-filter: blur(20px);
-  border: 1px solid rgba(var(--glow-rgb), 0.2);
+  border: 1px solid rgba(var(--glow-rgb), 0.3);
   border-right: none;
   border-radius: 8px 0 0 8px;
   overflow: hidden;
   box-shadow: -10px 0 30px rgba(0, 0, 0, 0.5);
   animation: slideIn 0.45s cubic-bezier(0.16, 1, 0.3, 1);
   width: 180px;
+  transition: border-color 0.3s ease;
+}
+
+.solar-button-group:hover {
+  border-color: var(--glow-color);
 }
 
 .solar-button {
@@ -175,7 +175,7 @@ const bodies = computed(() => [
   background: transparent;
   border: none;
   border-right: 1px solid rgba(var(--glow-rgb), 0.15);
-  color: rgba(var(--glow-rgb), 0.4);
+  color: rgba(var(--glow-rgb), 0.7);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -240,7 +240,7 @@ const bodies = computed(() => [
   width: 40px;
   height: 80px;
   background: rgba(10, 20, 35, 0.6);
-  border: 1px solid rgba(var(--glow-rgb), 0.2);
+  border: 1px solid rgba(var(--glow-rgb), 0.3);
   border-right: none;
   border-radius: 8px 0 0 8px;
   color: var(--glow-color);
@@ -254,6 +254,7 @@ const bodies = computed(() => [
 
 .side-toggle-btn:hover {
   background: rgba(var(--glow-rgb), 0.15);
+  border-color: var(--glow-color);
   color: white;
 }
 
@@ -351,6 +352,25 @@ const bodies = computed(() => [
 .info-icon {
   font-size: 16px;
   font-weight: 800;
+}
+
+.tron-arrow {
+  width: 8px;
+  height: 8px;
+  border-top: 2px solid currentColor;
+  border-right: 2px solid currentColor;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  display: inline-block;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+.tron-arrow.left {
+  transform: rotate(-135deg);
+}
+
+.tron-arrow.right {
+  transform: rotate(45deg);
 }
 
 @keyframes slideIn {
