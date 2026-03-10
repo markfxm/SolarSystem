@@ -175,7 +175,7 @@ const bodies = computed(() => [
   background: transparent;
   border: none;
   border-right: 1px solid rgba(var(--glow-rgb), 0.15);
-  color: rgba(var(--glow-rgb), 0.4);
+  color: rgba(var(--glow-rgb), 0.7);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -355,15 +355,18 @@ const bodies = computed(() => [
 }
 
 .tron-arrow {
-  width: 6px; height: 6px;
+  width: 8px;
+  height: 8px;
   border-top: 2px solid currentColor;
   border-right: 2px solid currentColor;
-  transition: all 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   display: inline-block;
+  vertical-align: middle;
+  flex-shrink: 0;
 }
 
 .tron-arrow.left {
-  transform: rotate(225deg);
+  transform: rotate(-135deg);
 }
 
 .tron-arrow.right {
