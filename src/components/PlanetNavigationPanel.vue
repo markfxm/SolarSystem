@@ -124,7 +124,7 @@ const bodies = computed(() => [
   height: 80px;
   background: rgba(10, 20, 35, 0.6);
   backdrop-filter: blur(15px);
-  border: 1px solid rgba(var(--glow-rgb), 0.2);
+  border: 1px solid rgba(var(--glow-rgb), 0.3);
   border-right: none;
   border-radius: 8px 0 0 8px;
   color: var(--glow-color);
@@ -138,6 +138,7 @@ const bodies = computed(() => [
 
 .arrow-trigger:hover {
   background: rgba(var(--glow-rgb), 0.1);
+  border-color: var(--glow-color);
   color: white;
   text-shadow: 0 0 10px var(--glow-color);
 }
@@ -147,13 +148,18 @@ const bodies = computed(() => [
   align-items: center;
   background: rgba(10, 20, 35, 0.6);
   backdrop-filter: blur(20px);
-  border: 1px solid rgba(var(--glow-rgb), 0.2);
+  border: 1px solid rgba(var(--glow-rgb), 0.3);
   border-right: none;
   border-radius: 8px 0 0 8px;
   overflow: hidden;
   box-shadow: -10px 0 30px rgba(0, 0, 0, 0.5);
   animation: slideIn 0.45s cubic-bezier(0.16, 1, 0.3, 1);
   width: 180px;
+  transition: border-color 0.3s ease;
+}
+
+.solar-button-group:hover {
+  border-color: var(--glow-color);
 }
 
 .solar-button {
@@ -240,7 +246,7 @@ const bodies = computed(() => [
   width: 40px;
   height: 80px;
   background: rgba(10, 20, 35, 0.6);
-  border: 1px solid rgba(var(--glow-rgb), 0.2);
+  border: 1px solid rgba(var(--glow-rgb), 0.3);
   border-right: none;
   border-radius: 8px 0 0 8px;
   color: var(--glow-color);
@@ -254,6 +260,7 @@ const bodies = computed(() => [
 
 .side-toggle-btn:hover {
   background: rgba(var(--glow-rgb), 0.15);
+  border-color: var(--glow-color);
   color: white;
 }
 
