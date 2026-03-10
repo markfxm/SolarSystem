@@ -13,52 +13,34 @@
         </div>
       </div>
 
-      <!-- Main Tank Area -->
+      <!-- Ruler-style Slider Area -->
       <div class="tank-container">
-        <!-- Scale marks (Top in vertical, Left in horizontal) -->
-        <div class="scale-marks">
-          <div v-for="i in (vertical ? 6 : 10)" :key="'l'+i" class="mark" :class="{ highlight: i % 5 === 0 }"></div>
-        </div>
-
         <div class="slider-area" ref="wrap" @mousedown.prevent="startDrag($event)" @touchstart.prevent="startDrag($event)">
-          <!-- Hex Grid Background -->
-          <div class="hex-bg"></div>
-
-          <!-- Energy Flow Track -->
-          <div class="track-wrapper">
-            <div class="track-fill" :style="trackStyle"></div>
-            <div class="track-glow" :style="trackStyle"></div>
+          <!-- Ruler Ticks -->
+          <div class="ruler-ticks">
+            <div v-for="i in 21" :key="i" class="tick" :class="{ major: (i-1) % 5 === 0 }"></div>
           </div>
 
-          <!-- Presets -->
+          <!-- Subtle Preset Points -->
           <div
             v-for="p in presets"
             :key="p.val"
-            class="preset-node"
-            :class="{ active: pos >= p.norm }"
+            class="preset-point"
             :style="getPresetStyle(p.norm)"
             @click.stop="setByPos(p.norm)"
           >
-            <div class="node-inner"></div>
-            <span v-if="!vertical || p.val === 1 || p.val === 1000000" class="node-label">{{ p.label }}</span>
+            <span class="node-label">{{ p.label }}</span>
           </div>
 
-          <!-- The Knob (The Scanner) -->
+          <!-- Clean Indicator Knob -->
           <div
-            class="scanner-knob"
+            class="indicator-knob"
             :style="knobStyle"
             ref="knob"
-            @mousedown.stop.prevent="startDrag($event)"
-            @touchstart.stop.prevent="startDrag($event)"
           >
-            <div class="scanner-line"></div>
-            <div class="scanner-brackets"></div>
+            <div class="glow-line"></div>
+            <div class="knob-marker"></div>
           </div>
-        </div>
-
-        <!-- Scale marks (Bottom in vertical, Right in horizontal) -->
-        <div class="scale-marks">
-          <div v-for="i in (vertical ? 6 : 10)" :key="'r'+i" class="mark" :class="{ highlight: i % 5 === 0 }"></div>
         </div>
       </div>
 
@@ -118,9 +100,9 @@ const trackStyle = computed(() => {
 
 const knobStyle = computed(() => {
   if (props.vertical) {
-    return { bottom: (pos.value * 100) + '%', left: '0', right: '0', width: 'auto', height: '2px', transform: 'translateY(50%)' }
+    return { bottom: (pos.value * 100) + '%', left: '0', right: '0', width: 'auto', height: '0', transform: 'translateY(50%)' }
   }
-  return { left: (pos.value * 100) + '%', top: '0', bottom: '0', width: '2px', transform: 'translateX(-50%)' }
+  return { left: (pos.value * 100) + '%', top: '0', bottom: '0', width: '0', transform: 'translateX(-50%)' }
 })
 
 function getPresetStyle(norm) {
@@ -338,109 +320,44 @@ defineExpose({ resetVisuals, setOpen })
 .tank-container {
   display: flex;
   align-items: center;
-  gap: 12px;
   height: 60px;
-  background: rgba(0, 0, 0, 0.3);
-  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.4);
   border: 1px solid rgba(0, 255, 255, 0.1);
-  padding: 0 10px;
+  border-radius: 2px;
+  padding: 0 4px;
 }
 
 .is-vertical .tank-container {
   flex-direction: column;
-  height: 150px;
-  padding: 10px 0;
-}
-
-.scale-marks {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.is-vertical .scale-marks {
-  flex-direction: row;
-}
-
-.mark {
-  width: 4px;
-  height: 1px;
-  background: rgba(0, 255, 255, 0.2);
-}
-
-.mark.highlight {
-  width: 8px;
-  background: rgba(0, 255, 255, 0.5);
-}
-
-.is-vertical .mark.highlight {
-  width: 1px;
-  height: 8px;
+  height: 240px;
+  padding: 4px 0;
 }
 
 .slider-area {
   flex: 1;
+  width: 100%;
   height: 100%;
   position: relative;
   cursor: crosshair;
 }
 
-.track-wrapper {
-  position: absolute;
-  top: 50%;
-  left: 0;
-  right: 0;
-  height: 4px;
-  background: rgba(255, 255, 255, 0.05);
-  transform: translateY(-50%);
-  border-radius: 2px;
-  overflow: hidden;
-}
-
-.is-vertical .track-wrapper {
-  top: 0; bottom: 0;
-  left: 50%; right: auto;
-  width: 4px; height: auto;
-  transform: translateX(-50%);
-}
-
-.track-fill {
-  height: 100%;
-  background: #00ffff;
-  box-shadow: 0 0 15px #00ffff;
-  transition: width 0.1s ease-out;
-}
-
-.track-glow {
-  position: absolute;
-  top: 0;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(0, 255, 255, 0.8));
-  filter: blur(4px);
-  transition: width 0.1s ease-out;
-}
-
-.preset-node {
+.preset-point {
   position: absolute;
   top: 50%;
   transform: translate(-50%, -50%);
   cursor: pointer;
   z-index: 10;
-}
-
-.node-inner {
-  width: 8px;
-  height: 8px;
-  background: #0a0f19;
-  border: 1px solid rgba(0, 255, 255, 0.4);
-  transform: rotate(45deg);
+  width: 4px;
+  height: 4px;
+  background: rgba(0, 255, 255, 0.3);
+  border-radius: 50%;
   transition: all 0.3s ease;
 }
 
-.preset-node.active .node-inner {
+.preset-point:hover {
   background: #00ffff;
-  box-shadow: 0 0 10px #00ffff;
-  border-color: #fff;
+  box-shadow: 0 0 8px #00ffff;
+  transform: translate(-50%, -50%) scale(1.5);
 }
 
 .node-label {
@@ -448,52 +365,59 @@ defineExpose({ resetVisuals, setOpen })
   top: 15px;
   left: 50%;
   transform: translateX(-50%);
-  font-size: 9px;
-  color: rgba(0, 255, 255, 0.5);
-  font-weight: 700;
+  font-size: 8px;
+  color: rgba(0, 255, 255, 0.4);
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 400;
   white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.preset-point:hover .node-label {
+  opacity: 1;
 }
 
 .is-vertical .node-label {
   top: 50%;
   left: 20px;
   transform: translateY(-50%);
-  font-size: 8px;
 }
 
-.scanner-knob {
+.indicator-knob {
   position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 2px;
-  transform: translateX(-50%);
-  z-index: 20;
+  z-index: 30;
   pointer-events: none;
 }
 
-.scanner-line {
+.glow-line {
   position: absolute;
-  top: 0; bottom: 0;
-  width: 100%;
   background: #fff;
-  box-shadow: 0 0 15px #fff;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.8), 0 0 20px rgba(0, 255, 255, 0.5);
 }
 
-.scanner-brackets {
+.is-vertical .glow-line {
+  left: 0; right: 0;
+  height: 1px;
+  top: 0;
+}
+
+.indicator-knob:not(.is-vertical) .glow-line {
+  top: 0; bottom: 0;
+  width: 1px;
+  left: 0;
+}
+
+.knob-marker {
   position: absolute;
-  top: -5px; bottom: -5px;
-  left: -6px; right: -6px;
-  border-left: 1px solid #00ffff;
-  border-right: 1px solid #00ffff;
-}
-
-.is-vertical .scanner-brackets {
-  top: -6px; bottom: -6px;
-  left: -8px; right: -8px;
-  border-left: none;
-  border-right: none;
-  border-top: 1px solid #00ffff;
-  border-bottom: 1px solid #00ffff;
+  width: 6px;
+  height: 6px;
+  background: #fff;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 10px #fff;
+  left: 50%;
 }
 
 .scanner-brackets::before, .scanner-brackets::after {
@@ -506,6 +430,44 @@ defineExpose({ resetVisuals, setOpen })
 
 .scanner-brackets::before { top: 0; }
 .scanner-brackets::after { bottom: 0; }
+
+/* Ruler Ticks */
+.ruler-ticks {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  pointer-events: none;
+}
+
+.is-vertical .ruler-ticks {
+  flex-direction: column-reverse;
+}
+
+.tick {
+  background: rgba(0, 255, 255, 0.15);
+}
+
+.tick:not(.is-vertical) {
+  width: 1px;
+  height: 8px;
+}
+
+.tick.major:not(.is-vertical) {
+  height: 16px;
+  background: rgba(0, 255, 255, 0.4);
+}
+
+.is-vertical .tick {
+  height: 1px;
+  width: 6px;
+}
+
+.is-vertical .tick.major {
+  width: 12px;
+  background: rgba(0, 255, 255, 0.5);
+}
 
 .panel-footer {
   margin-top: 25px;
