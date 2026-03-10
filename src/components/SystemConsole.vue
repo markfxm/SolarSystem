@@ -228,7 +228,7 @@ defineExpose({
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   position: relative;
   overflow: hidden;
-  min-width: 130px;
+  min-width: 160px;
 }
 
 .btn-text {
