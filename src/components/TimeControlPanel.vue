@@ -335,8 +335,8 @@ defineExpose({ resetVisuals, setOpen })
 
 .is-vertical .tank-container {
   flex-direction: column;
-  height: 280px;
-  padding: 12px 0;
+  height: 180px;
+  padding: 8px 0;
 }
 
 .slider-area {
