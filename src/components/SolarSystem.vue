@@ -277,6 +277,7 @@ function onShowInfo(id) {
 
 function onInfoPanelClose() {
   infoPlanetId.value = null
+  onHomeClick()
 }
 
 async function onLandOnMars(coords = null) {
