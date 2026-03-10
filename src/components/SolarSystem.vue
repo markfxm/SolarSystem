@@ -27,7 +27,7 @@
       :showGrid="showGrid"
       :showHolo="showHolo"
       :hasSelectedPlanet="!!selectedPlanetId"
-      positionTop="30%"
+      positionTop="80px"
       @home="onHomeClick"
       @toggle-zodiac="toggleZodiac"
       @toggle-grid="toggleGrid"
@@ -191,6 +191,7 @@ const poiDragOffset = ref({ x: 0, y: 0 })
 const isDraggingPoi = ref(false)
 const poiDragStartMouse = { x: 0, y: 0 }
 const poiDragStartOffset = { x: 0, y: 0 }
+
 
 const poiUI = ref({
   visible: false,
@@ -404,6 +405,14 @@ function toggleGrid() {
 
 function toggleHolo() {
   showHolo.value = !showHolo.value
+
+  // Toggle UI Theme
+  if (showHolo.value) {
+    document.documentElement.classList.add('theme-holographic')
+  } else {
+    document.documentElement.classList.remove('theme-holographic')
+  }
+
   if (solar && solar.setHolographic) {
     solar.setHolographic(showHolo.value)
   }
@@ -474,6 +483,7 @@ function onReset() {
 
   if (systemConsole.value) {
     systemConsole.value.resetSpeedVisuals()
+    systemConsole.value.closeSpeed()
   }
 }
 
@@ -937,7 +947,7 @@ onUnmounted(() => {
 
 .time-sim {
   font-size: 15px;
-  color: #88ccff;
+  color: var(--glow-color);
   font-weight: 600;
 }
 
@@ -1089,12 +1099,12 @@ onUnmounted(() => {
 
 .poi-line {
   fill: none;
-  stroke: #00A3FF;
+  stroke: var(--glow-color);
   stroke-width: 2;
   stroke-dasharray: 1000;
   stroke-dashoffset: 1000;
   animation: grow-line 1s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-  filter: drop-shadow(0 0 5px rgba(0, 163, 255, 0.8));
+  filter: drop-shadow(0 0 5px rgba(var(--glow-rgb), 0.8));
 }
 
 @keyframes grow-line {
@@ -1104,5 +1114,6 @@ onUnmounted(() => {
 .poi-panel-wrapper {
   pointer-events: none;
 }
+
 
 </style>

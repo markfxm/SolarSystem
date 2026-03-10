@@ -56,9 +56,9 @@ const description = computed(() => {
   width: 280px;
   background: rgba(10, 20, 35, 0.85);
   backdrop-filter: blur(12px);
-  border: 2px solid #00A3FF;
+  border: 2px solid var(--glow-color);
   border-radius: 0 0 12px 12px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6), 0 0 20px rgba(0, 163, 255, 0.1);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6), 0 0 20px rgba(var(--glow-rgb), 0.15);
   color: white;
   padding: 16px;
   z-index: 1002;
@@ -94,8 +94,8 @@ const description = computed(() => {
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 1.5px;
-  color: #00A3FF;
-  text-shadow: 0 0 10px rgba(0, 163, 255, 0.3);
+  color: var(--glow-color);
+  text-shadow: 0 0 10px rgba(var(--glow-rgb), 0.4);
 }
 
 .close-btn {
@@ -129,7 +129,7 @@ const description = computed(() => {
 .land-btn {
   width: 100%;
   padding: 10px;
-  background: linear-gradient(135deg, #00A3FF 0%, #0066FF 100%);
+  background: linear-gradient(135deg, var(--glow-color) 0%, var(--glow-secondary) 100%);
   border: none;
   border-radius: 8px;
   color: white;
@@ -141,12 +141,12 @@ const description = computed(() => {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  box-shadow: 0 4px 15px rgba(0, 102, 255, 0.3);
+  box-shadow: 0 4px 15px rgba(var(--glow-rgb), 0.3);
 }
 
 .land-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(0, 163, 255, 0.5);
+  box-shadow: 0 6px 20px rgba(var(--glow-rgb), 0.5);
   filter: brightness(1.1);
 }
 

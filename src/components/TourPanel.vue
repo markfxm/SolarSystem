@@ -174,7 +174,7 @@ function stopResize() {
   margin: 0 0 12px 0;
   font-size: 28px;
   font-weight: 700;
-  background: linear-gradient(45deg, #fff, #a5b4fc);
+  background: linear-gradient(45deg, #fff, var(--glow-color));
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -252,7 +252,7 @@ function stopResize() {
 .land-btn {
   width: 100%;
   padding: 12px;
-  background: linear-gradient(135deg, #e11d48 0%, #be123c 100%);
+  background: linear-gradient(135deg, var(--glow-color) 0%, var(--glow-secondary) 100%);
   border: none;
   border-radius: 12px;
   color: white;
@@ -260,12 +260,12 @@ function stopResize() {
   font-size: 16px;
   cursor: pointer;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 12px rgba(225, 29, 72, 0.3);
+  box-shadow: 0 4px 12px rgba(var(--glow-rgb), 0.3);
 }
 
 .land-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(225, 29, 72, 0.5);
+  box-shadow: 0 6px 20px rgba(var(--glow-rgb), 0.5);
   filter: brightness(1.1);
 }
 

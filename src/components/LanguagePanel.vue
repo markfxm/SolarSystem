@@ -65,8 +65,8 @@ function setLocalLang(lang) {
 }
 
 .lang-btn.active {
-  background: #1e88e5;
+  background: var(--glow-color);
   color: #fff;
-  box-shadow: 0 6px 18px rgba(30, 136, 229, 0.28);
+  box-shadow: 0 6px 18px rgba(var(--glow-rgb), 0.3);
 }
 </style>

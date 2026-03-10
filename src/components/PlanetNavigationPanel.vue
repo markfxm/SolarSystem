@@ -112,68 +112,70 @@ const bodies = computed(() => [
   z-index: 100;
   display: flex;
   align-items: center;
-  transition: all 0.45s cubic-bezier(0.25, 0.8, 0.25, 1);
+  transition: all 0.45s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .arrow-trigger {
   position: absolute;
-  left: -48px;
+  left: -40px;
   top: 50%;
   transform: translateY(-50%);
-  width: 48px;
-  height: 96px;
-  background: rgba(18, 22, 40, 0.95);
-  border: 1px solid rgba(100, 150, 255, 0.4);
+  width: 40px;
+  height: 80px;
+  background: rgba(10, 20, 35, 0.6);
+  backdrop-filter: blur(15px);
+  border: 1px solid rgba(var(--glow-rgb), 0.2);
   border-right: none;
-  border-radius: 12px 0 0 12px;
-  color: #88ccff;
+  border-radius: 8px 0 0 8px;
+  color: var(--glow-color);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all 0.3s ease;
-  box-shadow: -4px 4px 20px rgba(0, 0, 0, 0.6);
+  box-shadow: -5px 0 20px rgba(0, 0, 0, 0.4);
 }
 
 .arrow-trigger:hover {
-  background: rgba(40, 60, 120, 0.95);
+  background: rgba(var(--glow-rgb), 0.1);
   color: white;
+  text-shadow: 0 0 10px var(--glow-color);
 }
 
 .solar-button-group {
   display: flex;
   align-items: center;
-  background: linear-gradient(135deg, rgba(30, 40, 80, 0.95), rgba(20, 25, 50, 0.98));
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(100, 150, 255, 0.4);
+  background: rgba(10, 20, 35, 0.6);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(var(--glow-rgb), 0.2);
   border-right: none;
-  border-radius: 12px 0 0 12px;
+  border-radius: 8px 0 0 8px;
   overflow: hidden;
-  box-shadow: -10px 0 30px rgba(0, 0, 0, 0.6), 0 0 15px rgba(100, 150, 255, 0.1);
-  animation: slideIn 0.45s cubic-bezier(0.25, 0.8, 0.25, 1);
-  width: 190px;
+  box-shadow: -10px 0 30px rgba(0, 0, 0, 0.5);
+  animation: slideIn 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+  width: 180px;
 }
 
 .solar-button {
-  height: 56px;
+  height: 50px;
   flex: 1;
   background: transparent;
   border: none;
-  color: #88ccff;
+  color: rgba(var(--glow-rgb), 0.8);
   cursor: pointer;
   display: flex;
   align-items: center;
-  padding: 0 16px 0 16px;
-  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  padding: 0 16px;
+  transition: all 0.3s ease;
 }
 
 .collapse-btn-small {
-  width: 44px;
-  height: 56px;
+  width: 40px;
+  height: 50px;
   background: transparent;
   border: none;
-  border-right: 1px solid rgba(100, 150, 255, 0.15);
-  color: rgba(136, 204, 255, 0.5);
+  border-right: 1px solid rgba(var(--glow-rgb), 0.15);
+  color: rgba(var(--glow-rgb), 0.4);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -182,76 +184,87 @@ const bodies = computed(() => [
 }
 
 .collapse-btn-small:hover {
-  background: rgba(255, 255, 255, 0.05);
-  color: white;
+  background: rgba(var(--glow-rgb), 0.05);
+  color: #fff;
 }
 
 .solar-button:hover {
   color: #ffffff;
-  transform: translateX(-2px);
+  background: rgba(var(--glow-rgb), 0.05);
 }
 
 .solar-button .label {
-  font-size: 14px;
-  font-weight: 700;
+  font-size: 13px;
+  font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.15em;
   white-space: nowrap;
 }
 
 .panel-content {
-  background: rgba(15, 20, 40, 0.98);
-  backdrop-filter: blur(24px);
-  border: 1px solid rgba(100, 150, 255, 0.2);
+  background: rgba(10, 20, 35, 0.7);
+  backdrop-filter: blur(25px);
+  border: 1px solid rgba(var(--glow-rgb), 0.25);
   border-right: none;
   border-radius: 12px 0 0 12px;
   padding: 24px 16px;
-  width: 260px;
-  box-shadow: -20px 0 50px rgba(0, 0, 0, 0.9);
+  width: 250px;
+  box-shadow: -20px 0 50px rgba(0, 0, 0, 0.6);
   animation: slideIn 0.3s ease-out;
+  position: relative;
+}
+
+/* Hex Pattern */
+.panel-content::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-image:
+    radial-gradient(circle at 1px 1px, rgba(var(--glow-rgb), 0.04) 1px, transparent 0);
+  background-size: 16px 16px;
+  pointer-events: none;
 }
 
 .panel-header {
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 20px;
-  padding: 0 4px;
+  margin-bottom: 24px;
 }
 
 .side-toggle-btn {
   position: absolute;
-  left: -48px;
+  left: -40px;
   top: 50%;
   transform: translateY(-50%);
-  width: 48px;
-  height: 96px;
-  background: rgba(18, 22, 40, 0.95);
-  border: 1px solid rgba(100, 150, 255, 0.4);
+  width: 40px;
+  height: 80px;
+  background: rgba(10, 20, 35, 0.6);
+  border: 1px solid rgba(var(--glow-rgb), 0.2);
   border-right: none;
-  border-radius: 12px 0 0 12px;
-  color: #88ccff;
+  border-radius: 8px 0 0 8px;
+  color: var(--glow-color);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all 0.3s ease;
-  box-shadow: -4px 4px 20px rgba(0, 0, 0, 0.6);
   z-index: 10;
 }
 
 .side-toggle-btn:hover {
-  background: rgba(40, 60, 120, 0.95);
+  background: rgba(var(--glow-rgb), 0.15);
   color: white;
 }
 
 .panel-title {
   margin: 0;
   color: #fff;
-  font-size: 18px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
+  text-shadow: 0 0 10px rgba(var(--glow-rgb), 0.4);
 }
 
 .planet-list {
@@ -260,21 +273,22 @@ const bodies = computed(() => [
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   max-height: 60vh;
   overflow-y: auto;
-  padding-right: 4px;
+  padding-right: 6px;
+  position: relative;
+  z-index: 1;
 }
 
 .planet-list::-webkit-scrollbar {
-  width: 4px;
+  width: 2px;
 }
 .planet-list::-webkit-scrollbar-track {
   background: rgba(255, 255, 255, 0.05);
 }
 .planet-list::-webkit-scrollbar-thumb {
-  background: rgba(100, 150, 255, 0.3);
-  border-radius: 2px;
+  background: rgba(var(--glow-rgb), 0.25);
 }
 
 .combined-planet-button {
@@ -283,71 +297,65 @@ const bodies = computed(() => [
   justify-content: space-between;
   width: 100%;
   padding: 0;
-  background: rgba(40, 50, 100, 0.4);
-  color: #ddd;
-  border: 1px solid rgba(100, 150, 255, 0.25);
-  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+  color: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(var(--glow-rgb), 0.15);
+  border-radius: 4px;
   cursor: pointer;
-  transition: all 0.25s ease;
+  transition: all 0.3s ease;
   overflow: hidden;
-  box-sizing: border-box;
 }
 
 .combined-planet-button:hover {
-  background: rgba(60, 110, 220, 0.5);
+  background: rgba(var(--glow-rgb), 0.08);
+  border-color: rgba(var(--glow-rgb), 0.3);
   color: #fff;
-  border-color: rgba(100, 150, 255, 0.4);
-  transform: translateX(4px);
+  transform: translateX(-4px);
 }
 
 .combined-planet-button.active {
-  background: #1e88e5;
+  background: rgba(var(--glow-rgb), 0.15);
+  border-color: var(--glow-color);
   color: #fff;
-  border-color: #64b5f6;
-  font-weight: 600;
+  box-shadow: 0 0 15px rgba(var(--glow-rgb), 0.25);
 }
 
 .planet-label {
   flex: 1;
-  padding: 10px 14px;
-  font-size: 14px;
+  padding: 12px 16px;
+  font-size: 13px;
+  font-weight: 600;
   text-align: left;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  letter-spacing: 1px;
 }
 
 .info-trigger {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 42px;
-  height: 42px;
-  min-width: 42px;
+  width: 44px;
+  height: 44px;
   background: transparent;
-  color: #88ccff;
+  color: rgba(var(--glow-rgb), 0.45);
   border: none;
-  border-left: 1px solid rgba(100, 150, 255, 0.15);
+  border-left: 1px solid rgba(var(--glow-rgb), 0.15);
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .info-trigger:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
+  background: rgba(var(--glow-rgb), 0.1);
+  color: var(--glow-color);
 }
 
 .info-icon {
-  font-size: 18px;
-  font-weight: bold;
-  opacity: 0.7;
-  line-height: 1;
+  font-size: 16px;
+  font-weight: 800;
 }
 
-.info-trigger:hover .info-icon {
-  opacity: 1;
-  transform: scale(1.1);
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(20px); }
+  to { opacity: 1; transform: translateX(0); }
 }
-
 
 </style>
