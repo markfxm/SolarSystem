@@ -13,15 +13,26 @@
         </div>
       </div>
 
-      <!-- Ruler-style Slider Area -->
+      <!-- Equalizer-style Slider Area -->
       <div class="tank-container">
+        <!-- Vertical Display (Multiplier value above slider) -->
+        <div v-if="vertical" class="vertical-header-display">
+          <span class="unit">×</span>
+          <span class="value">{{ formattedMultiplier }}</span>
+        </div>
+
         <div class="slider-area" ref="wrap" @mousedown.prevent="startDrag($event)" @touchstart.prevent="startDrag($event)">
           <!-- Ruler Ticks -->
           <div class="ruler-ticks">
             <div v-for="i in 21" :key="i" class="tick" :class="{ major: (i-1) % 5 === 0 }"></div>
           </div>
 
-          <!-- Subtle Preset Points -->
+          <!-- EQ Track Fill (Thick bright line) -->
+          <div class="track-wrapper">
+            <div class="track-fill" :style="trackStyle"></div>
+          </div>
+
+          <!-- Preset Points (Side labels) -->
           <div
             v-for="p in presets"
             :key="p.val"
@@ -32,13 +43,12 @@
             <span class="node-label">{{ p.label }}</span>
           </div>
 
-          <!-- Clean Indicator Knob -->
+          <!-- Solid Circular Knob -->
           <div
             class="indicator-knob"
             :style="knobStyle"
             ref="knob"
           >
-            <div class="glow-line"></div>
             <div class="knob-marker"></div>
           </div>
         </div>
@@ -46,10 +56,6 @@
 
       <!-- Footer Actions -->
       <div class="panel-footer">
-        <div v-if="vertical" class="vertical-display">
-          <span class="unit">×</span>
-          <span class="value">{{ formattedMultiplier }}</span>
-        </div>
         <button class="tron-btn reset" @click.stop="$emit('reset')">
           <span class="btn-content">{{ t('control.reset') }}</span>
           <div class="btn-border"></div>
@@ -329,8 +335,8 @@ defineExpose({ resetVisuals, setOpen })
 
 .is-vertical .tank-container {
   flex-direction: column;
-  height: 240px;
-  padding: 4px 0;
+  height: 280px;
+  padding: 12px 0;
 }
 
 .slider-area {
@@ -349,40 +355,21 @@ defineExpose({ resetVisuals, setOpen })
   z-index: 10;
   width: 4px;
   height: 4px;
-  background: rgba(0, 255, 255, 0.3);
+  background: rgba(0, 255, 255, 0.2);
   border-radius: 50%;
-  transition: all 0.3s ease;
-}
-
-.preset-point:hover {
-  background: #00ffff;
-  box-shadow: 0 0 8px #00ffff;
-  transform: translate(-50%, -50%) scale(1.5);
 }
 
 .node-label {
   position: absolute;
-  top: 15px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 8px;
-  color: rgba(0, 255, 255, 0.4);
+  top: 50%;
+  left: 14px;
+  transform: translateY(-50%);
+  font-size: 10px;
+  color: rgba(0, 255, 255, 0.6);
   font-family: 'JetBrains Mono', monospace;
-  font-weight: 400;
+  font-weight: 500;
   white-space: nowrap;
   pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
-.preset-point:hover .node-label {
-  opacity: 1;
-}
-
-.is-vertical .node-label {
-  top: 50%;
-  left: 20px;
-  transform: translateY(-50%);
 }
 
 .indicator-knob {
@@ -391,32 +378,34 @@ defineExpose({ resetVisuals, setOpen })
   pointer-events: none;
 }
 
-.glow-line {
+.track-wrapper {
   position: absolute;
-  background: #fff;
-  box-shadow: 0 0 10px rgba(255, 255, 255, 0.8), 0 0 20px rgba(0, 255, 255, 0.5);
+  top: 0; left: 0; right: 0; bottom: 0;
+  pointer-events: none;
 }
 
-.is-vertical .glow-line {
-  left: 0; right: 0;
-  height: 1px;
-  top: 0;
+.is-vertical .track-wrapper {
+  left: 50%; right: auto;
+  width: 3px;
+  transform: translateX(-50%);
+  background: rgba(255, 255, 255, 0.1);
 }
 
-.indicator-knob:not(.is-vertical) .glow-line {
-  top: 0; bottom: 0;
-  width: 1px;
-  left: 0;
+.track-fill {
+  position: absolute;
+  background: #00f3ff;
+  box-shadow: 0 0 15px rgba(0, 243, 255, 0.5);
 }
 
 .knob-marker {
   position: absolute;
-  width: 6px;
-  height: 6px;
-  background: #fff;
+  width: 14px;
+  height: 14px;
+  background: #00f3ff;
+  border: 1px solid #fff;
   border-radius: 50%;
   transform: translate(-50%, -50%);
-  box-shadow: 0 0 10px #fff;
+  box-shadow: 0 0 12px rgba(0, 243, 255, 0.6);
   left: 50%;
 }
 
@@ -482,23 +471,28 @@ defineExpose({ resetVisuals, setOpen })
   margin-top: 15px;
 }
 
-.vertical-display {
+.vertical-header-display {
   display: flex;
   align-items: baseline;
-  gap: 4px;
+  justify-content: center;
+  gap: 2px;
   color: #fff;
+  margin-bottom: 12px;
+  width: 100%;
 }
 
-.vertical-display .unit {
-  font-size: 11px;
-  color: rgba(0, 255, 255, 0.6);
-  font-weight: 700;
+.vertical-header-display .unit {
+  font-size: 10px;
+  color: #00f3ff;
+  font-weight: 800;
 }
 
-.vertical-display .value {
-  font-size: 16px;
+.vertical-header-display .value {
+  font-size: 14px;
   font-family: 'JetBrains Mono', monospace;
-  font-weight: 300;
+  font-weight: 600;
+  color: #00f3ff;
+  text-shadow: 0 0 8px rgba(0, 243, 255, 0.4);
 }
 
 .tron-btn {
