@@ -1,77 +1,87 @@
 <template>
   <div class="system-console" :style="{ top: positionTop }">
-    <div class="button-stack">
-      <!-- Always visible Home button -->
-      <button class="console-btn home-btn" @click="$emit('home')">
-        {{ t('control.home') }}
-      </button>
+    <div class="tron-container">
+      <!-- Animated Border -->
+      <div class="energy-border"></div>
 
-      <!-- Menu toggle button -->
-      <button
-        class="console-btn menu-btn"
-        :class="{ active: isMenuOpen }"
-        @click="toggleMenu"
-      >
-        {{ t('control.menu') }}
-        <span class="arrow" :class="{ open: isMenuOpen }">▶</span>
-      </button>
-    </div>
-
-    <!-- Expanded Menu -->
-    <Transition name="slide-fade">
-      <div v-if="isMenuOpen" class="expanded-menu">
-        <button
-          class="menu-item"
-          :class="{ active: showZodiac }"
-          @click="$emit('toggle-zodiac')"
-        >
-          {{ t('control.zodiac') }}
+      <div class="button-stack">
+        <!-- Always visible Home button -->
+        <button class="console-btn home-btn" @click="$emit('home')">
+          <span class="btn-text">{{ t('control.home') }}</span>
+          <div class="hover-glow"></div>
         </button>
 
+        <!-- Menu toggle button -->
         <button
-          v-if="hasSelectedPlanet"
-          class="menu-item"
-          :class="{ active: showGrid }"
-          @click="$emit('toggle-grid')"
+          class="console-btn menu-btn"
+          :class="{ active: isMenuOpen }"
+          @click="toggleMenu"
         >
-          {{ t('control.grid') }}
-        </button>
-
-        <button
-          class="menu-item"
-          :class="{ active: showHolo }"
-          @click="$emit('toggle-holo')"
-        >
-          {{ t('control.holographic') }}
-        </button>
-
-        <button
-          class="menu-item speed-trigger"
-          :class="{ active: isSpeedOpen }"
-          @click="toggleSpeed"
-        >
-          {{ t('control.speed') }}
-          <span class="arrow" :class="{ open: isSpeedOpen }">▶</span>
+          <span class="btn-text">{{ t('control.menu') }}</span>
+          <span class="tron-arrow" :class="{ open: isMenuOpen }"></span>
+          <div class="hover-glow"></div>
         </button>
       </div>
-    </Transition>
 
-    <!-- Time Control Panel (Secondary Expansion) -->
-    <!-- We'll keep this as a separate component but managed by SystemConsole -->
-    <TimeControlPanel
-      ref="speedPanel"
-      v-show="isMenuOpen"
-      class="nested-speed-panel"
-      @speed-change="(v) => $emit('speed-change', v)"
-      @reset="$emit('reset')"
-    />
+      <!-- Expanded Menu -->
+      <Transition name="tron-slide">
+        <div v-if="isMenuOpen" class="expanded-menu">
+          <div class="menu-grid">
+            <button
+              class="menu-item"
+              :class="{ active: showZodiac }"
+              @click="$emit('toggle-zodiac')"
+            >
+              <div class="item-inner">
+                <span class="indicator"></span>
+                <span class="label">{{ t('control.zodiac') }}</span>
+              </div>
+            </button>
+
+            <button
+              v-if="hasSelectedPlanet"
+              class="menu-item"
+              :class="{ active: showGrid }"
+              @click="$emit('toggle-grid')"
+            >
+              <div class="item-inner">
+                <span class="indicator"></span>
+                <span class="label">{{ t('control.grid') }}</span>
+              </div>
+            </button>
+
+            <button
+              class="menu-item"
+              :class="{ active: showHolo }"
+              @click="$emit('toggle-holo')"
+            >
+              <div class="item-inner">
+                <span class="indicator"></span>
+                <span class="label">{{ t('control.holographic') }}</span>
+              </div>
+            </button>
+
+            <button
+              class="menu-item speed-trigger"
+              :class="{ active: isSpeedOpen }"
+              @click="toggleSpeed"
+            >
+              <div class="item-inner">
+                <span class="indicator"></span>
+                <span class="label">{{ t('control.speed') }}</span>
+                <span class="mini-arrow" :class="{ open: isSpeedOpen }"></span>
+              </div>
+            </button>
+          </div>
+        </div>
+      </Transition>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 import { t } from '../utils/i18n.js'
-import TimeControlPanel from './TimeControlPanel.vue'
 
 const props = defineProps({
   showZodiac: Boolean,
@@ -90,38 +100,32 @@ const emit = defineEmits([
   'toggle-grid',
   'toggle-holo',
   'speed-change',
-  'reset'
+  'reset',
+  'toggle-speed'
 ])
 
 const isMenuOpen = ref(false)
 const isSpeedOpen = ref(false)
-const speedPanel = ref(null)
 
 function toggleMenu() {
   isMenuOpen.value = !isMenuOpen.value
   if (!isMenuOpen.value) {
     isSpeedOpen.value = false
-    if (speedPanel.value) {
-      speedPanel.value.setOpen(false)
-    }
+    emit('toggle-speed', false)
   }
 }
 
 function toggleSpeed() {
   isSpeedOpen.value = !isSpeedOpen.value
-  if (speedPanel.value) {
-    speedPanel.value.setOpen(isSpeedOpen.value)
-  }
+  emit('toggle-speed', isSpeedOpen.value)
 }
 
-function resetSpeedVisuals() {
-  if (speedPanel.value) {
-    speedPanel.value.resetVisuals()
-  }
+function closeSpeed() {
+  isSpeedOpen.value = false
 }
 
 defineExpose({
-  resetSpeedVisuals
+  closeSpeed
 })
 </script>
 
@@ -130,155 +134,217 @@ defineExpose({
   position: absolute;
   left: 0;
   z-index: 1000;
-  display: flex;
-  flex-direction: row;
-  align-items: flex-start;
-  gap: 12px;
   pointer-events: none;
+}
+
+.tron-container {
+  pointer-events: auto;
+  position: relative;
+  background: rgba(10, 20, 35, 0.4);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(0, 255, 255, 0.1);
+  border-left: none;
+  border-radius: 0 16px 16px 0;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 20px 0 50px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+
+/* Hexagon Pattern Background */
+.tron-container::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-image:
+    url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M12 1L2 6v10l10 5 10-5V6L12 1z' fill='none' stroke='rgba(0,255,255,0.03)' stroke-width='1'/%3E%3C/svg%3E");
+  background-size: 32px 32px;
+  pointer-events: none;
+}
+
+/* Energy Flow Animation on Border */
+.energy-border {
+  position: absolute;
+  top: 0; bottom: 0; right: 0;
+  width: 2px;
+  background: linear-gradient(to bottom, transparent, #00ffff, transparent);
+  background-size: 100% 200%;
+  animation: flow 3s linear infinite;
+}
+
+@keyframes flow {
+  0% { background-position: 0% 0%; }
+  100% { background-position: 0% 200%; }
 }
 
 .button-stack {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
+  position: relative;
+  z-index: 2;
 }
 
 .console-btn {
-  pointer-events: auto;
-  min-width: 90px;
-  padding: 12px 16px;
-  font-size: 14px;
-  font-weight: 700;
-  color: #fff;
-  background: rgba(18, 22, 40, 0.9);
-  border: 1px solid rgba(100, 150, 255, 0.3);
-  border-left: none;
-  border-radius: 0 12px 12px 0;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(0, 255, 255, 0.15);
+  border-radius: 4px;
+  color: rgba(0, 255, 255, 0.8);
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-  text-align: left;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  box-shadow: 4px 4px 20px rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(8px);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  overflow: hidden;
+  min-width: 130px;
+}
+
+.btn-text {
+  position: relative;
+  z-index: 1;
+}
+
+.hover-glow {
+  position: absolute;
+  top: 0; left: -100%;
+  width: 100%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(0, 255, 255, 0.1), transparent);
+  transition: left 0.5s ease;
+}
+
+.console-btn:hover .hover-glow {
+  left: 100%;
+}
+
+.console-btn:hover {
+  background: rgba(0, 255, 255, 0.08);
+  border-color: #00ffff;
+  color: #fff;
+  text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+  transform: translateX(4px);
 }
 
 .home-btn {
-  border-color: rgba(100, 150, 255, 0.5);
-  background: rgba(30, 60, 150, 0.85);
-}
-
-.home-btn:hover {
-  background: rgba(50, 100, 240, 0.95);
-  transform: translateX(6px);
-  box-shadow: 8px 4px 25px rgba(50, 100, 240, 0.4);
+  background: rgba(0, 100, 255, 0.1);
+  border-color: rgba(0, 150, 255, 0.4);
 }
 
 .menu-btn.active {
-  background: rgba(60, 80, 160, 0.9);
-  border-color: rgba(100, 150, 255, 0.8);
+  background: rgba(0, 255, 255, 0.15);
+  border-color: #00ffff;
+  color: #fff;
 }
 
-.menu-btn:hover {
-  background: rgba(40, 50, 100, 0.95);
-  transform: translateX(4px);
-}
-
-.arrow {
-  font-size: 10px;
+.tron-arrow {
+  width: 6px; height: 6px;
+  border-top: 2px solid currentColor;
+  border-right: 2px solid currentColor;
+  transform: rotate(45deg);
   transition: transform 0.3s ease;
-  display: inline-block;
-  margin-left: 8px;
-  opacity: 0.7;
+  margin-left: 10px;
 }
 
-.arrow.open {
-  transform: rotate(90deg);
+.tron-arrow.open {
+  transform: rotate(135deg);
 }
 
 .expanded-menu {
-  pointer-events: auto;
-  margin-top: 54px; /* Align with menu button */
+  margin-top: 4px;
+  border-top: 1px solid rgba(0, 255, 255, 0.1);
+  padding-top: 12px;
+  position: relative;
+  z-index: 2;
+}
+
+.menu-grid {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  background: rgba(15, 20, 35, 0.95);
-  border: 1px solid rgba(100, 150, 255, 0.25);
-  border-radius: 12px;
-  padding: 10px;
-  box-shadow: 10px 10px 40px rgba(0, 0, 0, 0.8);
-  backdrop-filter: blur(15px);
-  min-width: 140px;
 }
 
 .menu-item {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(100, 150, 255, 0.1);
-  color: #88ccff;
-  padding: 10px 14px;
-  border-radius: 8px;
+  background: transparent;
+  border: none;
+  padding: 0;
   cursor: pointer;
   text-align: left;
-  font-size: 13px;
-  font-weight: 600;
   transition: all 0.2s ease;
+}
+
+.item-inner {
+  padding: 8px 12px;
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  white-space: nowrap;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid transparent;
+  border-radius: 4px;
+  transition: all 0.3s ease;
 }
 
-.menu-item:hover {
-  background: rgba(100, 150, 255, 0.15);
+.indicator {
+  width: 4px; height: 4px;
+  background: rgba(0, 255, 255, 0.2);
+  border-radius: 50%;
+  transition: all 0.3s ease;
+}
+
+.label {
+  color: rgba(0, 255, 255, 0.5);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.menu-item:hover .item-inner {
+  background: rgba(0, 255, 255, 0.05);
+  border-color: rgba(0, 255, 255, 0.2);
+}
+
+.menu-item:hover .label {
   color: #fff;
-  border-color: rgba(100, 150, 255, 0.3);
-  transform: translateX(4px);
 }
 
-.menu-item.active {
-  background: rgba(100, 150, 255, 0.25);
-  border-color: rgba(100, 150, 255, 0.6);
-  color: #fff;
-  box-shadow: 0 0 15px rgba(100, 150, 255, 0.2);
+.menu-item.active .indicator {
+  background: #00ffff;
+  box-shadow: 0 0 8px #00ffff;
+  transform: scale(1.5);
 }
 
-/* Slide Transition */
-.slide-fade-enter-active {
-  transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+.menu-item.active .label {
+  color: #00ffff;
+  font-weight: 800;
 }
-.slide-fade-leave-active {
-  transition: all 0.3s cubic-bezier(1, 0.5, 0.8, 1);
+
+.mini-arrow {
+  margin-left: auto;
+  width: 0; height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 4px solid rgba(0, 255, 255, 0.4);
+  transition: transform 0.3s ease;
 }
-.slide-fade-enter-from,
-.slide-fade-leave-to {
-  transform: translateX(-30px);
+
+.mini-arrow.open {
+  transform: rotate(180deg);
+}
+
+/* Tron Slide Animation */
+.tron-slide-enter-active, .tron-slide-leave-active {
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.tron-slide-enter-from, .tron-slide-leave-to {
   opacity: 0;
-}
-
-/* Adjust TimeControlPanel position when used inside SystemConsole */
-.nested-speed-panel {
-  margin-top: 54px;
-}
-
-:deep(.panel-wrapper) {
-  position: relative !important;
-  top: 0 !important;
-  left: 0 !important;
-  transform: translateX(-20px) !important;
-  opacity: 0;
-  transition: all 0.45s cubic-bezier(0.25, 0.8, 0.25, 1);
-  pointer-events: none;
-}
-
-:deep(.panel-wrapper.is-open) {
-  transform: translateX(0) !important;
-  opacity: 1;
-  pointer-events: auto;
-}
-
-/* Hide the original toggle button of TimeControlPanel when nested */
-:deep(.toggle-button) {
-  display: none !important;
+  transform: translateY(-10px);
 }
 </style>

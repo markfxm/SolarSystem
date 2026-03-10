@@ -32,9 +32,17 @@
       @toggle-zodiac="toggleZodiac"
       @toggle-grid="toggleGrid"
       @toggle-holo="toggleHolo"
-      @speed-change="onSpeedChange"
-      @reset="onReset"
+      @toggle-speed="onToggleSpeed"
     />
+
+    <!-- Bottom Speed Panel -->
+    <div v-if="!isLoading && viewMode === 'solar'" class="bottom-speed-container">
+      <TimeControlPanel
+        ref="speedPanel"
+        @speed-change="onSpeedChange"
+        @reset="onReset"
+      />
+    </div>
 
     <!-- POI Overlay -->
     <svg v-if="selectedPOI && poiUI.visible" class="poi-svg-overlay">
@@ -191,6 +199,8 @@ const poiDragOffset = ref({ x: 0, y: 0 })
 const isDraggingPoi = ref(false)
 const poiDragStartMouse = { x: 0, y: 0 }
 const poiDragStartOffset = { x: 0, y: 0 }
+
+const speedPanel = ref(null)
 
 const poiUI = ref({
   visible: false,
@@ -420,6 +430,12 @@ function updateGridsVisibility() {
   })
 }
 
+function onToggleSpeed(isOpen) {
+  if (speedPanel.value) {
+    speedPanel.value.setOpen(isOpen)
+  }
+}
+
 function onSpeedChange(mult) {
   if (!timeController) return
   if (mult === 1) {
@@ -472,8 +488,11 @@ function onReset() {
   isSimulating.value = false
   timeController.resetTime()
 
+  if (speedPanel.value) {
+    speedPanel.value.resetVisuals()
+  }
   if (systemConsole.value) {
-    systemConsole.value.resetSpeedVisuals()
+    systemConsole.value.closeSpeed()
   }
 }
 
@@ -1103,6 +1122,17 @@ onUnmounted(() => {
 
 .poi-panel-wrapper {
   pointer-events: none;
+}
+
+.bottom-speed-container {
+  position: absolute;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  pointer-events: none;
+  display: flex;
+  justify-content: center;
 }
 
 </style>
