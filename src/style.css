@@ -11,6 +11,20 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+
+  /* Default "Stellar" Purple Theme */
+  --glow-color: #a855f7;
+  --glow-rgb: 168, 85, 247;
+  --glow-secondary: #d946ef;
+  --glow-secondary-rgb: 217, 70, 239;
+}
+
+:root.theme-holographic {
+  /* "Holographic" Cyan Theme */
+  --glow-color: #00f3ff;
+  --glow-rgb: 0, 243, 255;
+  --glow-secondary: #3b82f6;
+  --glow-secondary-rgb: 59, 130, 246;
 }
 
 html, body {

@@ -124,10 +124,10 @@ const bodies = computed(() => [
   height: 80px;
   background: rgba(10, 20, 35, 0.6);
   backdrop-filter: blur(15px);
-  border: 1px solid rgba(0, 255, 255, 0.2);
+  border: 1px solid rgba(var(--glow-rgb), 0.2);
   border-right: none;
   border-radius: 8px 0 0 8px;
-  color: #00ffff;
+  color: var(--glow-color);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -137,9 +137,9 @@ const bodies = computed(() => [
 }
 
 .arrow-trigger:hover {
-  background: rgba(0, 255, 255, 0.1);
+  background: rgba(var(--glow-rgb), 0.1);
   color: white;
-  text-shadow: 0 0 10px #00ffff;
+  text-shadow: 0 0 10px var(--glow-color);
 }
 
 .solar-button-group {
@@ -147,7 +147,7 @@ const bodies = computed(() => [
   align-items: center;
   background: rgba(10, 20, 35, 0.6);
   backdrop-filter: blur(20px);
-  border: 1px solid rgba(0, 255, 255, 0.2);
+  border: 1px solid rgba(var(--glow-rgb), 0.2);
   border-right: none;
   border-radius: 8px 0 0 8px;
   overflow: hidden;
@@ -161,7 +161,7 @@ const bodies = computed(() => [
   flex: 1;
   background: transparent;
   border: none;
-  color: rgba(0, 255, 255, 0.8);
+  color: rgba(var(--glow-rgb), 0.8);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -174,8 +174,8 @@ const bodies = computed(() => [
   height: 50px;
   background: transparent;
   border: none;
-  border-right: 1px solid rgba(0, 255, 255, 0.1);
-  color: rgba(0, 255, 255, 0.4);
+  border-right: 1px solid rgba(var(--glow-rgb), 0.15);
+  color: rgba(var(--glow-rgb), 0.4);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -184,13 +184,13 @@ const bodies = computed(() => [
 }
 
 .collapse-btn-small:hover {
-  background: rgba(0, 255, 255, 0.05);
+  background: rgba(var(--glow-rgb), 0.05);
   color: #fff;
 }
 
 .solar-button:hover {
   color: #ffffff;
-  background: rgba(0, 255, 255, 0.05);
+  background: rgba(var(--glow-rgb), 0.05);
 }
 
 .solar-button .label {
@@ -204,7 +204,7 @@ const bodies = computed(() => [
 .panel-content {
   background: rgba(10, 20, 35, 0.7);
   backdrop-filter: blur(25px);
-  border: 1px solid rgba(0, 255, 255, 0.2);
+  border: 1px solid rgba(var(--glow-rgb), 0.25);
   border-right: none;
   border-radius: 12px 0 0 12px;
   padding: 24px 16px;
@@ -220,7 +220,7 @@ const bodies = computed(() => [
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
   background-image:
-    radial-gradient(circle at 1px 1px, rgba(0, 255, 255, 0.03) 1px, transparent 0);
+    radial-gradient(circle at 1px 1px, rgba(var(--glow-rgb), 0.04) 1px, transparent 0);
   background-size: 16px 16px;
   pointer-events: none;
 }
@@ -240,10 +240,10 @@ const bodies = computed(() => [
   width: 40px;
   height: 80px;
   background: rgba(10, 20, 35, 0.6);
-  border: 1px solid rgba(0, 255, 255, 0.2);
+  border: 1px solid rgba(var(--glow-rgb), 0.2);
   border-right: none;
   border-radius: 8px 0 0 8px;
-  color: #00ffff;
+  color: var(--glow-color);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -253,7 +253,7 @@ const bodies = computed(() => [
 }
 
 .side-toggle-btn:hover {
-  background: rgba(0, 255, 255, 0.1);
+  background: rgba(var(--glow-rgb), 0.15);
   color: white;
 }
 
@@ -264,7 +264,7 @@ const bodies = computed(() => [
   font-weight: 800;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  text-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+  text-shadow: 0 0 10px rgba(var(--glow-rgb), 0.4);
 }
 
 .planet-list {
@@ -288,7 +288,7 @@ const bodies = computed(() => [
   background: rgba(255, 255, 255, 0.05);
 }
 .planet-list::-webkit-scrollbar-thumb {
-  background: rgba(0, 255, 255, 0.2);
+  background: rgba(var(--glow-rgb), 0.25);
 }
 
 .combined-planet-button {
@@ -299,7 +299,7 @@ const bodies = computed(() => [
   padding: 0;
   background: rgba(255, 255, 255, 0.02);
   color: rgba(255, 255, 255, 0.7);
-  border: 1px solid rgba(0, 255, 255, 0.1);
+  border: 1px solid rgba(var(--glow-rgb), 0.15);
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.3s ease;
@@ -307,17 +307,17 @@ const bodies = computed(() => [
 }
 
 .combined-planet-button:hover {
-  background: rgba(0, 255, 255, 0.08);
-  border-color: rgba(0, 255, 255, 0.3);
+  background: rgba(var(--glow-rgb), 0.08);
+  border-color: rgba(var(--glow-rgb), 0.3);
   color: #fff;
   transform: translateX(-4px);
 }
 
 .combined-planet-button.active {
-  background: rgba(0, 255, 255, 0.15);
-  border-color: #00ffff;
+  background: rgba(var(--glow-rgb), 0.15);
+  border-color: var(--glow-color);
   color: #fff;
-  box-shadow: 0 0 15px rgba(0, 255, 255, 0.2);
+  box-shadow: 0 0 15px rgba(var(--glow-rgb), 0.25);
 }
 
 .planet-label {
@@ -336,16 +336,16 @@ const bodies = computed(() => [
   width: 44px;
   height: 44px;
   background: transparent;
-  color: rgba(0, 255, 255, 0.4);
+  color: rgba(var(--glow-rgb), 0.45);
   border: none;
-  border-left: 1px solid rgba(0, 255, 255, 0.1);
+  border-left: 1px solid rgba(var(--glow-rgb), 0.15);
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .info-trigger:hover {
-  background: rgba(0, 255, 255, 0.1);
-  color: #00ffff;
+  background: rgba(var(--glow-rgb), 0.1);
+  color: var(--glow-color);
 }
 
 .info-icon {

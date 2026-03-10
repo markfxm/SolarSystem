@@ -166,7 +166,7 @@ defineExpose({
   position: relative;
   background: rgba(10, 20, 35, 0.4);
   backdrop-filter: blur(20px);
-  border: 1px solid rgba(0, 255, 255, 0.1);
+  border: 1px solid rgba(var(--glow-rgb), 0.15);
   border-left: none;
   border-radius: 0 16px 16px 0;
   padding: 12px;
@@ -183,7 +183,7 @@ defineExpose({
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
   background-image:
-    url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M12 1L2 6v10l10 5 10-5V6L12 1z' fill='none' stroke='rgba(0,255,255,0.03)' stroke-width='1'/%3E%3C/svg%3E");
+    url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M12 1L2 6v10l10 5 10-5V6L12 1z' fill='none' stroke='rgba(var(--glow-rgb),0.03)' stroke-width='1'/%3E%3C/svg%3E");
   background-size: 32px 32px;
   pointer-events: none;
 }
@@ -193,7 +193,7 @@ defineExpose({
   position: absolute;
   top: 0; bottom: 0; right: 0;
   width: 2px;
-  background: linear-gradient(to bottom, transparent, #00ffff, transparent);
+  background: linear-gradient(to bottom, transparent, var(--glow-color), transparent);
   background-size: 100% 200%;
   animation: flow 3s linear infinite;
 }
@@ -213,9 +213,9 @@ defineExpose({
 
 .console-btn {
   background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(0, 255, 255, 0.15);
+  border: 1px solid rgba(var(--glow-rgb), 0.2);
   border-radius: 4px;
-  color: rgba(0, 255, 255, 0.8);
+  color: rgba(var(--glow-rgb), 0.8);
   padding: 10px 16px;
   font-size: 13px;
   font-weight: 800;
@@ -240,7 +240,7 @@ defineExpose({
   position: absolute;
   top: 0; left: -100%;
   width: 100%; height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(0, 255, 255, 0.1), transparent);
+  background: linear-gradient(90deg, transparent, rgba(var(--glow-rgb), 0.15), transparent);
   transition: left 0.5s ease;
 }
 
@@ -249,21 +249,21 @@ defineExpose({
 }
 
 .console-btn:hover {
-  background: rgba(0, 255, 255, 0.08);
-  border-color: #00ffff;
+  background: rgba(var(--glow-rgb), 0.08);
+  border-color: var(--glow-color);
   color: #fff;
-  text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+  text-shadow: 0 0 10px rgba(var(--glow-rgb), 0.5);
   transform: translateX(4px);
 }
 
 .home-btn {
-  background: rgba(0, 100, 255, 0.1);
-  border-color: rgba(0, 150, 255, 0.4);
+  background: rgba(var(--glow-rgb), 0.1);
+  border-color: rgba(var(--glow-rgb), 0.3);
 }
 
 .menu-btn.active {
-  background: rgba(0, 255, 255, 0.15);
-  border-color: #00ffff;
+  background: rgba(var(--glow-rgb), 0.15);
+  border-color: var(--glow-color);
   color: #fff;
 }
 
@@ -282,7 +282,7 @@ defineExpose({
 
 .expanded-menu {
   margin-top: 4px;
-  border-top: 1px solid rgba(0, 255, 255, 0.1);
+  border-top: 1px solid rgba(var(--glow-rgb), 0.15);
   padding-top: 12px;
   position: relative;
   z-index: 2;
@@ -316,13 +316,13 @@ defineExpose({
 
 .indicator {
   width: 4px; height: 4px;
-  background: rgba(0, 255, 255, 0.2);
+  background: rgba(var(--glow-rgb), 0.25);
   border-radius: 50%;
   transition: all 0.3s ease;
 }
 
 .label {
-  color: rgba(0, 255, 255, 0.5);
+  color: rgba(var(--glow-rgb), 0.6);
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
@@ -330,8 +330,8 @@ defineExpose({
 }
 
 .menu-item:hover .item-inner {
-  background: rgba(0, 255, 255, 0.05);
-  border-color: rgba(0, 255, 255, 0.2);
+  background: rgba(var(--glow-rgb), 0.05);
+  border-color: rgba(var(--glow-rgb), 0.25);
 }
 
 .menu-item:hover .label {
@@ -339,13 +339,13 @@ defineExpose({
 }
 
 .menu-item.active .indicator {
-  background: #00ffff;
-  box-shadow: 0 0 8px #00ffff;
+  background: var(--glow-color);
+  box-shadow: 0 0 8px var(--glow-color);
   transform: scale(1.5);
 }
 
 .menu-item.active .label {
-  color: #00ffff;
+  color: var(--glow-color);
   font-weight: 800;
 }
 
@@ -354,7 +354,7 @@ defineExpose({
   width: 0; height: 0;
   border-left: 4px solid transparent;
   border-right: 4px solid transparent;
-  border-top: 4px solid rgba(0, 255, 255, 0.4);
+  border-top: 4px solid rgba(var(--glow-rgb), 0.5);
   transition: transform 0.3s ease;
 }
 

@@ -405,6 +405,14 @@ function toggleGrid() {
 
 function toggleHolo() {
   showHolo.value = !showHolo.value
+
+  // Toggle UI Theme
+  if (showHolo.value) {
+    document.documentElement.classList.add('theme-holographic')
+  } else {
+    document.documentElement.classList.remove('theme-holographic')
+  }
+
   if (solar && solar.setHolographic) {
     solar.setHolographic(showHolo.value)
   }
@@ -939,7 +947,7 @@ onUnmounted(() => {
 
 .time-sim {
   font-size: 15px;
-  color: #88ccff;
+  color: var(--glow-color);
   font-weight: 600;
 }
 
@@ -1091,12 +1099,12 @@ onUnmounted(() => {
 
 .poi-line {
   fill: none;
-  stroke: #00A3FF;
+  stroke: var(--glow-color);
   stroke-width: 2;
   stroke-dasharray: 1000;
   stroke-dashoffset: 1000;
   animation: grow-line 1s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-  filter: drop-shadow(0 0 5px rgba(0, 163, 255, 0.8));
+  filter: drop-shadow(0 0 5px rgba(var(--glow-rgb), 0.8));
 }
 
 @keyframes grow-line {

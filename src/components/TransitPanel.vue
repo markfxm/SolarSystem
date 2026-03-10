@@ -151,13 +151,13 @@ function formatDegree(deg) {
   border-radius: 8px;
   padding: 12px;
   margin-bottom: 16px;
-  border-left: 3px solid #d4aaff;
+  border-left: 3px solid var(--glow-color);
 }
 
 .report-title {
   font-size: 11px;
   text-transform: uppercase;
-  color: #d4aaff;
+  color: var(--glow-color);
   margin-bottom: 6px;
   font-weight: 600;
   letter-spacing: 1px;
@@ -222,7 +222,7 @@ function formatDegree(deg) {
   max-height: 80vh;
   background: rgba(15, 15, 25, 0.85);
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(212, 170, 255, 0.2);
+  border: 1px solid rgba(var(--glow-rgb), 0.2);
   border-radius: 16px;
   color: #fff;
   transition: right 0.4s cubic-bezier(0.16, 1, 0.3, 1);
@@ -247,7 +247,7 @@ function formatDegree(deg) {
 .panel-header h3 {
   margin: 0;
   font-size: 16px;
-  color: #d4aaff;
+  color: var(--glow-color);
   letter-spacing: 1px;
 }
 
@@ -267,10 +267,10 @@ function formatDegree(deg) {
 
 /* Archetype Styles */
 .archetype-section {
-    background: linear-gradient(135deg, rgba(136, 204, 255, 0.1), rgba(212, 170, 255, 0.1));
+    background: linear-gradient(135deg, rgba(var(--glow-rgb), 0.1), rgba(var(--glow-secondary-rgb), 0.1));
     margin: -16px -16px 10px -16px;
     padding: 20px 16px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid rgba(var(--glow-rgb), 0.15);
     text-align: center;
 }
 
@@ -285,10 +285,10 @@ function formatDegree(deg) {
 .archetype-value {
     font-size: 20px;
     font-weight: 800;
-    background: linear-gradient(to right, #ffffff, #d4aaff);
+    background: linear-gradient(to right, #ffffff, var(--glow-color));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
-    text-shadow: 0 0 20px rgba(212, 170, 255, 0.4);
+    text-shadow: 0 0 20px rgba(var(--glow-rgb), 0.4);
 }
 
 .section {
@@ -300,7 +300,7 @@ function formatDegree(deg) {
   text-transform: uppercase;
   color: rgba(255,255,255,0.5);
   margin-bottom: 12px;
-  border-left: 2px solid #d4aaff;
+  border-left: 2px solid var(--glow-color);
   padding-left: 8px;
 }
 
@@ -322,7 +322,7 @@ function formatDegree(deg) {
 }
 .planet-item.clickable { cursor: pointer; }
 .planet-item.clickable:hover { 
-  background: rgba(212, 170, 255, 0.15); 
+  background: rgba(var(--glow-rgb), 0.15);
   transform: translateX(4px);
 }
 
@@ -340,7 +340,7 @@ function formatDegree(deg) {
   margin-top: 2px;
 }
 
-.p-name { color: #88ccff; font-weight: 600; }
+.p-name { color: var(--glow-color); font-weight: 600; }
 .p-sign { color: #fff; font-weight: 500; }
 .p-deg { color: #aaa; text-align: right; font-family: monospace; }
 .p-meaning { font-style: italic; }
@@ -348,7 +348,7 @@ function formatDegree(deg) {
     background: rgba(255, 255, 255, 0.1); 
     padding: 1px 6px; 
     border-radius: 4px; 
-    color: #d4aaff; 
+    color: var(--glow-color);
 }
 
 /* Insight Styles */

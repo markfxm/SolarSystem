@@ -113,7 +113,7 @@ const knobStyle = computed(() => {
 
 function getPresetStyle(norm) {
   if (props.vertical) {
-    return { bottom: (norm * 100) + '%', left: '50%' }
+    return { bottom: (norm * 100) + '%', left: '50%', top: 'auto' }
   }
   return { left: (norm * 100) + '%', top: '50%' }
 }
@@ -245,12 +245,12 @@ defineExpose({ resetVisuals, setOpen })
 .industrial-frame {
   background: rgba(10, 15, 25, 0.7);
   backdrop-filter: blur(20px);
-  border: 1px solid rgba(0, 255, 255, 0.2);
+  border: 1px solid rgba(var(--glow-rgb), 0.25);
   border-radius: 4px;
   padding: 16px;
   box-shadow:
     0 0 30px rgba(0, 0, 0, 0.5),
-    inset 0 0 15px rgba(0, 255, 255, 0.05);
+    inset 0 0 15px rgba(var(--glow-rgb), 0.05);
   position: relative;
   overflow: hidden;
 }
@@ -261,7 +261,7 @@ defineExpose({ resetVisuals, setOpen })
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
   background-image:
-    radial-gradient(circle at 2px 2px, rgba(0, 255, 255, 0.05) 1px, transparent 0);
+    radial-gradient(circle at 2px 2px, rgba(var(--glow-rgb), 0.05) 1px, transparent 0);
   background-size: 24px 24px;
   pointer-events: none;
 }
@@ -280,21 +280,21 @@ defineExpose({ resetVisuals, setOpen })
 }
 
 .glitch-text {
-  color: #00ffff;
+  color: var(--glow-color);
   font-size: 12px;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 2px;
   position: relative;
-  text-shadow: 0 0 8px rgba(0, 255, 255, 0.5);
+  text-shadow: 0 0 8px rgba(var(--glow-rgb), 0.5);
 }
 
 .status-dot {
   width: 6px;
   height: 6px;
-  background: #00ffff;
+  background: var(--glow-color);
   border-radius: 50%;
-  box-shadow: 0 0 10px #00ffff;
+  box-shadow: 0 0 10px var(--glow-color);
   animation: pulse 2s infinite;
 }
 
@@ -312,7 +312,7 @@ defineExpose({ resetVisuals, setOpen })
 
 .current-display .unit {
   font-size: 14px;
-  color: rgba(0, 255, 255, 0.6);
+  color: rgba(var(--glow-rgb), 0.6);
   font-weight: 700;
 }
 
@@ -328,7 +328,7 @@ defineExpose({ resetVisuals, setOpen })
   align-items: center;
   height: 60px;
   background: rgba(0, 0, 0, 0.4);
-  border: 1px solid rgba(0, 255, 255, 0.1);
+  border: 1px solid rgba(var(--glow-rgb), 0.15);
   border-radius: 2px;
   padding: 0 4px;
 }
@@ -355,7 +355,7 @@ defineExpose({ resetVisuals, setOpen })
   z-index: 10;
   width: 4px;
   height: 4px;
-  background: rgba(0, 255, 255, 0.2);
+  background: rgba(var(--glow-rgb), 0.25);
   border-radius: 50%;
 }
 
@@ -365,7 +365,7 @@ defineExpose({ resetVisuals, setOpen })
   left: 14px;
   transform: translateY(-50%);
   font-size: 10px;
-  color: rgba(0, 255, 255, 0.6);
+  color: rgba(var(--glow-rgb), 0.6);
   font-family: 'JetBrains Mono', monospace;
   font-weight: 500;
   white-space: nowrap;
@@ -393,19 +393,19 @@ defineExpose({ resetVisuals, setOpen })
 
 .track-fill {
   position: absolute;
-  background: #00f3ff;
-  box-shadow: 0 0 15px rgba(0, 243, 255, 0.5);
+  background: var(--glow-color);
+  box-shadow: 0 0 15px rgba(var(--glow-rgb), 0.5);
 }
 
 .knob-marker {
   position: absolute;
   width: 14px;
   height: 14px;
-  background: #00f3ff;
+  background: var(--glow-color);
   border: 1px solid #fff;
   border-radius: 50%;
   transform: translate(-50%, -50%);
-  box-shadow: 0 0 12px rgba(0, 243, 255, 0.6);
+  box-shadow: 0 0 12px rgba(var(--glow-rgb), 0.6);
   left: 50%;
 }
 
@@ -435,7 +435,7 @@ defineExpose({ resetVisuals, setOpen })
 }
 
 .tick {
-  background: rgba(0, 255, 255, 0.15);
+  background: rgba(var(--glow-rgb), 0.2);
 }
 
 .tick:not(.is-vertical) {
@@ -445,7 +445,7 @@ defineExpose({ resetVisuals, setOpen })
 
 .tick.major:not(.is-vertical) {
   height: 16px;
-  background: rgba(0, 255, 255, 0.4);
+  background: rgba(var(--glow-rgb), 0.5);
 }
 
 .is-vertical .tick {
@@ -455,7 +455,7 @@ defineExpose({ resetVisuals, setOpen })
 
 .is-vertical .tick.major {
   width: 12px;
-  background: rgba(0, 255, 255, 0.5);
+  background: rgba(var(--glow-rgb), 0.6);
 }
 
 .panel-footer {
@@ -483,7 +483,7 @@ defineExpose({ resetVisuals, setOpen })
 
 .vertical-header-display .unit {
   font-size: 10px;
-  color: #00f3ff;
+  color: var(--glow-color);
   font-weight: 800;
 }
 
@@ -491,15 +491,15 @@ defineExpose({ resetVisuals, setOpen })
   font-size: 14px;
   font-family: 'JetBrains Mono', monospace;
   font-weight: 600;
-  color: #00f3ff;
-  text-shadow: 0 0 8px rgba(0, 243, 255, 0.4);
+  color: var(--glow-color);
+  text-shadow: 0 0 8px rgba(var(--glow-rgb), 0.4);
 }
 
 .tron-btn {
   background: transparent;
   border: none;
   padding: 8px 16px;
-  color: #00ffff;
+  color: var(--glow-color);
   font-size: 11px;
   font-weight: 800;
   text-transform: uppercase;
@@ -512,7 +512,7 @@ defineExpose({ resetVisuals, setOpen })
 .btn-border {
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
-  border: 1px solid rgba(0, 255, 255, 0.3);
+  border: 1px solid rgba(var(--glow-rgb), 0.4);
   clip-path: polygon(0 0, 100% 0, 100% 70%, 85% 100%, 0 100%);
 }
 
@@ -522,8 +522,8 @@ defineExpose({ resetVisuals, setOpen })
 }
 
 .tron-btn:hover .btn-border {
-  border-color: #00ffff;
-  background: rgba(0, 255, 255, 0.1);
+  border-color: var(--glow-color);
+  background: rgba(var(--glow-rgb), 0.15);
 }
 
 </style>
