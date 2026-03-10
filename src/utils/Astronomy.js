@@ -193,21 +193,20 @@ export function computePosition(elements, scale = 10, target = null) {
   sinE = Math.sin(E);
   cosE = Math.cos(E);
 
-  const denom = 1 - e * cosE;
-  // True anomaly components (optimized trig to avoid atan2)
-  const cosV = (cosE - e) / denom;
-  const sinV = Math.sqrt(1 - e * e) * sinE / denom;
-
-  // Distance from primary
-  const r = a * denom;
-
-  // Orbit plane coordinates using angle addition formulas:
-  // xOrb = r * cos(v + w) = r * (cosV * cosW - sinV * sinW)
-  // yOrb = r * sin(v + w) = r * (sinV * cosW + cosV * sinW)
+  // Optimized orbital plane coordinates using substitution:
+  // r*cos(v) = a * (cosE - e)
+  // r*sin(v) = a * sqrt(1 - e^2) * sinE
+  // This eliminates divisions by (1 - e*cosE) and redundant trig calls.
   const cosW = Math.cos(w);
   const sinW = Math.sin(w);
-  const xOrb = r * (cosV * cosW - sinV * sinW);
-  const yOrb = r * (sinV * cosW + cosV * sinW);
+  const rCosV = a * (cosE - e);
+  const rSinV = a * Math.sqrt(1 - e * e) * sinE;
+
+  const xOrb = rCosV * cosW - rSinV * sinW;
+  const yOrb = rSinV * cosW + rCosV * sinW;
+
+  // Distance from primary for scaling
+  const r = a * (1 - e * cosE);
 
   let x, y, z;
   // Fast-path for planets with zero inclination (e.g. Earth)

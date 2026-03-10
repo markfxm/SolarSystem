@@ -10,7 +10,8 @@ import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
  * Optimized: Input elements are now in radians.
  */
 export function createEllipticalOrbit(elements, scale, segments = 512, color = 0xd4aaff, opacity = 0.88) {
-  const points = [];
+  // Use Float32Array for better memory efficiency and performance with LineGeometry
+  const points = new Float32Array((segments + 1) * 3);
 
   const a = elements.a;
   const e = elements.e;
@@ -23,9 +24,10 @@ export function createEllipticalOrbit(elements, scale, segments = 512, color = 0
   const cosI = Math.cos(i);
   const sinI = Math.sin(i);
 
-  // Pre-calculate constant trig for angle addition outside the loop
+  // Pre-calculate constants outside the loop
   const cosW = Math.cos(w);
   const sinW = Math.sin(w);
+  const sqrtEE = Math.sqrt(1 - e * e);
 
   // Fast-path for planets with zero inclination (e.g. Earth)
   const isZeroInclination = (i === 0 && N === 0);
@@ -34,7 +36,7 @@ export function createEllipticalOrbit(elements, scale, segments = 512, color = 0
     // Sweep mean anomaly from 0 to 2π
     let M = (k / segments) * 2 * Math.PI;
 
-    // Optional: keep M in [-π, π]
+    // Keep M in [-π, π]
     M = M - Math.floor(M / (2 * Math.PI) + 0.5) * 2 * Math.PI;
 
     // Solve Kepler's equation — identical to your computePosition()
@@ -51,18 +53,16 @@ export function createEllipticalOrbit(elements, scale, segments = 512, color = 0
 
     sinE = Math.sin(E);
     cosE = Math.cos(E);
-    const denom = 1 - e * cosE;
 
-    // True anomaly components
-    const cosV = (cosE - e) / denom;
-    const sinV = Math.sqrt(1 - e * e) * sinE / denom;
+    // Optimized orbital plane coordinates using substitution:
+    // r*cos(v) = a * (cosE - e)
+    // r*sin(v) = a * sqrt(1 - e^2) * sinE
+    // This eliminates ~1000 divisions and redundant trig calls per orbit.
+    const rCosV = a * (cosE - e);
+    const rSinV = a * sqrtEE * sinE;
 
-    // Distance from Sun
-    const r = a * denom;
-
-    // Orbit plane coordinates using angle addition formulas (optimized trig)
-    const xOrb = r * (cosV * cosW - sinV * sinW);
-    const yOrb = r * (sinV * cosW + cosV * sinW);
+    const xOrb = rCosV * cosW - rSinV * sinW;
+    const yOrb = rSinV * cosW + rCosV * sinW;
 
     let x, y, z;
     if (isZeroInclination) {
@@ -76,7 +76,10 @@ export function createEllipticalOrbit(elements, scale, segments = 512, color = 0
     }
 
     // Transform Ecliptic (XY-plane, Z-up) to World (XZ-plane, Y-up)
-    points.push(x * scale, z * scale, -y * scale);
+    const idx = k * 3;
+    points[idx] = x * scale;
+    points[idx + 1] = z * scale;
+    points[idx + 2] = -y * scale;
   }
 
   const geometry = new LineGeometry();
