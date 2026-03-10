@@ -39,20 +39,17 @@ export function createEllipticalOrbit(elements, scale, segments = 512, color = 0
     // Keep M in [-π, π]
     M = M - Math.floor(M / (2 * Math.PI) + 0.5) * 2 * Math.PI;
 
-    // Solve Kepler's equation — identical to your computePosition()
-    let E = e < 0.05
-      ? M
-      : (M + e * Math.sin(M)) / (1 - e * Math.cos(M));
-
-    let sinE, cosE;
-    for (let iter = 0; iter < 6; iter++) { // Synced to 6 iterations
+    // Solve Kepler's equation with early exit for low eccentricity
+    let E = M;
+    let sinE, cosE, denom;
+    for (let iter = 0; iter < 6; iter++) {
       sinE = Math.sin(E);
       cosE = Math.cos(E);
-      E -= (E - e * sinE - M) / (1 - e * cosE);
+      denom = 1 - e * cosE;
+      const error = E - e * sinE - M;
+      if (Math.abs(error) < 1e-6) break;
+      E -= error / denom;
     }
-
-    sinE = Math.sin(E);
-    cosE = Math.cos(E);
 
     // Optimized orbital plane coordinates using substitution:
     // r*cos(v) = a * (cosE - e)
