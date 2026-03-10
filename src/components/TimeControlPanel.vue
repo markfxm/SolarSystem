@@ -1,8 +1,8 @@
 <template>
-  <div class="time-control-panel" :class="{ 'is-open': isOpen }" @click.stop>
+  <div class="time-control-panel" :class="{ 'is-open': isOpen, 'is-vertical': vertical }" @click.stop>
     <div class="industrial-frame">
-      <!-- Energy Tank Header -->
-      <div class="panel-header">
+      <!-- Energy Tank Header (Only in horizontal mode) -->
+      <div v-if="!vertical" class="panel-header">
         <div class="title-wrap">
           <span class="glitch-text" :data-text="t('control.speed')">{{ t('control.speed') }}</span>
           <div class="status-dot"></div>
@@ -15,8 +15,9 @@
 
       <!-- Main Tank Area -->
       <div class="tank-container">
-        <div class="scale-marks left">
-          <div v-for="i in 10" :key="'l'+i" class="mark" :class="{ highlight: i % 5 === 0 }"></div>
+        <!-- Scale marks (Top in vertical, Left in horizontal) -->
+        <div class="scale-marks">
+          <div v-for="i in (vertical ? 6 : 10)" :key="'l'+i" class="mark" :class="{ highlight: i % 5 === 0 }"></div>
         </div>
 
         <div class="slider-area" ref="wrap" @mousedown.prevent="startDrag($event)" @touchstart.prevent="startDrag($event)">
@@ -25,27 +26,27 @@
 
           <!-- Energy Flow Track -->
           <div class="track-wrapper">
-            <div class="track-fill" :style="{ width: (pos * 100) + '%' }"></div>
-            <div class="track-glow" :style="{ width: (pos * 100) + '%' }"></div>
+            <div class="track-fill" :style="trackStyle"></div>
+            <div class="track-glow" :style="trackStyle"></div>
           </div>
 
-          <!-- Presets as industrial nodes -->
+          <!-- Presets -->
           <div
             v-for="p in presets"
             :key="p.val"
             class="preset-node"
             :class="{ active: pos >= p.norm }"
-            :style="{ left: (p.norm * 100) + '%' }"
+            :style="getPresetStyle(p.norm)"
             @click.stop="setByPos(p.norm)"
           >
             <div class="node-inner"></div>
-            <span class="node-label">{{ p.label }}</span>
+            <span v-if="!vertical || p.val === 1 || p.val === 1000000" class="node-label">{{ p.label }}</span>
           </div>
 
           <!-- The Knob (The Scanner) -->
           <div
             class="scanner-knob"
-            :style="{ left: (pos * 100) + '%' }"
+            :style="knobStyle"
             ref="knob"
             @mousedown.stop.prevent="startDrag($event)"
             @touchstart.stop.prevent="startDrag($event)"
@@ -55,13 +56,18 @@
           </div>
         </div>
 
-        <div class="scale-marks right">
-          <div v-for="i in 10" :key="'r'+i" class="mark" :class="{ highlight: i % 5 === 0 }"></div>
+        <!-- Scale marks (Bottom in vertical, Right in horizontal) -->
+        <div class="scale-marks">
+          <div v-for="i in (vertical ? 6 : 10)" :key="'r'+i" class="mark" :class="{ highlight: i % 5 === 0 }"></div>
         </div>
       </div>
 
       <!-- Footer Actions -->
       <div class="panel-footer">
+        <div v-if="vertical" class="vertical-display">
+          <span class="unit">×</span>
+          <span class="value">{{ formattedMultiplier }}</span>
+        </div>
         <button class="tron-btn reset" @click.stop="$emit('reset')">
           <span class="btn-content">{{ t('control.reset') }}</span>
           <div class="btn-border"></div>
@@ -74,6 +80,13 @@
 <script setup>
 import { ref, computed, onBeforeUnmount } from 'vue'
 import { t } from '../utils/i18n.js'
+
+const props = defineProps({
+  vertical: {
+    type: Boolean,
+    default: false
+  }
+})
 
 const emit = defineEmits(['speed-change', 'reset'])
 
@@ -96,6 +109,27 @@ const presets = [
 const multiplier = computed(() => Math.round(MIN + pos.value * (MAX - MIN)))
 const formattedMultiplier = computed(() => multiplier.value.toLocaleString())
 
+const trackStyle = computed(() => {
+  if (props.vertical) {
+    return { height: (pos.value * 100) + '%', width: '100%', bottom: 0, top: 'auto' }
+  }
+  return { width: (pos.value * 100) + '%', height: '100%', left: 0 }
+})
+
+const knobStyle = computed(() => {
+  if (props.vertical) {
+    return { bottom: (pos.value * 100) + '%', left: '0', right: '0', width: 'auto', height: '2px', transform: 'translateY(50%)' }
+  }
+  return { left: (pos.value * 100) + '%', top: '0', bottom: '0', width: '2px', transform: 'translateX(-50%)' }
+})
+
+function getPresetStyle(norm) {
+  if (props.vertical) {
+    return { bottom: (norm * 100) + '%', left: '50%' }
+  }
+  return { left: (norm * 100) + '%', top: '50%' }
+}
+
 emit('speed-change', multiplier.value)
 
 let dragging = false
@@ -106,24 +140,38 @@ function clamp(v, a = 0, b = 1) {
 }
 
 const initialPos = ref(0)
-const initialClientX = ref(0)
+const initialCoord = ref(0)
 
 function startDrag(e) {
   dragging = true
   addMoveListeners()
-  initialClientX.value = e.touches ? e.touches[0].clientX : e.clientX
+  if (props.vertical) {
+    initialCoord.value = e.touches ? e.touches[0].clientY : e.clientY
+  } else {
+    initialCoord.value = e.touches ? e.touches[0].clientX : e.clientX
+  }
   initialPos.value = pos.value
 }
 
 function onMove(e) {
   if (!dragging) return
-  const clientX = e.touches ? e.touches[0].clientX : e.clientX
   const el = wrap.value
   if (!el) return
   const rect = el.getBoundingClientRect()
-  const deltaX = clientX - initialClientX.value
-  const scale = rect.width
-  const deltaNorm = deltaX / scale
+
+  let deltaNorm = 0
+  if (props.vertical) {
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY
+    const deltaY = initialCoord.value - clientY // Up is more speed, so initial - current
+    const scale = rect.height
+    deltaNorm = deltaY / scale
+  } else {
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX
+    const deltaX = clientX - initialCoord.value
+    const scale = rect.width
+    deltaNorm = deltaX / scale
+  }
+
   pos.value = clamp(initialPos.value + deltaNorm, 0, 1)
   emit('speed-change', multiplier.value)
 }
@@ -186,16 +234,24 @@ defineExpose({ resetVisuals, setOpen })
 <style scoped>
 .time-control-panel {
   position: relative;
-  width: 400px;
+  width: 100%;
   pointer-events: auto;
   opacity: 0;
-  transform: translateY(20px);
+  transform: translateY(-10px);
   transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+  max-height: 0;
 }
 
 .time-control-panel.is-open {
   opacity: 1;
   transform: translateY(0);
+  max-height: 400px;
+  margin-top: 10px;
+}
+
+.time-control-panel.is-vertical {
+  width: 140px;
 }
 
 .industrial-frame {
@@ -290,10 +346,20 @@ defineExpose({ resetVisuals, setOpen })
   padding: 0 10px;
 }
 
+.is-vertical .tank-container {
+  flex-direction: column;
+  height: 150px;
+  padding: 10px 0;
+}
+
 .scale-marks {
   display: flex;
   flex-direction: column;
   gap: 3px;
+}
+
+.is-vertical .scale-marks {
+  flex-direction: row;
 }
 
 .mark {
@@ -305,6 +371,11 @@ defineExpose({ resetVisuals, setOpen })
 .mark.highlight {
   width: 8px;
   background: rgba(0, 255, 255, 0.5);
+}
+
+.is-vertical .mark.highlight {
+  width: 1px;
+  height: 8px;
 }
 
 .slider-area {
@@ -324,6 +395,13 @@ defineExpose({ resetVisuals, setOpen })
   transform: translateY(-50%);
   border-radius: 2px;
   overflow: hidden;
+}
+
+.is-vertical .track-wrapper {
+  top: 0; bottom: 0;
+  left: 50%; right: auto;
+  width: 4px; height: auto;
+  transform: translateX(-50%);
 }
 
 .track-fill {
@@ -376,6 +454,13 @@ defineExpose({ resetVisuals, setOpen })
   white-space: nowrap;
 }
 
+.is-vertical .node-label {
+  top: 50%;
+  left: 20px;
+  transform: translateY(-50%);
+  font-size: 8px;
+}
+
 .scanner-knob {
   position: absolute;
   top: 0;
@@ -402,6 +487,15 @@ defineExpose({ resetVisuals, setOpen })
   border-right: 1px solid #00ffff;
 }
 
+.is-vertical .scanner-brackets {
+  top: -6px; bottom: -6px;
+  left: -8px; right: -8px;
+  border-left: none;
+  border-right: none;
+  border-top: 1px solid #00ffff;
+  border-bottom: 1px solid #00ffff;
+}
+
 .scanner-brackets::before, .scanner-brackets::after {
   content: '';
   position: absolute;
@@ -417,6 +511,32 @@ defineExpose({ resetVisuals, setOpen })
   margin-top: 25px;
   display: flex;
   justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+}
+
+.is-vertical .panel-footer {
+  flex-direction: column;
+  margin-top: 15px;
+}
+
+.vertical-display {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  color: #fff;
+}
+
+.vertical-display .unit {
+  font-size: 11px;
+  color: rgba(0, 255, 255, 0.6);
+  font-weight: 700;
+}
+
+.vertical-display .value {
+  font-size: 16px;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 300;
 }
 
 .tron-btn {

@@ -72,6 +72,16 @@
                 <span class="mini-arrow" :class="{ open: isSpeedOpen }"></span>
               </div>
             </button>
+
+            <!-- Embedded vertical speed control -->
+            <div class="speed-control-wrapper">
+              <TimeControlPanel
+                ref="speedPanel"
+                :vertical="true"
+                @speed-change="$emit('speed-change', $event)"
+                @reset="$emit('reset')"
+              />
+            </div>
           </div>
         </div>
       </Transition>
@@ -82,6 +92,7 @@
 <script setup>
 import { ref } from 'vue'
 import { t } from '../utils/i18n.js'
+import TimeControlPanel from './TimeControlPanel.vue'
 
 const props = defineProps({
   showZodiac: Boolean,
@@ -106,6 +117,7 @@ const emit = defineEmits([
 
 const isMenuOpen = ref(false)
 const isSpeedOpen = ref(false)
+const speedPanel = ref(null)
 
 function toggleMenu() {
   isMenuOpen.value = !isMenuOpen.value
@@ -117,15 +129,27 @@ function toggleMenu() {
 
 function toggleSpeed() {
   isSpeedOpen.value = !isSpeedOpen.value
-  emit('toggle-speed', isSpeedOpen.value)
+  if (speedPanel.value) {
+    speedPanel.value.setOpen(isSpeedOpen.value)
+  }
 }
 
 function closeSpeed() {
   isSpeedOpen.value = false
+  if (speedPanel.value) {
+    speedPanel.value.setOpen(false)
+  }
+}
+
+function resetSpeedVisuals() {
+  if (speedPanel.value) {
+    speedPanel.value.resetVisuals()
+  }
 }
 
 defineExpose({
-  closeSpeed
+  closeSpeed,
+  resetSpeedVisuals
 })
 </script>
 
@@ -336,6 +360,10 @@ defineExpose({
 
 .mini-arrow.open {
   transform: rotate(180deg);
+}
+
+.speed-control-wrapper {
+  padding: 0 4px;
 }
 
 /* Tron Slide Animation */
