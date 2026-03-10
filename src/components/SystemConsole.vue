@@ -175,6 +175,7 @@ defineExpose({
   gap: 12px;
   box-shadow: 20px 0 50px rgba(0, 0, 0, 0.5);
   overflow: hidden;
+  /* Fixed width prevents horizontal extension when menu opens (e.g. to fit 'HOLOGRAPHIC' label) */
   width: 185px;
   box-sizing: border-box;
 }
