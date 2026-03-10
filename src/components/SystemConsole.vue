@@ -175,6 +175,8 @@ defineExpose({
   gap: 12px;
   box-shadow: 20px 0 50px rgba(0, 0, 0, 0.5);
   overflow: hidden;
+  width: 185px;
+  box-sizing: border-box;
 }
 
 /* Hexagon Pattern Background */
@@ -228,7 +230,8 @@ defineExpose({
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   position: relative;
   overflow: hidden;
-  min-width: 160px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .btn-text {
