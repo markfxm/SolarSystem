@@ -172,7 +172,6 @@ defineExpose({
   padding: 12px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
   box-shadow: 20px 0 50px rgba(0, 0, 0, 0.5);
   overflow: hidden;
   /* Fixed width prevents horizontal extension when menu opens (e.g. to fit 'HOLOGRAPHIC' label) */
@@ -212,6 +211,7 @@ defineExpose({
   gap: 8px;
   position: relative;
   z-index: 2;
+  margin-bottom: 4px;
 }
 
 .console-btn {
@@ -285,11 +285,13 @@ defineExpose({
 }
 
 .expanded-menu {
-  margin-top: 4px;
+  margin-top: 16px;
   border-top: 1px solid rgba(var(--glow-rgb), 0.15);
   padding-top: 12px;
   position: relative;
   z-index: 2;
+  max-height: 420px;
+  overflow: hidden;
 }
 
 .menu-grid {
@@ -372,11 +374,21 @@ defineExpose({
 
 /* Tron Slide Animation */
 .tron-slide-enter-active, .tron-slide-leave-active {
-  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  transition:
+    opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+    max-height 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+    margin-top 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+    padding-top 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .tron-slide-enter-from, .tron-slide-leave-to {
   opacity: 0;
   transform: translateY(-10px);
+  max-height: 0;
+  margin-top: 0;
+  padding-top: 0;
+  border-color: transparent;
 }
 </style>
