@@ -148,7 +148,7 @@ const bodies = computed(() => [
   overflow: hidden;
   box-shadow: -10px 0 30px rgba(0, 0, 0, 0.5);
   animation: slideIn 0.45s cubic-bezier(0.16, 1, 0.3, 1);
-  width: 180px;
+  width: 220px;
   transition: border-color 0.3s ease;
 }
 
