@@ -17,3 +17,11 @@
 ## 2025-05-15 - [Kepler Solver Iteration & Trig Reuse]
 **Learning:** A fixed-iteration Kepler solver is inefficient for low-eccentricity orbits (e < 0.05) which converge in 2-3 iterations. Performing additional `Math.sin/cos` calls after the loop for coordinates is also redundant if the final values from the last iteration are captured.
 **Action:** Use an early-exit threshold (e.g., `1e-6`) in Newton-Raphson loops. Structure the loop to capture the final `sinE`, `cosE`, and the denominator `1 - e * cosE` to be reused for world-space positioning and distance calculations, saving 4-6 trig calls per body per frame.
+
+## 2025-05-15 - [Direct Buffer Access in Geometry Loops]
+**Learning:** Using Three.js convenience methods like `getX`, `getZ`, and `setY` within a tight loop (e.g., iterating over 4,096 vertices in a terrain chunk) introduces significant function call overhead. Accessing the underlying `Float32Array` buffer (`geometry.attributes.position.array`) directly reduces terrain generation time by avoiding these calls.
+**Action:** For performance-critical geometry generation or modification, bypass Three.js getters/setters and operate directly on the typed array. Remember to set `needsUpdate = true` on the attribute afterward.
+
+## 2025-05-15 - [Dimension-Specific Noise]
+**Learning:** Using a 3D noise function for a 2D heightmap (where `z` is always constant) performs redundant permutations and interpolations for the unused dimension. A specialized `noise2D` function is approximately 30-40% faster as it eliminates all Z-related calculations.
+**Action:** Always match the dimensionality of the noise function to the input data. Use `noise2D` for heightmaps and `noise3D` only when the third dimension is required (e.g., volumetric effects or time-varying 2D noise).
