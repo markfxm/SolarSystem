@@ -180,23 +180,22 @@ export function computePosition(elements, scale = 10, target = null) {
   // Reduce M to [-π, π]
   M = M - Math.floor(M / TWO_PI + 0.5) * TWO_PI;
 
-  // Solve Kepler's equation — 6 iterations
-  let E = e < 0.05 ? M : (M + e * Math.sin(M)) / (1 - e * Math.cos(M));
-  let sinE, cosE;
+  // Solve Kepler's equation with early exit for low eccentricity
+  let E = M;
+  let sinE, cosE, denom;
   for (let iter = 0; iter < 6; iter++) {
     sinE = Math.sin(E);
     cosE = Math.cos(E);
-    E -= (E - e * sinE - M) / (1 - e * cosE);
+    denom = 1 - e * cosE;
+    const error = E - e * sinE - M;
+    if (Math.abs(error) < 1e-6) break;
+    E -= error / denom;
   }
-
-  // Final sinE/cosE for current E
-  sinE = Math.sin(E);
-  cosE = Math.cos(E);
 
   // Optimized orbital plane coordinates using substitution:
   // r*cos(v) = a * (cosE - e)
   // r*sin(v) = a * sqrt(1 - e^2) * sinE
-  // This eliminates divisions by (1 - e*cosE) and redundant trig calls.
+  // r = a * denom
   const cosW = Math.cos(w);
   const sinW = Math.sin(w);
   const rCosV = a * (cosE - e);
@@ -205,8 +204,8 @@ export function computePosition(elements, scale = 10, target = null) {
   const xOrb = rCosV * cosW - rSinV * sinW;
   const yOrb = rSinV * cosW + rCosV * sinW;
 
-  // Distance from primary for scaling
-  const r = a * (1 - e * cosE);
+  // Distance from primary for scaling - reusing the last calculated denominator
+  const r = a * denom;
 
   let x, y, z;
   // Fast-path for planets with zero inclination (e.g. Earth)
