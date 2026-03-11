@@ -467,16 +467,20 @@ const dict = {
 const pathCache = new Map();
 const translationCache = new Map();
 
-// Clear translation cache on language change
+// Clear translation cache on language change immediately
 watch(currentLang, () => {
   translationCache.clear();
-});
+}, { flush: 'sync' });
 
 /**
  * Optimized translation function.
  * Uses caching for paths and resolved strings to minimize per-frame overhead.
  */
 export function t(path, vars = null) {
+  // Access currentLang.value at the very beginning to ensure Vue registers this function
+  // as a reactive dependency. This is critical for template and computed updates.
+  const _lang = currentLang.value;
+
   // 1. Fast path: check cache for static translations
   if (!vars) {
     const cached = translationCache.get(path);
