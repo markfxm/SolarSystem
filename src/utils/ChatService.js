@@ -1,4 +1,5 @@
 import * as webllm from "@mlc-ai/web-llm"
+import { bookSearchService } from "./BookSearchService"
 
 const GPU_MODEL = "Llama-3.2-1B-Instruct-q4f16_1-MLC"
 const CPU_MODEL = "Xenova/Qwen1.5-0.5B-Chat"
@@ -7,6 +8,7 @@ class ChatService {
   constructor() {
     this.engine = null
     this.worker = null
+    this.isReady = false
     this.mode = 'gpu'
     this.systemPrompt = "You are the 'Stellar Assistant' (星际导游). Answer in ONE CONCISE SENTENCE in the user's language. Focus only on astronomy facts."
 
@@ -19,6 +21,9 @@ class ChatService {
     // Progress tracking
     this.progressItems = {}
     this.lastReportedProgress = 0
+
+    // Reactivity helpers
+    this.isReadyRef = null
   }
 
   async isWebGPUSupported() {
@@ -31,7 +36,11 @@ class ChatService {
     }
   }
 
-  async init(onProgress) {
+  async init(onProgress, isReadyRef) {
+    if (isReadyRef) this.isReadyRef = isReadyRef
+    // Start loading books immediately
+    bookSearchService.init()
+
     if (this.engine || this.worker) return
 
     const useGPU = await this.isWebGPUSupported()
@@ -42,6 +51,8 @@ class ChatService {
           initProgressCallback: onProgress,
         })
         this.mode = 'gpu'
+        this.isReady = true
+        if (this.isReadyRef) this.isReadyRef.value = true
         return
       } catch (e) {
         console.error("WebLLM Init failed, falling back to CPU worker:", e)
@@ -97,6 +108,8 @@ class ChatService {
             }
           }
         } else if (type === 'init_complete') {
+          this.isReady = true
+          if (this.isReadyRef) this.isReadyRef.value = true
           resolve()
         } else if (type === 'chat_chunk') {
           if (this.onChatUpdate) {
@@ -119,6 +132,20 @@ class ChatService {
   }
 
   async chat(messages, onUpdate) {
+    // If main AI is not ready, try Book Search
+    if (!this.isReady) {
+      const lastMessage = messages[messages.length - 1].content
+      const bookAnswer = bookSearchService.search(lastMessage)
+      if (bookAnswer) {
+        if (onUpdate) onUpdate(bookAnswer)
+        return bookAnswer
+      }
+      // If no book match and not ready, we could either wait or return a "still loading" msg
+      const loadingMsg = "AI Assistant is still waking up... Please wait or ask something else about the solar system."
+      if (onUpdate) onUpdate(loadingMsg)
+      return loadingMsg
+    }
+
     if (this.mode === 'gpu') {
       if (!this.engine) throw new Error("Assistant not initialized")
       const fullMessages = [{ role: "system", content: this.systemPrompt }, ...messages]
