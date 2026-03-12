@@ -195,6 +195,18 @@ const dict = {
       aspect: 'A key dynamic is the {type} between {p1} and {p2}, creating {vibe}.',
       no_aspect: 'The skies are relatively calm, with each planet expressing its energy clearly without major interference.'
     },
+    chat: {
+      title: 'Stellar Assistant',
+      placeholder: 'Ask me about the solar system...',
+      send: 'Send',
+      loading_model: 'Waking up the Assistant... {progress}%',
+      gpu_error: 'WebGPU is not supported. Please use a modern browser like Chrome or Edge.',
+      welcome: 'Hello! I am your Stellar Assistant. What would you like to know about our solar system today?',
+      initializing: 'Initializing AI...',
+      thinking: 'Assistant is thinking...',
+      start_download: 'Wake up Assistant',
+      download_desc: 'Download local brain (~1.2GB) to start chatting. Your first mission awaits!',
+    },
     guidance: {
       sun: {
         aries: "To be a pioneer. Your life's purpose is to break new ground and assert your individuality.",
@@ -421,6 +433,18 @@ const dict = {
       identity: '太阳位于{sunSign}（{sunKey}），照亮了你的核心自我；而月亮落在{moonSign}（{moonKey}），为你的内心世界染上了色彩。',
       aspect: '值得关注的是{p1}与{p2}形成的{type}，这带来了一种{vibe}的能量。',
       no_aspect: '星象相对平静，各行星能量表达顺畅，未受到显著干扰。'
+    },
+    chat: {
+      title: '星际导游',
+      placeholder: '问问关于太阳系的问题...',
+      send: '发送',
+      loading_model: '正在唤醒导游... {progress}%',
+      gpu_error: '您的浏览器不支持 WebGPU。请使用最新版的 Chrome 或 Edge 浏览器。',
+      welcome: '你好！我是你的星际导游。今天想了解太阳系的哪些奥秘？',
+      initializing: '正在初始化 AI...',
+      thinking: '导游正在思考中...',
+      start_download: '唤醒导游',
+      download_desc: '下载本地模型（约 1.2GB）即可开始聊天。开启你的星际之旅吧！',
     },
     guidance: {
       sun: {
