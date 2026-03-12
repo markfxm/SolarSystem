@@ -203,6 +203,8 @@ const dict = {
       gpu_error: 'WebGPU is not supported. Please use a modern browser like Chrome or Edge.',
       welcome: 'Hello! I am your Stellar Assistant. What would you like to know about our solar system today?',
       initializing: 'Initializing AI...',
+      start_download: 'Wake up Assistant',
+      download_desc: 'Download local brain (~1.2GB) to start chatting. Your first mission awaits!',
     },
     guidance: {
       sun: {
@@ -439,6 +441,8 @@ const dict = {
       gpu_error: '您的浏览器不支持 WebGPU。请使用最新版的 Chrome 或 Edge 浏览器。',
       welcome: '你好！我是你的星际导游。今天想了解太阳系的哪些奥秘？',
       initializing: '正在初始化 AI...',
+      start_download: '唤醒导游',
+      download_desc: '下载本地模型（约 1.2GB）即可开始聊天。开启你的星际之旅吧！',
     },
     guidance: {
       sun: {

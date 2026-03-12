@@ -3,7 +3,7 @@
     <!-- Floating Toggle Button -->
     <button class="chat-toggle-btn" @click="toggleChat" :title="t('chat.title')">
       <div class="ai-icon">
-        <div class="ai-pulse"></div>
+        <div class="ai-pulse" :class="{ 'is-active': isReady }"></div>
         <span>AI</span>
       </div>
     </button>
@@ -19,28 +19,44 @@
       </div>
 
       <div class="chat-messages" ref="messagesContainer">
-        <div v-for="(msg, idx) in messages" :key="idx" :class="['message', msg.role]">
-          <div class="message-bubble">
-            {{ msg.content }}
-          </div>
+        <!-- Not Started State -->
+        <div v-if="!hasStartedInit" class="init-gate">
+          <div class="gate-icon">🛰️</div>
+          <p class="gate-desc">{{ t('chat.download_desc') }}</p>
+          <button class="gate-btn" @click="initializeAI">
+            {{ t('chat.start_download') }}
+          </button>
         </div>
-        <div v-if="isTyping" class="message assistant">
-          <div class="message-bubble typing">
-            <span class="dot">.</span><span class="dot">.</span><span class="dot">.</span>
+
+        <!-- Messages -->
+        <template v-else>
+          <div v-for="(msg, idx) in messages" :key="idx" :class="['message', msg.role]">
+            <div class="message-bubble">
+              {{ msg.content }}
+            </div>
           </div>
-        </div>
+
+          <div v-if="isTyping" class="message assistant">
+            <div class="message-bubble typing">
+              <span class="dot">.</span><span class="dot">.</span><span class="dot">.</span>
+            </div>
+          </div>
+        </template>
+
+        <!-- Loading Overlay -->
         <div v-if="loadingModel" class="loading-overlay">
           <div class="loading-spinner"></div>
           <div class="loading-text">{{ t('chat.loading_model', { progress: Math.round(initProgress * 100) }) }}</div>
         </div>
       </div>
 
-      <div class="chat-input-area">
+      <div class="chat-input-area" @click="focusInput">
         <div v-if="!gpuSupported" class="gpu-error">
           {{ t('chat.gpu_error') }}
         </div>
         <template v-else>
           <textarea
+            ref="inputField"
             v-model="userInput"
             :placeholder="t('chat.placeholder')"
             @keydown.enter.prevent="sendMessage"
@@ -65,6 +81,7 @@ import { t } from '../utils/i18n.js'
 import { chatService } from '../utils/ChatService.js'
 
 const isOpen = ref(false)
+const hasStartedInit = ref(false)
 const isReady = ref(false)
 const isTyping = ref(false)
 const userInput = ref('')
@@ -73,12 +90,14 @@ const loadingModel = ref(false)
 const initProgress = ref(0)
 const messages = ref([])
 const messagesContainer = ref(null)
+const inputField = ref(null)
 
 const toggleChat = async () => {
   isOpen.value = !isOpen.value
-  if (isOpen.value && !isReady.value) {
-    await initializeAI()
-  }
+}
+
+const focusInput = () => {
+  if (inputField.value) inputField.value.focus()
 }
 
 const initializeAI = async () => {
@@ -88,6 +107,7 @@ const initializeAI = async () => {
     return
   }
 
+  hasStartedInit.value = true
   loadingModel.value = true
   try {
     await chatService.init((p) => {
@@ -97,8 +117,11 @@ const initializeAI = async () => {
     messages.value.push({ role: 'assistant', content: t('chat.welcome') })
   } catch (e) {
     console.error('AI Init Error:', e)
+    hasStartedInit.value = false // Reset so they can try again
   } finally {
     loadingModel.value = false
+    await scrollToBottom()
+    nextTick(() => focusInput())
   }
 }
 
@@ -123,9 +146,10 @@ const sendMessage = async () => {
     })
   } catch (e) {
     console.error('Chat Error:', e)
-    messages.value.push({ role: 'assistant', content: 'Sorry, I encountered an error. Please try again.' })
+    messages.value.push({ role: 'assistant', content: 'Mission failed. Connection lost.' })
   } finally {
     isTyping.value = false
+    nextTick(() => focusInput())
   }
 }
 
@@ -137,7 +161,10 @@ const scrollToBottom = async () => {
 }
 
 watch(isOpen, (val) => {
-  if (val) scrollToBottom()
+  if (val) {
+    scrollToBottom()
+    if (isReady.value) nextTick(() => focusInput())
+  }
 })
 </script>
 
@@ -166,6 +193,7 @@ watch(isOpen, (val) => {
   justify-content: center;
   transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   padding: 0;
+  pointer-events: auto;
 }
 
 .chat-toggle-btn:hover {
@@ -189,8 +217,13 @@ watch(isOpen, (val) => {
   height: 100%;
   border-radius: 50%;
   border: 2px solid var(--glow-color);
-  animation: pulse-ring 2s infinite;
+  opacity: 0.5;
   pointer-events: none;
+}
+
+.ai-pulse.is-active {
+  animation: pulse-ring 2s infinite;
+  opacity: 1;
 }
 
 @keyframes pulse-ring {
@@ -213,6 +246,7 @@ watch(isOpen, (val) => {
   overflow: hidden;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
   animation: slide-up 0.3s ease-out;
+  pointer-events: auto;
 }
 
 @keyframes slide-up {
@@ -277,10 +311,50 @@ watch(isOpen, (val) => {
   position: relative;
 }
 
-/* Scrollbar */
-.chat-messages::-webkit-scrollbar { width: 4px; }
-.chat-messages::-webkit-scrollbar-track { background: transparent; }
-.chat-messages::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 2px; }
+.init-gate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  text-align: center;
+  padding: 20px;
+}
+
+.gate-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+.gate-desc {
+  font-size: 14px;
+  color: #aaa;
+  margin-bottom: 24px;
+  line-height: 1.6;
+}
+
+.gate-btn {
+  background: var(--glow-color);
+  color: #fff;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 30px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(var(--glow-rgb), 0.4);
+  transition: all 0.3s;
+}
+
+.gate-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(var(--glow-rgb), 0.6);
+}
 
 .message {
   max-width: 85%;
@@ -330,7 +404,7 @@ watch(isOpen, (val) => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(10, 10, 20, 0.8);
+  background: rgba(10, 10, 20, 0.9);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -361,6 +435,7 @@ watch(isOpen, (val) => {
   padding: 16px;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(0, 0, 0, 0.2);
+  cursor: text;
 }
 
 textarea {

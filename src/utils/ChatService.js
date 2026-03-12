@@ -1,12 +1,12 @@
 import * as webllm from "@mlc-ai/web-llm"
 
-const SELECTED_MODEL = "Llama-3.2-1B-Instruct-q4f16_1-MLC"
+const GPU_MODEL = "Llama-3.2-1B-Instruct-q4f16_1-MLC"
 
 class ChatService {
   constructor() {
     this.engine = null
-    this.modelId = SELECTED_MODEL
-    this.systemPrompt = "You are the 'Stellar Assistant' (星际导游), an expert on the solar system and astronomy. You are helpful, knowledgeable, and enthusiastic about space exploration. Answer the user's questions about planets, stars, and the cosmos in a clear and engaging way. Keep your answers relatively concise but informative."
+    this.mode = 'gpu' // 'gpu'
+    this.systemPrompt = "You are the 'Stellar Assistant' (星际导游), an expert on the solar system and astronomy. Answer concisely in the language used by the user."
   }
 
   async isWebGPUSupported() {
@@ -22,15 +22,20 @@ class ChatService {
   async init(onProgress) {
     if (this.engine) return
 
-    this.engine = await webllm.createMLCEngine(this.modelId, {
-      initProgressCallback: onProgress,
-    })
+    try {
+      // Primary: WebLLM (GPU)
+      this.engine = await webllm.createMLCEngine(GPU_MODEL, {
+        initProgressCallback: onProgress,
+      })
+      this.mode = 'gpu'
+    } catch (e) {
+      console.error("WebLLM Init failed, no fallback implemented yet:", e)
+      throw e
+    }
   }
 
   async chat(messages, onUpdate) {
-    if (!this.engine) {
-      throw new Error("Engine not initialized")
-    }
+    if (!this.engine) throw new Error("Assistant not initialized")
 
     const fullMessages = [
       { role: "system", content: this.systemPrompt },
@@ -53,7 +58,7 @@ class ChatService {
   }
 
   async interrupt() {
-    if (this.engine) {
+    if (this.engine && this.mode === 'gpu') {
       await this.engine.interruptGenerate()
     }
   }
