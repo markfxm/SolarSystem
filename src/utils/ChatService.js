@@ -2,13 +2,14 @@ import * as webllm from "@mlc-ai/web-llm"
 import { pipeline } from '@xenova/transformers'
 
 const GPU_MODEL = "Llama-3.2-1B-Instruct-q4f16_1-MLC"
-const CPU_MODEL = "Xenova/Qwen1.5-0.5B-Chat" // Tiny and reliable for CPU
+const CPU_MODEL = "Xenova/Qwen1.5-0.5B-Chat"
 
 class ChatService {
   constructor() {
     this.engine = null
     this.mode = 'gpu'
-    this.systemPrompt = "You are the 'Stellar Assistant' (星际导游), an expert on the solar system and astronomy. Answer concisely in the language used by the user."
+    // Modified prompt for extreme conciseness
+    this.systemPrompt = "You are the 'Stellar Assistant' (星际导游). Answer in ONE CONCISE SENTENCE in the user's language. Focus only on astronomy facts."
   }
 
   async isWebGPUSupported() {
@@ -38,12 +39,10 @@ class ChatService {
       }
     }
 
-    // Fallback or Force CPU
     this.mode = 'cpu'
     this.engine = await pipeline('text-generation', CPU_MODEL, {
       progress_callback: (p) => {
         if (p.status === 'progress' && onProgress) {
-          // Normalize to 0-1 for the UI
           onProgress({ progress: p.progress / 100 })
         }
       }
@@ -70,8 +69,7 @@ class ChatService {
       }
       return fullText
     } else {
-      // CPU Mode (Transformers.js)
-      // Standardize messages to a prompt string (simple template)
+      // CPU Mode: Optimized for speed
       let prompt = `<|im_start|>system\n${this.systemPrompt}<|im_end|>\n`
       for (const msg of messages) {
         prompt += `<|im_start|>${msg.role}\n${msg.content}<|im_end|>\n`
@@ -79,12 +77,11 @@ class ChatService {
       prompt += `<|im_start|>assistant\n`
 
       const output = await this.engine(prompt, {
-        max_new_tokens: 256,
-        temperature: 0.7,
+        max_new_tokens: 64, // Reduced from 256/128 for speed
+        temperature: 0.5, // More deterministic/faster
         do_sample: true,
         callback_function: (beams) => {
           const decoded = this.engine.tokenizer.decode(beams[0].output_token_ids, { skip_special_tokens: true })
-          // Extract only the new assistant part
           const assistantPart = decoded.split('assistant\n').pop()
           if (onUpdate) onUpdate(assistantPart)
         }
@@ -97,7 +94,6 @@ class ChatService {
     if (this.engine && this.mode === 'gpu') {
       await this.engine.interruptGenerate()
     }
-    // Transformers.js interrupt is complex, skipping for now as CPU models are small
   }
 }
 

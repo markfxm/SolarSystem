@@ -46,6 +46,7 @@
 
           <div v-if="isTyping" class="message assistant">
             <div class="message-bubble typing">
+              <span class="thinking-text">{{ t('chat.thinking') }}</span>
               <span class="dot">.</span><span class="dot">.</span><span class="dot">.</span>
             </div>
           </div>
@@ -401,6 +402,12 @@ onUnmounted(() => {
 
 .user .message-bubble { background: var(--glow-color); color: #fff; }
 .assistant .message-bubble { background: rgba(255, 255, 255, 0.1); color: #eee; }
+
+.thinking-text {
+  font-size: 11px;
+  opacity: 0.7;
+  margin-right: 4px;
+}
 
 .progress-circle-container {
   position: relative;
