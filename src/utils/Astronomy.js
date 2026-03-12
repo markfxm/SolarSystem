@@ -142,7 +142,7 @@ export function computeD(date) {
 const _qResult = new THREE.Quaternion();
 const _q3 = new THREE.Quaternion();
 const _posResult = { x: 0, y: 0, z: 0, r: 0 };
-const _elResult = { a: 1, e: 0, i: 0, N: 0, w: 0, M: 0 };
+const _elResult = { a: 1, e: 0, i: 0, N: 0, w: 0, M: 0, sqrtEE: 1 };
 
 /**
  * Returns orbital elements.
@@ -152,7 +152,7 @@ export function computeElements(planetName, d, target = null) {
   const data = planetsData[planetName];
   const res = target || _elResult;
   if (!data || !data.e) {
-    res.a = 1; res.e = 0; res.i = 0; res.N = 0; res.w = 0; res.M = 0;
+    res.a = 1; res.e = 0; res.i = 0; res.N = 0; res.w = 0; res.M = 0; res.sqrtEE = 1;
     return res;
   }
   res.a = data.a;
@@ -161,6 +161,8 @@ export function computeElements(planetName, d, target = null) {
   res.N = data.N[0] + data.N[1] * d;
   res.w = data.w[0] + data.w[1] * d;
   res.M = data.M[0] + data.M[1] * d;
+  // Pre-calculate eccentricity constant to avoid repeated Math.sqrt in computePosition
+  res.sqrtEE = Math.sqrt(1 - res.e * res.e);
   return res;
 }
 
@@ -175,6 +177,7 @@ export function computePosition(elements, scale = 10, target = null) {
   const i = elements.i;
   const N = elements.N;
   const w = elements.w;
+  const sqrtEE = elements.sqrtEE;
   let M = elements.M;
 
   // Reduce M to [-π, π]
@@ -199,7 +202,7 @@ export function computePosition(elements, scale = 10, target = null) {
   const cosW = Math.cos(w);
   const sinW = Math.sin(w);
   const rCosV = a * (cosE - e);
-  const rSinV = a * Math.sqrt(1 - e * e) * sinE;
+  const rSinV = a * sqrtEE * sinE;
 
   const xOrb = rCosV * cosW - rSinV * sinW;
   const yOrb = rSinV * cosW + rCosV * sinW;
