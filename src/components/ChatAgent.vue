@@ -9,7 +9,14 @@
     </button>
 
     <!-- Chat Window -->
-    <div v-if="isOpen" class="chat-window">
+    <div
+      v-if="isOpen"
+      class="chat-window"
+      :style="{ width: `${windowSize.w}px`, height: `${windowSize.h}px` }"
+    >
+      <!-- Resize Handle -->
+      <div class="resize-handle" @mousedown="startResize"></div>
+
       <div class="chat-header">
         <div class="header-content">
           <div class="status-dot" :class="{ 'is-ready': isReady }"></div>
@@ -43,10 +50,20 @@
           </div>
         </template>
 
-        <!-- Loading Overlay -->
+        <!-- Loading Overlay with Circular Progress -->
         <div v-if="loadingModel" class="loading-overlay">
-          <div class="loading-spinner"></div>
-          <div class="loading-text">{{ t('chat.loading_model', { progress: Math.round(initProgress * 100) }) }}</div>
+          <div class="progress-circle-container">
+            <svg class="progress-circle" viewBox="0 0 100 100">
+              <circle class="circle-bg" cx="50" cy="50" r="45"></circle>
+              <circle
+                class="circle-fill"
+                cx="50" cy="50" r="45"
+                :style="{ strokeDashoffset: 283 - (283 * initProgress) }"
+              ></circle>
+            </svg>
+            <div class="progress-text">{{ Math.round(initProgress * 100) }}%</div>
+          </div>
+          <div class="loading-text">{{ t('chat.initializing') }}</div>
         </div>
       </div>
 
@@ -76,7 +93,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick, watch } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { t } from '../utils/i18n.js'
 import { chatService } from '../utils/ChatService.js'
 
@@ -92,12 +109,47 @@ const messages = ref([])
 const messagesContainer = ref(null)
 const inputField = ref(null)
 
-const toggleChat = async () => {
+// Resizable window state
+const windowSize = reactive({ w: 320, h: 420 })
+const isResizing = ref(false)
+let startX, startY, startW, startH
+
+const toggleChat = () => {
   isOpen.value = !isOpen.value
 }
 
 const focusInput = () => {
   if (inputField.value) inputField.value.focus()
+}
+
+const startResize = (e) => {
+  isResizing.value = true
+  startX = e.clientX
+  startY = e.clientY
+  startW = windowSize.w
+  startH = windowSize.h
+
+  document.addEventListener('mousemove', handleResize)
+  document.addEventListener('mouseup', stopResize)
+  e.preventDefault()
+}
+
+const handleResize = (e) => {
+  if (!isResizing.value) return
+  // We are resizing from the top-right handle, but since it's bottom-left anchored:
+  // Dragging right (dx > 0) increases width
+  // Dragging up (dy < 0) increases height
+  const dx = e.clientX - startX
+  const dy = startY - e.clientY
+
+  windowSize.w = Math.max(280, Math.min(600, startW + dx))
+  windowSize.h = Math.max(300, Math.min(800, startH + dy))
+}
+
+const stopResize = () => {
+  isResizing.value = false
+  document.removeEventListener('mousemove', handleResize)
+  document.removeEventListener('mouseup', stopResize)
 }
 
 const initializeAI = async () => {
@@ -117,7 +169,7 @@ const initializeAI = async () => {
     messages.value.push({ role: 'assistant', content: t('chat.welcome') })
   } catch (e) {
     console.error('AI Init Error:', e)
-    hasStartedInit.value = false // Reset so they can try again
+    hasStartedInit.value = false
   } finally {
     loadingModel.value = false
     await scrollToBottom()
@@ -146,7 +198,7 @@ const sendMessage = async () => {
     })
   } catch (e) {
     console.error('Chat Error:', e)
-    messages.value.push({ role: 'assistant', content: 'Mission failed. Connection lost.' })
+    messages.value.push({ role: 'assistant', content: 'Connection error. Please try again.' })
   } finally {
     isTyping.value = false
     nextTick(() => focusInput())
@@ -165,6 +217,11 @@ watch(isOpen, (val) => {
     scrollToBottom()
     if (isReady.value) nextTick(() => focusInput())
   }
+})
+
+onUnmounted(() => {
+  document.removeEventListener('mousemove', handleResize)
+  document.removeEventListener('mouseup', stopResize)
 })
 </script>
 
@@ -193,11 +250,10 @@ watch(isOpen, (val) => {
   justify-content: center;
   transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   padding: 0;
-  pointer-events: auto;
 }
 
 .chat-toggle-btn:hover {
-  transform: scale(1.1) rotate(5deg);
+  transform: scale(1.1);
   box-shadow: 0 0 25px rgba(var(--glow-rgb), 0.6);
 }
 
@@ -205,7 +261,6 @@ watch(isOpen, (val) => {
   position: relative;
   font-weight: 800;
   font-size: 14px;
-  letter-spacing: 1px;
 }
 
 .ai-pulse {
@@ -218,7 +273,6 @@ watch(isOpen, (val) => {
   border-radius: 50%;
   border: 2px solid var(--glow-color);
   opacity: 0.5;
-  pointer-events: none;
 }
 
 .ai-pulse.is-active {
@@ -235,8 +289,6 @@ watch(isOpen, (val) => {
   position: absolute;
   bottom: 70px;
   left: 0;
-  width: 350px;
-  height: 500px;
   background: rgba(10, 10, 20, 0.95);
   backdrop-filter: blur(12px);
   border: 1px solid rgba(var(--glow-rgb), 0.3);
@@ -246,27 +298,36 @@ watch(isOpen, (val) => {
   overflow: hidden;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
   animation: slide-up 0.3s ease-out;
-  pointer-events: auto;
 }
 
-@keyframes slide-up {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
+.resize-handle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 20px;
+  height: 20px;
+  cursor: nesw-resize;
+  z-index: 10;
+  background: linear-gradient(225deg, var(--glow-color) 0%, transparent 50%);
+  opacity: 0.3;
 }
+
+.resize-handle:hover { opacity: 0.8; }
 
 .chat-header {
-  padding: 16px;
+  padding: 12px 16px;
   background: rgba(var(--glow-rgb), 0.1);
   border-bottom: 1px solid rgba(var(--glow-rgb), 0.2);
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .header-content {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .status-dot {
@@ -278,28 +339,23 @@ watch(isOpen, (val) => {
 
 .status-dot.is-ready {
   background: #00ff88;
-  box-shadow: 0 0 10px #00ff88;
+  box-shadow: 0 0 8px #00ff88;
 }
 
 .chat-header h3 {
   margin: 0;
-  font-size: 15px;
+  font-size: 14px;
   color: #fff;
-  font-weight: 600;
 }
 
 .close-btn {
   background: none;
   border: none;
   color: #fff;
-  font-size: 24px;
+  font-size: 20px;
   cursor: pointer;
   opacity: 0.6;
-  padding: 0;
-  line-height: 1;
 }
-
-.close-btn:hover { opacity: 1; }
 
 .chat-messages {
   flex: 1;
@@ -308,7 +364,6 @@ watch(isOpen, (val) => {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  position: relative;
 }
 
 .init-gate {
@@ -318,178 +373,126 @@ watch(isOpen, (val) => {
   justify-content: center;
   height: 100%;
   text-align: center;
-  padding: 20px;
 }
 
-.gate-icon {
-  font-size: 48px;
-  margin-bottom: 16px;
-  animation: float 3s ease-in-out infinite;
-}
-
-@keyframes float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-10px); }
-}
+.gate-icon { font-size: 40px; margin-bottom: 12px; }
 
 .gate-desc {
-  font-size: 14px;
+  font-size: 13px;
   color: #aaa;
-  margin-bottom: 24px;
-  line-height: 1.6;
+  margin-bottom: 16px;
+  padding: 0 10px;
 }
 
 .gate-btn {
   background: var(--glow-color);
   color: #fff;
   border: none;
-  padding: 12px 24px;
-  border-radius: 30px;
-  font-weight: 700;
+  padding: 8px 20px;
+  border-radius: 20px;
+  font-weight: 600;
   cursor: pointer;
-  box-shadow: 0 4px 15px rgba(var(--glow-rgb), 0.4);
-  transition: all 0.3s;
 }
 
-.gate-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(var(--glow-rgb), 0.6);
-}
-
-.message {
-  max-width: 85%;
-  display: flex;
-}
-
+.message { max-width: 85%; display: flex; }
 .message.user { align-self: flex-end; }
 .message.assistant { align-self: flex-start; }
 
 .message-bubble {
-  padding: 10px 14px;
+  padding: 8px 12px;
   border-radius: 12px;
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1.5;
-  word-wrap: break-word;
 }
 
-.user .message-bubble {
-  background: var(--glow-color);
-  color: #fff;
-  border-bottom-right-radius: 2px;
+.user .message-bubble { background: var(--glow-color); color: #fff; }
+.assistant .message-bubble { background: rgba(255, 255, 255, 0.1); color: #eee; }
+
+.progress-circle-container {
+  position: relative;
+  width: 80px;
+  height: 80px;
 }
 
-.assistant .message-bubble {
-  background: rgba(255, 255, 255, 0.1);
-  color: #eee;
-  border-bottom-left-radius: 2px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
+.progress-circle {
+  transform: rotate(-90deg);
+  width: 100%;
+  height: 100%;
 }
 
-.typing .dot {
-  animation: typing-dot 1.4s infinite;
-  font-size: 20px;
-  line-height: 0;
+.circle-bg {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.1);
+  stroke-width: 8;
 }
-.typing .dot:nth-child(2) { animation-delay: 0.2s; }
-.typing .dot:nth-child(3) { animation-delay: 0.4s; }
 
-@keyframes typing-dot {
-  0%, 60%, 100% { opacity: 0.3; }
-  30% { opacity: 1; }
+.circle-fill {
+  fill: none;
+  stroke: var(--glow-color);
+  stroke-width: 8;
+  stroke-linecap: round;
+  stroke-dasharray: 283;
+  transition: stroke-dashoffset 0.3s ease;
+}
+
+.progress-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--glow-color);
 }
 
 .loading-overlay {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   background: rgba(10, 10, 20, 0.9);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 16px;
-  z-index: 5;
 }
 
-.loading-spinner {
-  width: 40px;
-  height: 40px;
-  border: 3px solid rgba(var(--glow-rgb), 0.1);
-  border-top-color: var(--glow-color);
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin { to { transform: rotate(360deg); } }
-
-.loading-text {
-  font-size: 13px;
-  color: var(--glow-color);
-  text-align: center;
-  padding: 0 20px;
-}
+.loading-text { font-size: 12px; color: var(--glow-color); }
 
 .chat-input-area {
-  padding: 16px;
+  padding: 12px;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(0, 0, 0, 0.2);
-  cursor: text;
+  flex-shrink: 0;
 }
 
 textarea {
   width: 100%;
-  min-height: 40px;
-  max-height: 120px;
+  height: 60px;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
   color: #fff;
-  padding: 10px;
-  font-family: inherit;
-  font-size: 14px;
+  padding: 8px;
+  font-size: 13px;
   resize: none;
-  box-sizing: border-box;
-  outline: none;
-  transition: border-color 0.2s;
-}
-
-textarea:focus {
-  border-color: var(--glow-color);
 }
 
 .send-btn {
   width: 100%;
-  margin-top: 10px;
+  margin-top: 8px;
   background: var(--glow-color);
   color: #fff;
   border: none;
-  padding: 8px;
-  border-radius: 8px;
+  padding: 6px;
+  border-radius: 6px;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  transition: opacity 0.2s;
 }
 
-.send-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
+.send-btn:disabled { opacity: 0.5; }
 
-.gpu-error {
-  font-size: 12px;
-  color: #ff4444;
-  text-align: center;
-  padding: 10px;
-  background: rgba(255, 0, 0, 0.1);
-  border-radius: 8px;
-}
-
-@media (max-width: 480px) {
-  .chat-window {
-    width: calc(100vw - 48px);
-    height: 400px;
-  }
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 </style>
