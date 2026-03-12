@@ -135,6 +135,9 @@
       @clear-path="onClearMarsPath"
     />
 
+    <!-- AI Chat Agent -->
+    <ChatAgent v-if="!isLoading && viewMode === 'solar'" />
+
   </div>
 </template>
 
@@ -149,6 +152,7 @@ import StellarMomentModal from './StellarMomentModal.vue'
 import TransitPanel from './TransitPanel.vue'
 import MarsHUD from '../planets/Mars/MarsHUD.vue'
 import POIPanel from './POIPanel.vue'
+import ChatAgent from './ChatAgent.vue'
 
 import { t, currentLang } from '../utils/i18n.js'
 import { captureHighRes, downloadImage } from '../utils/ScreenshotEngine.js'
