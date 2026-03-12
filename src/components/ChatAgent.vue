@@ -21,6 +21,7 @@
         <div class="header-content">
           <div class="status-dot" :class="{ 'is-ready': isReady }"></div>
           <h3>{{ t('chat.title') }}</h3>
+          <span v-if="isReady" class="mode-badge">{{ chatService.mode.toUpperCase() }}</span>
         </div>
         <button class="close-btn" @click="isOpen = false">×</button>
       </div>
@@ -68,25 +69,20 @@
       </div>
 
       <div class="chat-input-area" @click="focusInput">
-        <div v-if="!gpuSupported" class="gpu-error">
-          {{ t('chat.gpu_error') }}
-        </div>
-        <template v-else>
-          <textarea
-            ref="inputField"
-            v-model="userInput"
-            :placeholder="t('chat.placeholder')"
-            @keydown.enter.prevent="sendMessage"
-            :disabled="!isReady || isTyping"
-          ></textarea>
-          <button
-            class="send-btn"
-            @click="sendMessage"
-            :disabled="!isReady || isTyping || !userInput.trim()"
-          >
-            {{ t('chat.send') }}
-          </button>
-        </template>
+        <textarea
+          ref="inputField"
+          v-model="userInput"
+          :placeholder="t('chat.placeholder')"
+          @keydown.enter.prevent="sendMessage"
+          :disabled="!isReady || isTyping"
+        ></textarea>
+        <button
+          class="send-btn"
+          @click="sendMessage"
+          :disabled="!isReady || isTyping || !userInput.trim()"
+        >
+          {{ t('chat.send') }}
+        </button>
       </div>
     </div>
   </div>
@@ -102,7 +98,6 @@ const hasStartedInit = ref(false)
 const isReady = ref(false)
 const isTyping = ref(false)
 const userInput = ref('')
-const gpuSupported = ref(true)
 const loadingModel = ref(false)
 const initProgress = ref(0)
 const messages = ref([])
@@ -136,12 +131,8 @@ const startResize = (e) => {
 
 const handleResize = (e) => {
   if (!isResizing.value) return
-  // We are resizing from the top-right handle, but since it's bottom-left anchored:
-  // Dragging right (dx > 0) increases width
-  // Dragging up (dy < 0) increases height
   const dx = e.clientX - startX
   const dy = startY - e.clientY
-
   windowSize.w = Math.max(280, Math.min(600, startW + dx))
   windowSize.h = Math.max(300, Math.min(800, startH + dy))
 }
@@ -153,12 +144,6 @@ const stopResize = () => {
 }
 
 const initializeAI = async () => {
-  const supported = await chatService.isWebGPUSupported()
-  if (!supported) {
-    gpuSupported.value = false
-    return
-  }
-
   hasStartedInit.value = true
   loadingModel.value = true
   try {
@@ -328,6 +313,15 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.mode-badge {
+  font-size: 9px;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 2px 5px;
+  border-radius: 4px;
+  color: #aaa;
+  letter-spacing: 0.5px;
 }
 
 .status-dot {
