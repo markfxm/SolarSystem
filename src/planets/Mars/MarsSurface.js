@@ -31,12 +31,15 @@ class Noise {
   }
 
   noise(x, y, z = 0) {
-    const X = Math.floor(x) & 255;
-    const Y = Math.floor(y) & 255;
-    const Z = Math.floor(z) & 255;
-    x -= Math.floor(x);
-    y -= Math.floor(y);
-    z -= Math.floor(z);
+    const fx = Math.floor(x);
+    const fy = Math.floor(y);
+    const fz = Math.floor(z);
+    const X = fx & 255;
+    const Y = fy & 255;
+    const Z = fz & 255;
+    x -= fx;
+    y -= fy;
+    z -= fz;
     const u = this.fade(x);
     const v = this.fade(y);
     const w = this.fade(z);
@@ -51,6 +54,27 @@ class Noise {
         this.grad(this.p[BA + 1], x - 1, y, z - 1)),
         this.lerp(u, this.grad(this.p[AB + 1], x, y - 1, z - 1),
           this.grad(this.p[BB + 1], x - 1, y - 1, z - 1))));
+  }
+
+  /**
+   * Specialized 2D noise for heightmaps to avoid redundant 3D calculations.
+   */
+  noise2D(x, y) {
+    const fx = Math.floor(x);
+    const fy = Math.floor(y);
+    const X = fx & 255;
+    const Y = fy & 255;
+    x -= fx;
+    y -= fy;
+    const u = this.fade(x);
+    const v = this.fade(y);
+    const A = this.p[X] + Y, AA = this.p[A], AB = this.p[A + 1];
+    const B = this.p[X + 1] + Y, BA = this.p[B], BB = this.p[B + 1];
+
+    return this.lerp(v, this.lerp(u, this.grad(this.p[AA], x, y, 0),
+      this.grad(this.p[BA], x - 1, y, 0)),
+      this.lerp(u, this.grad(this.p[AB], x, y - 1, 0),
+        this.grad(this.p[BB], x - 1, y - 1, 0)));
   }
 }
 
@@ -225,17 +249,17 @@ export function createMarsSurface(renderer, options = {}) {
 
     let h = 0;
     // Massive features (Olympus Mons style)
-    h += perlin.noise(ox * 0.0001, oz * 0.0001) * 300;
+    h += perlin.noise2D(ox * 0.0001, oz * 0.0001) * 300;
     // Canyons (Valles Marineris style)
     // Offset canyon noise to avoid being in one at the start
-    const canyon = Math.abs(perlin.noise(ox * 0.0005 + 123.45, oz * 0.0005 + 123.45));
+    const canyon = Math.abs(perlin.noise2D(ox * 0.0005 + 123.45, oz * 0.0005 + 123.45));
     if (canyon < 0.1) {
        h -= (0.1 - canyon) * 1000;
     }
     // Hills
-    h += perlin.noise(ox * 0.005, oz * 0.005) * 30;
+    h += perlin.noise2D(ox * 0.005, oz * 0.005) * 30;
     // Bumps
-    h += perlin.noise(ox * 0.05, oz * 0.05) * 2;
+    h += perlin.noise2D(ox * 0.05, oz * 0.05) * 2;
     return h;
   }
 
@@ -317,11 +341,17 @@ export function createMarsSurface(renderer, options = {}) {
     geometry.rotateX(-Math.PI / 2)
 
     const pos = geometry.attributes.position
-    for (let i = 0; i < pos.count; i++) {
-      const x = pos.getX(i) + cx * chunkSize
-      const z = pos.getZ(i) + cz * chunkSize
-      pos.setY(i, getH(x, z))
+    const pArray = pos.array
+    const ox = cx * chunkSize
+    const oz = cz * chunkSize
+
+    // Optimized: Direct access to buffer array avoids function call overhead (getX/setY)
+    for (let i = 0; i < pArray.length; i += 3) {
+      const x = pArray[i] + ox
+      const z = pArray[i + 2] + oz
+      pArray[i + 1] = getH(x, z)
     }
+    pos.needsUpdate = true
     geometry.computeVertexNormals()
 
     const material = new THREE.MeshStandardMaterial({
