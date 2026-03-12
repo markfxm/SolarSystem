@@ -15,6 +15,10 @@ class ChatService {
     this.onChatUpdate = null
     this.initResolver = null
     this.chatResolver = null
+
+    // Progress tracking
+    this.progressItems = {}
+    this.lastReportedProgress = 0
   }
 
   async isWebGPUSupported() {
@@ -55,8 +59,42 @@ class ChatService {
       this.worker.onmessage = (e) => {
         const { type, data } = e.data
         if (type === 'init_progress') {
-          if (data.status === 'progress' && this.onInitProgress) {
-            this.onInitProgress({ progress: data.progress / 100 })
+          const { file, status, loaded, total } = data
+          if (!this.progressItems) this.progressItems = {}
+
+          if (status === 'initiate') {
+            this.progressItems[file] = { loaded: 0, total: total || 0 }
+          } else if (status === 'progress') {
+            if (this.progressItems[file]) {
+              this.progressItems[file].loaded = loaded
+              this.progressItems[file].total = total
+            }
+          } else if (status === 'done') {
+            if (this.progressItems[file]) {
+              this.progressItems[file].loaded = this.progressItems[file].total || loaded
+            }
+          }
+
+          let totalLoaded = 0
+          let currentTotal = 0
+          for (const f in this.progressItems) {
+            totalLoaded += this.progressItems[f].loaded
+            currentTotal += this.progressItems[f].total
+          }
+
+          if (currentTotal > 0 && this.onInitProgress) {
+            let progress = totalLoaded / currentTotal
+
+            // Heuristic: models usually have one or more large weight files (>20MB)
+            // If we haven't seen any yet, the '100%' of small config files is misleading.
+            const hasLargeFile = Object.values(this.progressItems).some(i => i.total > 20 * 1024 * 1024)
+            if (!hasLargeFile && progress > 0.05) progress = 0.05
+
+            // Ensure progress only moves forward to avoid "jumping" UI
+            if (progress > this.lastReportedProgress) {
+              this.lastReportedProgress = progress
+              this.onInitProgress({ progress })
+            }
           }
         } else if (type === 'init_complete') {
           resolve()
