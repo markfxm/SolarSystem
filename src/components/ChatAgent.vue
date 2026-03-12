@@ -14,8 +14,10 @@
       class="chat-window"
       :style="{ width: `${windowSize.w}px`, height: `${windowSize.h}px` }"
     >
-      <!-- Resize Handle -->
-      <div class="resize-handle" @mousedown="startResize"></div>
+      <!-- Resize Handles -->
+      <div class="resize-handle-top" @mousedown="startResize($event, 'top')"></div>
+      <div class="resize-handle-right" @mousedown="startResize($event, 'right')"></div>
+      <div class="resize-handle-corner" @mousedown="startResize($event, 'both')"></div>
 
       <div class="chat-header">
         <div class="header-content">
@@ -108,6 +110,7 @@ const inputField = ref(null)
 // Resizable window state
 const windowSize = reactive({ w: 320, h: 420 })
 const isResizing = ref(false)
+let resizeType = 'both'
 let startX, startY, startW, startH
 
 const toggleChat = () => {
@@ -118,8 +121,9 @@ const focusInput = () => {
   if (inputField.value) inputField.value.focus()
 }
 
-const startResize = (e) => {
+const startResize = (e, type) => {
   isResizing.value = true
+  resizeType = type
   startX = e.clientX
   startY = e.clientY
   startW = windowSize.w
@@ -132,10 +136,22 @@ const startResize = (e) => {
 
 const handleResize = (e) => {
   if (!isResizing.value) return
+
+  // Max constraints to prevent going off-screen
+  // Container is bottom: 24, left: 24. Window is bottom: 70 relative to container.
+  // So window bottom is 94px from viewport bottom.
+  const maxW = window.innerWidth - 48 // 24px left + some margin
+  const maxH = window.innerHeight - 120 // 94px bottom + some top margin
+
   const dx = e.clientX - startX
   const dy = startY - e.clientY
-  windowSize.w = Math.max(280, Math.min(600, startW + dx))
-  windowSize.h = Math.max(300, Math.min(800, startH + dy))
+
+  if (resizeType === 'right' || resizeType === 'both') {
+    windowSize.w = Math.max(280, Math.min(maxW, startW + dx))
+  }
+  if (resizeType === 'top' || resizeType === 'both') {
+    windowSize.h = Math.max(300, Math.min(maxH, startH + dy))
+  }
 }
 
 const stopResize = () => {
@@ -275,7 +291,6 @@ onUnmounted(() => {
   position: absolute;
   bottom: 70px;
   left: 0;
-  max-width: calc(100vw - 48px);
   background: rgba(10, 10, 20, 0.95);
   backdrop-filter: blur(12px);
   border: 1px solid rgba(var(--glow-rgb), 0.3);
@@ -287,19 +302,40 @@ onUnmounted(() => {
   animation: slide-up 0.3s ease-out;
 }
 
-.resize-handle {
+.resize-handle-top {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 20px;
+  height: 6px;
+  cursor: ns-resize;
+  z-index: 11;
+}
+
+.resize-handle-right {
+  position: absolute;
+  top: 20px;
+  right: 0;
+  bottom: 0;
+  width: 6px;
+  cursor: ew-resize;
+  z-index: 11;
+}
+
+.resize-handle-corner {
   position: absolute;
   top: 0;
   right: 0;
   width: 20px;
   height: 20px;
   cursor: nesw-resize;
-  z-index: 10;
+  z-index: 12;
   background: linear-gradient(225deg, var(--glow-color) 0%, transparent 50%);
   opacity: 0.3;
+  transition: opacity 0.2s;
 }
 
-.resize-handle:hover { opacity: 0.8; }
+.resize-handle-corner:hover { opacity: 0.8; }
 
 .chat-header {
   padding: 12px 16px;
