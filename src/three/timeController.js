@@ -6,12 +6,29 @@ export function createTimeController(planetObjects, orbitScale, extraRotating = 
   let currentD = computeD(new Date()) // Initialize once at start
   let isFrozen = false
 
-  // Pre-cache entries for planetObjects to avoid Object.entries() in the update loop
-  const planetEntries = Object.entries(planetObjects);
+  // Pre-filter and optimize planet list to avoid Object.entries() and redundant if-checks in the update loop
+  const activePlanets = [];
+  for (const name in planetObjects) {
+    // Sun stays at origin, and Moon is handled separately in its geocentric loop
+    if (name !== 'sun' && name !== 'moon') {
+      activePlanets.push({ name, mesh: planetObjects[name] });
+    }
+  }
+
+  // Pre-process extraRotating objects for efficient iteration
+  const optimizedRotating = [];
+  if (Array.isArray(extraRotating)) {
+    for (let i = 0; i < extraRotating.length; i++) {
+      const obj = extraRotating[i];
+      if (obj && obj.userData && obj.userData.name) {
+        optimizedRotating.push({ name: obj.userData.name, mesh: obj });
+      }
+    }
+  }
 
   // Scratch variables to avoid per-frame GC
   const _earthPos = new THREE.Vector3();
-  const _scratchEl = { a: 1, e: 0, i: 0, N: 0, w: 0, M: 0 };
+  const _scratchEl = { a: 1, e: 0, i: 0, N: 0, w: 0, M: 0, sqrtEE: 1 };
   const _scratchPos = { x: 0, y: 0, z: 0, r: 0 };
 
   function setRealTime() {
@@ -35,14 +52,11 @@ export function createTimeController(planetObjects, orbitScale, extraRotating = 
   function updatePositions(d, deltaSeconds = 0) {
     let hasEarth = false;
 
-    // Use standard for loop and avoid destructuring to eliminate per-frame allocations
-    for (let i = 0; i < planetEntries.length; i++) {
-      const entry = planetEntries[i];
-      const name = entry[0];
-      const mesh = entry[1];
-
-      // Sun stays at origin, and Moon is handled separately in its geocentric loop
-      if (name === 'sun' || name === 'moon') continue;
+    // Use pre-filtered activePlanets to eliminate string comparisons and property lookups in the hot path
+    for (let i = 0; i < activePlanets.length; i++) {
+      const p = activePlanets[i];
+      const name = p.name;
+      const mesh = p.mesh;
 
       // Use scratch variables to avoid allocations
       const el = computeElements(name, d, _scratchEl);
@@ -76,14 +90,10 @@ export function createTimeController(planetObjects, orbitScale, extraRotating = 
       }
     }
 
-    // rotate any extra objects (e.g. the Sun, Moon)
-    if (Array.isArray(extraRotating)) {
-      for (const obj of extraRotating) {
-        if (obj && obj.userData && obj.userData.name) {
-          const name = obj.userData.name;
-          obj.setRotationFromQuaternion(computePlanetQuaternion(name, d));
-        }
-      }
+    // rotate any extra objects (e.g. the Sun, Moon) using optimized list
+    for (let i = 0; i < optimizedRotating.length; i++) {
+      const p = optimizedRotating[i];
+      p.mesh.setRotationFromQuaternion(computePlanetQuaternion(p.name, d));
     }
   }
 

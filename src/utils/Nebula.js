@@ -13,11 +13,15 @@ export function createNebula(position) {
     nebulaPositions[i] = radius * Math.sin(phi) * Math.cos(theta);
     nebulaPositions[i + 1] = radius * Math.sin(phi) * Math.sin(theta);
     nebulaPositions[i + 2] = radius * Math.cos(phi);
+  }
 
-    const color = new THREE.Color().setHSL(0.75 + Math.random() * 0.1, 0.8, 0.5);
-    nebulaColors[i] = color.r;
-    nebulaColors[i + 1] = color.g;
-    nebulaColors[i + 2] = color.b;
+  // Pre-allocated color object to avoid 12,000 allocations
+  const tempColor = new THREE.Color();
+  for (let i = 0; i < numParticles * 3; i += 3) {
+    tempColor.setHSL(0.75 + Math.random() * 0.1, 0.8, 0.5);
+    nebulaColors[i] = tempColor.r;
+    nebulaColors[i + 1] = tempColor.g;
+    nebulaColors[i + 2] = tempColor.b;
 
     nebulaSizes[i / 3] = 400 + Math.random() * 800;
   }
