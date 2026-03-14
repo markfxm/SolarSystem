@@ -19,6 +19,28 @@ export class AuraManager {
 
         // Create a circular glow texture
         this.texture = this.createGlowTexture();
+
+        // Pre-create materials for each element to avoid per-instance allocations and updates
+        this.materials = new Map();
+        for (const element in this.colors) {
+            this.materials.set(element, new THREE.SpriteMaterial({
+                map: this.texture,
+                color: this.colors[element],
+                transparent: true,
+                opacity: 0.7,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            }));
+        }
+        // Default material
+        this.materials.set('default', new THREE.SpriteMaterial({
+            map: this.texture,
+            color: 0xffffff,
+            transparent: true,
+            opacity: 0.7,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false
+        }));
     }
 
     createGlowTexture() {
@@ -53,7 +75,6 @@ export class AuraManager {
 
             const signId = chart[name].signId;
             const element = ZODIAC_ELEMENTS[signId];
-            const color = this.colors[element] || 0xffffff;
 
             let aura = this.auras.get(name);
             if (!aura) {
@@ -61,53 +82,64 @@ export class AuraManager {
             }
 
             aura.visible = true;
-            aura.material.color.set(color);
+
+            // Assign pre-created material based on element
+            const targetMat = this.materials.get(element) || this.materials.get('default');
+            if (aura.material !== targetMat) {
+                aura.material = targetMat;
+            }
 
             // Dynamic pulse based on if it's the dominant element
             const pulseSpeed = (element === dominantElement) ? 3.0 : 1.5;
             const pulseBase = (element === dominantElement) ? 1.4 : 1.25;
             const scale = pulseBase + Math.sin(time * pulseSpeed) * 0.1;
 
-            // Correctly calculate the size based on geometry radius and mesh scale
+            // Correctly calculate the size based on geometry radius
             // Cache the radius to avoid recomputing bounding sphere every frame
             if (mesh.userData.auraRadius === undefined) {
                 if (!mesh.geometry.boundingSphere) mesh.geometry.computeBoundingSphere();
                 mesh.userData.auraRadius = mesh.geometry.boundingSphere.radius;
             }
             const radius = mesh.userData.auraRadius;
-            const size = radius * mesh.scale.x * scale * 3.5;
-            aura.scale.set(size, size, size);
 
-            // Match position
-            aura.position.copy(mesh.position);
+            // Since the aura is now a child of the mesh, it inherits the mesh's scale.
+            // We set the aura's local scale relative to the mesh radius.
+            aura.scale.setScalar(radius * scale * 3.5);
         }
     }
 
     createAura(name, mesh) {
-        const mat = new THREE.SpriteMaterial({
-            map: this.texture,
-            color: 0xffffff,
-            transparent: true,
-            opacity: 0.7, // Increased from 0.4 for better visibility
-            blending: THREE.AdditiveBlending,
-            depthWrite: false
-        });
-        const sprite = new THREE.Sprite(mat);
-        this.scene.add(sprite);
+        // Material will be set in update()
+        const sprite = new THREE.Sprite(this.materials.get('default'));
+
+        // Parent the aura to the mesh for 60fps synchronous movement
+        mesh.add(sprite);
+
+        // Ensure it is skipped by holographic material overrides
+        sprite.userData.isPOIGroup = true;
+
         this.auras.set(name, sprite);
         return sprite;
     }
 
     hideAll() {
-        this.auras.forEach(a => a.visible = false);
+        for (const a of this.auras.values()) {
+            a.visible = false;
+        }
     }
 
     dispose() {
-        this.auras.forEach(a => {
-            this.scene.remove(a);
-            a.material.dispose();
-        });
+        for (const a of this.auras.values()) {
+            if (a.parent) a.parent.remove(a);
+        }
         this.auras.clear();
+
+        // Dispose pre-created materials
+        for (const mat of this.materials.values()) {
+            mat.dispose();
+        }
+        this.materials.clear();
+
         this.texture.dispose();
     }
 }
