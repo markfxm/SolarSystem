@@ -22,7 +22,7 @@
 
 <script setup>
 import { computed } from 'vue';
-import { t } from '../utils/i18n.js';
+import { t } from '../utils/i18n';
 
 const props = defineProps({
   poi: {

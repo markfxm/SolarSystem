@@ -5,7 +5,11 @@ const defaultLang = localStorage.getItem(SAVED_LANG_KEY) || 'en'
 
 export const currentLang = ref(defaultLang)
 
-const dict = {
+interface TranslationDict {
+  [key: string]: any
+}
+
+const dict: { [key: string]: TranslationDict } = {
   en: {
     nav_title: 'Solar System',
     loading: {
@@ -70,6 +74,7 @@ const dict = {
     },
     mars: {
       entering: 'ENTERING MARS ATMOSPHERE...',
+      leaving: 'LEAVING MARS SURFACE...',
       return_orbit: 'Return to Orbit',
       location: 'LOCATION',
       surface: 'Surface',
@@ -309,6 +314,7 @@ const dict = {
     },
     mars: {
       entering: '正在进入火星大气层...',
+      leaving: '正在离开火星表面...',
       return_orbit: '返回轨道',
       location: '当前位置',
       surface: '地表',
@@ -488,8 +494,8 @@ const dict = {
 
 
 // Performance Caches
-const pathCache = new Map();
-const translationCache = new Map();
+const pathCache = new Map<string, string[]>();
+const translationCache = new Map<string, string>();
 
 // Clear translation cache on language change immediately
 watch(currentLang, () => {
@@ -500,7 +506,7 @@ watch(currentLang, () => {
  * Optimized translation function.
  * Uses caching for paths and resolved strings to minimize per-frame overhead.
  */
-export function t(path, vars = null) {
+export function t(path: string, vars: Record<string, string | number> | null = null): string {
   // Access currentLang.value at the very beginning to ensure Vue registers this function
   // as a reactive dependency. This is critical for template and computed updates.
   const _lang = currentLang.value;
@@ -519,7 +525,7 @@ export function t(path, vars = null) {
   }
 
   // 3. Dictionary traversal
-  let cur = dict[currentLang.value] || dict.en;
+  let cur: any = dict[currentLang.value] || dict.en;
   for (let i = 0; i < parts.length; i++) {
     cur = cur?.[parts[i]];
     if (cur === undefined) return path;
@@ -536,10 +542,10 @@ export function t(path, vars = null) {
     translationCache.set(path, cur);
   }
 
-  return cur;
+  return typeof cur === 'string' ? cur : path;
 }
 
-export function setLang(lang) {
+export function setLang(lang: string) {
   if (dict[lang]) {
     currentLang.value = lang
     localStorage.setItem(SAVED_LANG_KEY, lang)

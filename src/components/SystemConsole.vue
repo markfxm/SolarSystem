@@ -91,7 +91,7 @@
 
 <script setup>
 import { ref } from 'vue'
-import { t } from '../utils/i18n.js'
+import { t } from '../utils/i18n'
 import TimeControlPanel from './TimeControlPanel.vue'
 
 const props = defineProps({

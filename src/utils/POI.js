@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { t } from './i18n.js';
+import { t } from './i18n';
 
 export const PLANET_POIS = {
   earth: [

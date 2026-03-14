@@ -238,7 +238,7 @@
 
 <script setup>
 import { ref, onMounted, computed, watch } from 'vue'
-import { t } from '../utils/i18n.js'
+import { t } from '../utils/i18n'
 import { createPoster } from '../utils/PosterEngine.js'
 import { AstrologyService } from '../utils/AstrologyService.js'
 

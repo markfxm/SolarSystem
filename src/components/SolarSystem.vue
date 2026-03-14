@@ -154,7 +154,7 @@ import MarsHUD from '../planets/Mars/MarsHUD.vue'
 import POIPanel from './POIPanel.vue'
 import ChatAgent from './ChatAgent.vue'
 
-import { t, currentLang } from '../utils/i18n.js'
+import { t, currentLang } from '../utils/i18n'
 import { captureHighRes, downloadImage } from '../utils/ScreenshotEngine.js'
 import * as THREE from 'three'
 
@@ -225,7 +225,8 @@ const poiPanelStyle = computed(() => {
 const viewMode = ref('solar') // 'solar' | 'mars'
 const showCloudOverlay = ref(false)
 const cloudFadeIn = ref(false)
-const enteringText = ref('')
+const isLanding = ref(true)
+const enteringText = computed(() => isLanding.value ? t('mars.entering') : t('mars.leaving'))
 
 let engine
 let solar
@@ -289,7 +290,7 @@ async function onLandOnMars(coords = null) {
   infoPlanetId.value = null // Close the panel
   selectedPOI.value = null // Close POI prompt
 
-  enteringText.value = t('mars.entering')
+  isLanding.value = true
   showCloudOverlay.value = true
   setTimeout(() => { cloudFadeIn.value = true }, 10)
 
@@ -345,6 +346,7 @@ function onClearMarsPath() {
 }
 
 function returnToOrbit() {
+  isLanding.value = false
   showCloudOverlay.value = true
   setTimeout(() => { cloudFadeIn.value = true }, 10)
 
