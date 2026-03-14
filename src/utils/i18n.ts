@@ -507,7 +507,6 @@ watch(currentLang, () => {
 export function t(path: string, vars: Record<string, string | number> | null = null): string {
   // Access currentLang.value at the very beginning to ensure Vue registers this function
   // as a reactive dependency. This is critical for template and computed updates.
-  // @ts-ignore
   const _lang = currentLang.value;
 
   // 1. Fast path: check cache for static translations
