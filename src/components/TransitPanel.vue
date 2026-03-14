@@ -95,7 +95,7 @@
 
 <script setup>
 import { computed, ref } from 'vue'
-import { t } from '../utils/i18n.js'
+import { t } from '../utils/i18n'
 import { AstrologyService } from '../utils/AstrologyService.js'
 
 const props = defineProps({

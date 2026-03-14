@@ -154,7 +154,7 @@ import MarsHUD from '../planets/Mars/MarsHUD.vue'
 import POIPanel from './POIPanel.vue'
 import ChatAgent from './ChatAgent.vue'
 
-import { t, currentLang } from '../utils/i18n.js'
+import { t, currentLang } from '../utils/i18n'
 import { captureHighRes, downloadImage } from '../utils/ScreenshotEngine.js'
 import * as THREE from 'three'
 

@@ -67,7 +67,7 @@
 
 <script setup>
 import { ref, computed, onBeforeUnmount } from 'vue'
-import { t } from '../utils/i18n.js'
+import { t } from '../utils/i18n'
 
 const props = defineProps({
   vertical: {

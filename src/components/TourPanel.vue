@@ -1,7 +1,7 @@
 <script setup>
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { PLANET_DATA } from '../data/planetData.js'
-import { currentLang, t } from '../utils/i18n.js'
+import { currentLang, t } from '../utils/i18n'
 
 const props = defineProps({
   planetName: {

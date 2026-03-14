@@ -5,7 +5,11 @@ const defaultLang = localStorage.getItem(SAVED_LANG_KEY) || 'en'
 
 export const currentLang = ref(defaultLang)
 
-const dict = {
+interface TranslationDict {
+  [key: string]: any
+}
+
+const dict: { [key: string]: TranslationDict } = {
   en: {
     nav_title: 'Solar System',
     loading: {
@@ -488,8 +492,8 @@ const dict = {
 
 
 // Performance Caches
-const pathCache = new Map();
-const translationCache = new Map();
+const pathCache = new Map<string, string[]>();
+const translationCache = new Map<string, string>();
 
 // Clear translation cache on language change immediately
 watch(currentLang, () => {
@@ -500,9 +504,10 @@ watch(currentLang, () => {
  * Optimized translation function.
  * Uses caching for paths and resolved strings to minimize per-frame overhead.
  */
-export function t(path, vars = null) {
+export function t(path: string, vars: Record<string, string | number> | null = null): string {
   // Access currentLang.value at the very beginning to ensure Vue registers this function
   // as a reactive dependency. This is critical for template and computed updates.
+  // @ts-ignore
   const _lang = currentLang.value;
 
   // 1. Fast path: check cache for static translations
@@ -519,7 +524,7 @@ export function t(path, vars = null) {
   }
 
   // 3. Dictionary traversal
-  let cur = dict[currentLang.value] || dict.en;
+  let cur: any = dict[currentLang.value] || dict.en;
   for (let i = 0; i < parts.length; i++) {
     cur = cur?.[parts[i]];
     if (cur === undefined) return path;
@@ -536,10 +541,10 @@ export function t(path, vars = null) {
     translationCache.set(path, cur);
   }
 
-  return cur;
+  return typeof cur === 'string' ? cur : path;
 }
 
-export function setLang(lang) {
+export function setLang(lang: string) {
   if (dict[lang]) {
     currentLang.value = lang
     localStorage.setItem(SAVED_LANG_KEY, lang)

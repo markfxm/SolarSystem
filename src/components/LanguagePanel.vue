@@ -21,7 +21,7 @@
 
 <script setup>
 import { computed } from 'vue'
-import { currentLang, setLang } from '../utils/i18n.js'
+import { currentLang, setLang } from '../utils/i18n'
 
 const current = computed(() => currentLang.value)
 function setLocalLang(lang) {
