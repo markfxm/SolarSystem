@@ -74,6 +74,7 @@ const dict: { [key: string]: TranslationDict } = {
     },
     mars: {
       entering: 'ENTERING MARS ATMOSPHERE...',
+      leaving: 'LEAVING MARS SURFACE...',
       return_orbit: 'Return to Orbit',
       location: 'LOCATION',
       surface: 'Surface',
@@ -313,6 +314,7 @@ const dict: { [key: string]: TranslationDict } = {
     },
     mars: {
       entering: '正在进入火星大气层...',
+      leaving: '正在离开火星表面...',
       return_orbit: '返回轨道',
       location: '当前位置',
       surface: '地表',
