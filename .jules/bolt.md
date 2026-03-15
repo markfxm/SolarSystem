@@ -29,3 +29,7 @@
 ## 2025-05-15 - [AuraManager Sync & Material Sharing]
 **Learning:** Updating the position of secondary visual elements (like auras) manually in a JavaScript loop every 5 frames causes noticeable jitter (stuttering) as they lag behind the primary bodies moving at 60fps. Parenting these elements to the primary mesh shifts the synchronization to the Three.js scene graph traversal, ensuring perfectly smooth motion. Additionally, sharing materials among sprites with identical properties (e.g., element color) reduces draw-state changes and memory overhead.
 **Action:** Always parent secondary visual effects to their target bodies to leverage hierarchical movement. Use shared materials for repeating UI/effect elements that share the same visual state.
+
+## 2025-05-15 - [Spatial Indexing & Key Parsing]
+**Learning:** Parsing string keys (e.g., "x,z") in a high-frequency loop (60fps) for spatial indexing (like chunk management) introduces significant string allocation and parsing overhead. Storing the raw numeric coordinates in the object's metadata (e.g., THREE.js `userData`) allows for direct O(1) retrieval without overhead.
+**Action:** Avoid string splitting or parsing in any loop that runs per-frame. Prefer storing numeric metadata directly on the objects for indexing and spatial checks.

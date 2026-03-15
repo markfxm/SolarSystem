@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { Line2 } from 'three/examples/jsm/lines/Line2.js'
 import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js'
 import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js'
-import { computeElements, computePosition } from './Astronomy.js'
+import { J2000_EPOCH, computeElements, computePosition } from './Astronomy.js'
 
 /**
  * Handles temporary transformations for a schematic "Blueprint" snapshot.
@@ -119,8 +119,7 @@ export class AestheticSnapshotManager {
         })
 
         // 3. Transform Planets
-        const j2000 = Date.UTC(2000, 0, 1, 12)
-        const d = (date.getTime() - j2000) / 86400000
+        const d = (date.getTime() - J2000_EPOCH) / 86400000
 
         Object.entries(this.planetObjects).forEach(([name, mesh]) => {
             if (name === 'sun') return; // Skip sun in planetary loop

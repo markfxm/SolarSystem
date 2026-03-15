@@ -363,6 +363,8 @@ export function createMarsSurface(renderer, options = {}) {
     const mesh = new THREE.Mesh(geometry, material)
     mesh.position.set(cx * chunkSize, 0, cz * chunkSize)
     mesh.receiveShadow = true
+    mesh.userData.cx = cx
+    mesh.userData.cz = cz
     scene.add(mesh)
 
     // Add Rocks
@@ -403,7 +405,8 @@ export function createMarsSurface(renderer, options = {}) {
 
     // Remove far chunks
     for (const [key, chunk] of chunks) {
-      const [x, z] = key.split(',').map(Number)
+      const x = chunk.userData.cx
+      const z = chunk.userData.cz
       if (Math.abs(x - camX) > renderDistance + 1 || Math.abs(z - camZ) > renderDistance + 1) {
         scene.remove(chunk)
         chunk.geometry.dispose()
