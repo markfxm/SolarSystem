@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { createHolographicMaterial } from '../../utils/HolographicMaterial.js';
+import { createHolographicMaterial } from '../../utils/HolographicMaterial';
 
 export class Sun {
   constructor(radius, scene) {

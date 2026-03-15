@@ -8,9 +8,15 @@ import * as THREE from 'three'
  * @param {THREE.Camera} camera - The Three.js camera
  * @param {number} width - Desired width (e.g. 3840 for 4K)
  * @param {number} height - Desired height (e.g. 2160 for 4K)
- * @returns {Promise<string>} - A Promise resolving to the Data URL of the image
+ * @returns {Promise<string | null>} - A Promise resolving to the Data URL of the image
  */
-export async function captureHighRes(renderer, scene, camera, width = 3840, height = 2160) {
+export async function captureHighRes(
+  renderer: THREE.WebGLRenderer,
+  scene: THREE.Scene,
+  camera: THREE.PerspectiveCamera | THREE.OrthographicCamera,
+  width: number = 3840,
+  height: number = 2160
+): Promise<string | null> {
     // Store original size
     const originalSize = new THREE.Vector2()
     renderer.getSize(originalSize)
@@ -22,9 +28,12 @@ export async function captureHighRes(renderer, scene, camera, width = 3840, heig
         renderer.setSize(width, height, false) // false = don't update canvas style
 
         // Update camera aspect ratio
-        const originalAspect = camera.aspect
-        camera.aspect = width / height
-        camera.updateProjectionMatrix()
+        let originalAspect = 1
+        if (camera instanceof THREE.PerspectiveCamera) {
+          originalAspect = camera.aspect
+          camera.aspect = width / height
+          camera.updateProjectionMatrix()
+        }
 
         // 2. Render specifically for screenshot
         renderer.render(scene, camera)
@@ -36,18 +45,23 @@ export async function captureHighRes(renderer, scene, camera, width = 3840, heig
         canvas.height = height
         const ctx = canvas.getContext('2d')
 
+        if (!ctx) {
+          throw new Error('Failed to get 2D context')
+        }
+
         // Draw the rendered scene
         ctx.drawImage(renderer.domElement, 0, 0)
-
 
         const dataUrl = canvas.toDataURL('image/png', 1.0)
 
         // 4. Restore State
-        camera.aspect = originalAspect
-        camera.updateProjectionMatrix()
+        if (camera instanceof THREE.PerspectiveCamera) {
+          camera.aspect = originalAspect
+          camera.updateProjectionMatrix()
+        }
 
         renderer.setPixelRatio(originalPixelRatio)
-        renderer.setSize(originalSize.width, originalSize.height, false)
+        renderer.setSize(originalSize.x, originalSize.y, false)
 
         // Re-render immediately to avoid flicker
         renderer.render(scene, camera)
@@ -57,7 +71,7 @@ export async function captureHighRes(renderer, scene, camera, width = 3840, heig
         console.error("Screenshot failed:", err)
 
         // Attempt restore just in case
-        renderer.setSize(originalSize.width, originalSize.height, false)
+        renderer.setSize(originalSize.x, originalSize.y, false)
         renderer.setPixelRatio(originalPixelRatio)
         return null
     }
@@ -68,7 +82,7 @@ export async function captureHighRes(renderer, scene, camera, width = 3840, heig
  * @param {string} dataUrl 
  * @param {string} filename 
  */
-export function downloadImage(dataUrl, filename = 'stellar-moment.png') {
+export function downloadImage(dataUrl: string, filename: string = 'stellar-moment.png'): void {
     const link = document.createElement('a')
     link.href = dataUrl
     link.download = filename

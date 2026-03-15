@@ -2,11 +2,11 @@ import * as THREE from 'three'
 import { PlanetClasses } from '../planets/registry.js'
 import { createNebula } from '../utils/Nebula.js'
 import { computeElements, computePosition, computeD, computePlanetQuaternion } from '../utils/Astronomy.js'
-import { createEllipticalOrbit } from '../utils/EllipticalOrbit.js'
+import { createEllipticalOrbit } from '../utils/EllipticalOrbit'
 import { createZodiacRing } from '../utils/ZodiacRing.js';
 import { AspectLinesManager } from '../utils/AspectLines.js';
 import { AuraManager } from '../utils/AuraManager.js';
-import { getHolographicLineColor } from '../utils/HolographicMaterial.js';
+import { getHolographicLineColor } from '../utils/HolographicMaterial';
 
 const orbitScale = 260
 const sizeScale = 1.2

@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { createLatLonGrid } from '../../utils/Grid.js';
 import { createPOIMarkers } from '../../utils/POI.js';
-import { createHolographicMaterial } from '../../utils/HolographicMaterial.js';
+import { createHolographicMaterial } from '../../utils/HolographicMaterial';
 
 const vertexShader = `
   varying vec2 vUv;

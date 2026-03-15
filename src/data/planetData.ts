@@ -1,4 +1,6 @@
-export const PLANET_DATA = {
+import type { PlanetDatabase } from '../types/planet'
+
+export const PLANET_DATA: PlanetDatabase = {
     en: {
         sun: {
             displayName: "The Sun",
