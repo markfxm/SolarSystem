@@ -390,9 +390,17 @@ export function createMarsSurface(renderer, options = {}) {
     return mesh
   }
 
+  let lastCamX = Infinity;
+  let lastCamZ = Infinity;
+
   function updateChunks() {
     const camX = Math.round(camera.position.x / chunkSize)
     const camZ = Math.round(camera.position.z / chunkSize)
+
+    // Optimized: Only update if the camera has moved to a different chunk
+    if (camX === lastCamX && camZ === lastCamZ) return;
+    lastCamX = camX;
+    lastCamZ = camZ;
 
     for (let x = camX - renderDistance; x <= camX + renderDistance; x++) {
       for (let z = camZ - renderDistance; z <= camZ + renderDistance; z++) {
@@ -464,6 +472,13 @@ export function createMarsSurface(renderer, options = {}) {
   let yaw = 0
   let pitch = 0
 
+  // Scratch variables for update loop to avoid per-frame GC
+  const _vForward = new THREE.Vector3();
+  const _vRight = new THREE.Vector3();
+  const _vMove = new THREE.Vector3();
+  const _qYaw = new THREE.Quaternion();
+  const _vAxisY = new THREE.Vector3(0, 1, 0);
+
   let stepTimer = 0
   function update(delta) {
     if (!wind.isPlaying) {
@@ -485,15 +500,17 @@ export function createMarsSurface(renderer, options = {}) {
     const moveX = Number(keys.d) - Number(keys.a)
 
     if (moveZ !== 0 || moveX !== 0) {
-      const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw))
-      const right = new THREE.Vector3(1, 0, 0).applyQuaternion(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw))
+      _qYaw.setFromAxisAngle(_vAxisY, yaw)
 
-      const moveVec = new THREE.Vector3()
-      moveVec.addScaledVector(forward, moveZ)
-      moveVec.addScaledVector(right, moveX)
-      moveVec.normalize().multiplyScalar(speed * delta)
+      _vForward.set(0, 0, -1).applyQuaternion(_qYaw)
+      _vRight.set(1, 0, 0).applyQuaternion(_qYaw)
 
-      camera.position.add(moveVec)
+      _vMove.set(0, 0, 0)
+      _vMove.addScaledVector(_vForward, moveZ)
+      _vMove.addScaledVector(_vRight, moveX)
+      _vMove.normalize().multiplyScalar(speed * delta)
+
+      camera.position.add(_vMove)
 
       stepTimer += delta
       if (stepTimer > 10.0 / speed) { // Adjusted frequency for higher speed
