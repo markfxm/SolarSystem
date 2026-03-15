@@ -1,20 +1,23 @@
-<script setup>
-import { computed, ref, onMounted, onUnmounted } from 'vue'
-import { PLANET_DATA } from '../data/planetData.js'
+<script setup lang="ts">
+import { computed, ref, onUnmounted } from 'vue'
+import { PLANET_DATA } from '../data/planetData'
 import { currentLang, t } from '../utils/i18n'
+import type { PlanetInfo } from '../types/planet'
 
-const props = defineProps({
-  planetName: {
-    type: String,
-    required: true
-  }
-})
+interface Props {
+  planetName: string
+}
 
-const emit = defineEmits(['close', 'land'])
+const props = defineProps<Props>()
 
-const planet = computed(() => {
-  const langData = PLANET_DATA[currentLang.value] || PLANET_DATA['en']
-  return langData[props.planetName] || null
+const emit = defineEmits<{
+  (e: 'close'): void
+  (e: 'land'): void
+}>()
+
+const planet = computed<PlanetInfo | null>(() => {
+  const langData = PLANET_DATA[currentLang.value as keyof typeof PLANET_DATA] || PLANET_DATA['en']
+  return (langData[props.planetName as keyof typeof langData] as PlanetInfo) || null
 })
 
 // Resize Logic
@@ -23,7 +26,7 @@ const isResizing = ref(false)
 let startX = 0
 let startW = 0
 
-function startResize(e) {
+function startResize(e: MouseEvent) {
   isResizing.value = true
   startX = e.clientX
   startW = panelWidth.value
@@ -32,7 +35,7 @@ function startResize(e) {
   e.preventDefault() // prevent selection
 }
 
-function onResize(e) {
+function onResize(e: MouseEvent) {
   if (!isResizing.value) return
   // Delta calculation: Moving mouse Left (negative X change) -> Increases width
   const delta = startX - e.clientX
@@ -48,6 +51,11 @@ function stopResize() {
   document.removeEventListener('mousemove', onResize)
   document.removeEventListener('mouseup', stopResize)
 }
+
+onUnmounted(() => {
+  document.removeEventListener('mousemove', onResize)
+  document.removeEventListener('mouseup', stopResize)
+})
 </script>
 
 <template>
@@ -58,7 +66,7 @@ function stopResize() {
       :style="{ width: panelWidth + 'px' }"
     >
       <div class="resize-handle" @mousedown="startResize"></div>
-      <button class="close-btn" @click="$emit('close')">&times;</button>
+      <button class="close-btn" @click="emit('close')">&times;</button>
       
       <div class="header">
         <h2>{{ planet.displayName }}</h2>
@@ -93,7 +101,7 @@ function stopResize() {
         </div>
 
         <div v-if="planetName === 'mars'" class="actions-section">
-          <button class="land-btn" @click="$emit('land')">
+          <button class="land-btn" @click="emit('land')">
             🚀 {{ t('info.land_btn') }}
           </button>
         </div>

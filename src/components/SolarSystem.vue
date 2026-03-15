@@ -155,7 +155,7 @@ import POIPanel from './POIPanel.vue'
 import ChatAgent from './ChatAgent.vue'
 
 import { t, currentLang } from '../utils/i18n'
-import { captureHighRes, downloadImage } from '../utils/ScreenshotEngine.js'
+import { captureHighRes, downloadImage } from '../utils/ScreenshotEngine'
 import * as THREE from 'three'
 
 import { createEngine } from '../three/engine.js'
