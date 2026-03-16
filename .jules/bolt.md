@@ -33,3 +33,7 @@
 ## 2025-05-15 - [Spatial Indexing & Key Parsing]
 **Learning:** Parsing string keys (e.g., "x,z") in a high-frequency loop (60fps) for spatial indexing (like chunk management) introduces significant string allocation and parsing overhead. Storing the raw numeric coordinates in the object's metadata (e.g., THREE.js `userData`) allows for direct O(1) retrieval without overhead.
 **Action:** Avoid string splitting or parsing in any loop that runs per-frame. Prefer storing numeric metadata directly on the objects for indexing and spatial checks.
+
+## 2025-05-15 - [Chunk Update Throttling & Movement Scratch Variables]
+**Learning:** Even with optimized Map lookups, iterating over a grid of chunks every frame (60fps) to check for missing terrain creates unnecessary overhead and string key allocations. A simple "dirty check" on chunk coordinates reduces this work to almost zero when the player is stationary. Additionally, standard movement logic often allocates multiple `Vector3` and `Quaternion` objects per frame; moving these to the outer closure scope as reusable "scratch" variables eliminates this GC pressure entirely.
+**Action:** Always implement coordinate-based dirty checking for spatial systems. Use closure-scoped scratch variables for any math involving `THREE` object instantiations inside a 60fps update loop.
