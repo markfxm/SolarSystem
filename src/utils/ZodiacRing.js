@@ -2,11 +2,23 @@ import * as THREE from 'three';
 import { Line2 } from 'three/examples/jsm/lines/Line2.js';
 import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js';
 import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
+import { LineSegments2 } from 'three/examples/jsm/lines/LineSegments2.js';
+import { LineSegmentsGeometry } from 'three/examples/jsm/lines/LineSegmentsGeometry.js';
+
+// Module-level caches and scratch variables to reuse across the application
+const textureCache = new Map();
+const materialCache = new Map();
+const resolution = new THREE.Vector2(window.innerWidth, window.innerHeight);
 
 /**
  * Creates a canvas texture for a zodiac label
  */
 function createLabelTexture(text, symbol = '') {
+    const cacheKey = `${text}_${symbol}`;
+    if (textureCache.has(cacheKey)) {
+        return textureCache.get(cacheKey);
+    }
+
     const canvas = document.createElement('canvas');
     const context = canvas.getContext('2d');
     canvas.width = 1024;
@@ -56,6 +68,8 @@ function createLabelTexture(text, symbol = '') {
 
     const texture = new THREE.CanvasTexture(canvas);
     texture.minFilter = THREE.LinearFilter;
+
+    textureCache.set(cacheKey, texture);
     return texture;
 }
 
@@ -67,11 +81,16 @@ export function createZodiacRing(radius = 10000, initialNames = []) {
 
     // 1. The main ring line
     const ringSegments = 128;
-    const ringCurve = new THREE.EllipseCurve(0, 0, radius, radius, 0, 2 * Math.PI, false, 0);
-    const ringPointsRaw = ringCurve.getPoints(ringSegments);
-    const ringPoints = [];
-    // Transform Ecliptic (XY-plane, Z-up) to World (XZ-plane, Y-up)
-    ringPointsRaw.forEach(p => ringPoints.push(p.x, 0, -p.y));
+    // Optimized: Use Float32Array directly instead of Curve.getPoints() to avoid object allocations
+    const ringPoints = new Float32Array((ringSegments + 1) * 3);
+    for (let i = 0; i <= ringSegments; i++) {
+        const theta = (i / ringSegments) * Math.PI * 2;
+        const idx = i * 3;
+        // Transform Ecliptic (XY-plane, Z-up) to World (XZ-plane, Y-up)
+        ringPoints[idx] = Math.cos(theta) * radius;
+        ringPoints[idx + 1] = 0;
+        ringPoints[idx + 2] = -Math.sin(theta) * radius;
+    }
 
     const ringGeo = new LineGeometry();
     ringGeo.setPositions(ringPoints);
@@ -82,7 +101,7 @@ export function createZodiacRing(radius = 10000, initialNames = []) {
         transparent: true,
         opacity: 0.6,
         depthWrite: false, // Prevents Z-fighting with other transparent objects
-        resolution: new THREE.Vector2(window.innerWidth, window.innerHeight)
+        resolution: resolution
     });
 
     const ringLine = new Line2(ringGeo, ringMat);
@@ -90,30 +109,49 @@ export function createZodiacRing(radius = 10000, initialNames = []) {
     ringLine.computeLineDistances();
     group.add(ringLine);
 
-    // Reuse material for ticks
-    const tickMat = ringMat.clone();
-    tickMat.linewidth = 1.8;
+    // 2. Dash/Tick marks every 30 degrees - Batched into a single LineSegments2
+    const tickLength = radius * 0.02;
+    const tickPoints = new Float32Array(12 * 2 * 3); // 12 ticks, 2 points per tick, 3 components per point
+    for (let i = 0; i < 12; i++) {
+        const angle = (i * 30) * Math.PI / 180;
+        const cos = Math.cos(angle);
+        const sin = Math.sin(angle);
+
+        const startX = cos * (radius - tickLength);
+        const startY = sin * (radius - tickLength);
+        const endX = cos * (radius + tickLength);
+        const endY = sin * (radius + tickLength);
+
+        const idx = i * 6;
+        // Transform Ecliptic (XY-plane, Z-up) to World (XZ-plane, Y-up)
+        tickPoints[idx] = startX;
+        tickPoints[idx + 1] = 0;
+        tickPoints[idx + 2] = -startY;
+        tickPoints[idx + 3] = endX;
+        tickPoints[idx + 4] = 0;
+        tickPoints[idx + 5] = -endY;
+    }
+
+    const tickGeo = new LineSegmentsGeometry();
+    tickGeo.setPositions(tickPoints);
+    const tickMat = new LineMaterial({
+        color: 0x77aaff,
+        linewidth: 1.8,
+        transparent: true,
+        opacity: 0.6,
+        depthWrite: false,
+        resolution: resolution
+    });
+
+    const tickSegments = new LineSegments2(tickGeo, tickMat);
+    tickSegments.renderOrder = 5;
+    tickSegments.computeLineDistances();
+    group.add(tickSegments);
 
     const sprites = [];
 
-    // 2. Dash/Tick marks every 30 degrees
-    const tickLength = radius * 0.02;
+    // 3. Labels
     for (let i = 0; i < 12; i++) {
-        const angle = (i * 30) * Math.PI / 180;
-        const startX = Math.cos(angle) * (radius - tickLength);
-        const startY = Math.sin(angle) * (radius - tickLength);
-        const endX = Math.cos(angle) * (radius + tickLength);
-        const endY = Math.sin(angle) * (radius + tickLength);
-
-        const tickGeo = new LineGeometry();
-        // Transform Ecliptic (XY-plane, Z-up) to World (XZ-plane, Y-up)
-        tickGeo.setPositions([startX, 0, -startY, endX, 0, -endY]);
-        const tickLine = new Line2(tickGeo, tickMat);
-        tickLine.renderOrder = 5;
-        tickLine.computeLineDistances();
-        group.add(tickLine);
-
-        // 3. Labels
         const labelAngle = (i * 30 + 15) * Math.PI / 180; // Center label in the 30deg segment
         const labelRadius = radius * 1.05;
         const lx = Math.cos(labelAngle) * labelRadius;
@@ -122,11 +160,19 @@ export function createZodiacRing(radius = 10000, initialNames = []) {
         const name = initialNames[i] || '';
         const symbol = ZODIAC_SYMBOLS[i] || '';
         const texture = createLabelTexture(name, symbol);
-        const spriteMat = new THREE.SpriteMaterial({
-            map: texture,
-            transparent: true,
-            opacity: 0.8
-        });
+
+        // Use material cache for sprites
+        const matKey = `${name}_${symbol}`;
+        let spriteMat = materialCache.get(matKey);
+        if (!spriteMat) {
+            spriteMat = new THREE.SpriteMaterial({
+                map: texture,
+                transparent: true,
+                opacity: 0.8
+            });
+            materialCache.set(matKey, spriteMat);
+        }
+
         const sprite = new THREE.Sprite(spriteMat);
         // Transform Ecliptic (XY) to World (XZ)
         // Add a small Y-offset to prevent Z-fighting with the ring plane
@@ -142,18 +188,24 @@ export function createZodiacRing(radius = 10000, initialNames = []) {
     group.updateLabels = (names) => {
         if (!names || names.length < 12) return;
         for (let i = 0; i < 12; i++) {
-            const oldTexture = sprites[i].material.map;
-            const newTexture = createLabelTexture(names[i], ZODIAC_SYMBOLS[i]);
-            sprites[i].material.map = newTexture;
-            if (oldTexture) oldTexture.dispose();
+            const name = names[i];
+            const symbol = ZODIAC_SYMBOLS[i];
+            const texture = createLabelTexture(name, symbol);
+
+            const matKey = `${name}_${symbol}`;
+            let spriteMat = materialCache.get(matKey);
+            if (!spriteMat) {
+                spriteMat = new THREE.SpriteMaterial({
+                    map: texture,
+                    transparent: true,
+                    opacity: 0.8
+                });
+                materialCache.set(matKey, spriteMat);
+            }
+
+            sprites[i].material = spriteMat;
         }
     };
-
-    // Standard orientation: Aries starts at 0° (March 21)
-    // In our coordinate system, if March 21 Sun is at 0°, the labels should match.
-    // The current labels are at (i*30 + 15). 
-    // If the math in AstrologyService is correct, Aries 0° is +X.
-    // We already aligned Aries segment to start at 0°.
 
     return group;
 }

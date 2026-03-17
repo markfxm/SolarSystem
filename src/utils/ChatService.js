@@ -38,7 +38,7 @@ class ChatService {
 
     if (useGPU) {
       try {
-        this.engine = await webllm.createMLCEngine(GPU_MODEL, {
+        this.engine = await webllm.CreateMLCEngine(GPU_MODEL, {
           initProgressCallback: onProgress,
         })
         this.mode = 'gpu'
