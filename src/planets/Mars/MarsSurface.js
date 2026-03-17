@@ -392,21 +392,48 @@ export function createMarsSurface(renderer, options = {}) {
 
   let lastCamX = Infinity;
   let lastCamZ = Infinity;
+  const chunkQueue = [];
 
   function updateChunks() {
     const camX = Math.round(camera.position.x / chunkSize)
     const camZ = Math.round(camera.position.z / chunkSize)
 
-    // Optimized: Only update if the camera has moved to a different chunk
-    if (camX === lastCamX && camZ === lastCamZ) return;
-    lastCamX = camX;
-    lastCamZ = camZ;
+    // Optimized: Only update queue if the camera has moved to a different chunk
+    if (camX !== lastCamX || camZ !== lastCamZ) {
+      lastCamX = camX;
+      lastCamZ = camZ;
 
-    for (let x = camX - renderDistance; x <= camX + renderDistance; x++) {
-      for (let z = camZ - renderDistance; z <= camZ + renderDistance; z++) {
-        const key = `${x},${z}`
+      // Reset queue and find missing chunks in range
+      chunkQueue.length = 0;
+      for (let x = camX - renderDistance; x <= camX + renderDistance; x++) {
+        for (let z = camZ - renderDistance; z <= camZ + renderDistance; z++) {
+          const key = `${x},${z}`
+          if (!chunks.has(key)) {
+            chunkQueue.push({ x, z });
+          }
+        }
+      }
+
+      // Sort queue by distance to camera so nearest chunks load first
+      chunkQueue.sort((a, b) => {
+        const da = (a.x - camX) ** 2 + (a.z - camZ) ** 2;
+        const db = (b.x - camX) ** 2 + (b.z - camZ) ** 2;
+        return da - db;
+      });
+    }
+
+    // Performance Boost: Process at most one chunk creation per frame to maintain smooth 60fps.
+    // This spreads the heavy computation of terrain generation (Perlin noise + Geometry)
+    // over multiple frames, eliminating the frame-rate drops (jank) encountered
+    // during rapid surface exploration.
+    while (chunkQueue.length > 0) {
+      const { x, z } = chunkQueue.shift();
+      // Verify it's still in range before creating
+      if (Math.abs(x - camX) <= renderDistance && Math.abs(z - camZ) <= renderDistance) {
+        const key = `${x},${z}`;
         if (!chunks.has(key)) {
-          chunks.set(key, createChunk(x, z))
+          chunks.set(key, createChunk(x, z));
+          break; // Created one chunk, stop for this frame
         }
       }
     }

@@ -37,3 +37,7 @@
 ## 2025-05-15 - [Chunk Update Throttling & Movement Scratch Variables]
 **Learning:** Even with optimized Map lookups, iterating over a grid of chunks every frame (60fps) to check for missing terrain creates unnecessary overhead and string key allocations. A simple "dirty check" on chunk coordinates reduces this work to almost zero when the player is stationary. Additionally, standard movement logic often allocates multiple `Vector3` and `Quaternion` objects per frame; moving these to the outer closure scope as reusable "scratch" variables eliminates this GC pressure entirely.
 **Action:** Always implement coordinate-based dirty checking for spatial systems. Use closure-scoped scratch variables for any math involving `THREE` object instantiations inside a 60fps update loop.
+
+## 2026-03-17 - [Throttled Terrain Chunk Generation]
+**Learning:** In procedural 3D environments, generating multiple terrain chunks (including geometry and Perlin noise calculations) in a single frame during rapid movement causes significant frame-time spikes (jank). Even when the logic is "fast," the aggregate cost of multiple `BufferGeometry` allocations and vertex calculations blocks the main thread.
+**Action:** Implement a prioritized queue (`chunkQueue`) to process only one chunk creation per frame. Sort the queue by distance to ensure chunks closest to the camera appear first.
