@@ -12,8 +12,9 @@ export class Saturn extends BasePlanet {
   }
 
   async addRings(textureLoader) {
-    const innerRadius = this.radius * 1.11;
-    const outerRadius = this.radius * 2.33;
+    // Optimized: Use normalized dimensions as it is now a child of a scaled unit-sphere.
+    const innerRadius = 1.11;
+    const outerRadius = 2.33;
 
     try {
       const ringAlpha = await new Promise((resolve, reject) => {

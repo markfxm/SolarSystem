@@ -56,7 +56,10 @@ export function createInteractions({
 
   function getFlyToPositions(body) {
     let radius = 5
-    if (body.geometry?.parameters?.radius) {
+    // Optimized: Prioritize userData.originalRadius to support unit-scaled geometry
+    if (body.userData.originalRadius) {
+      radius = body.userData.originalRadius
+    } else if (body.geometry?.parameters?.radius) {
       radius = body.geometry.parameters.radius
     } else {
       // Support for Blender models: compute approximate radius from bounding box

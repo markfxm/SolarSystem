@@ -14,7 +14,8 @@ const sharedLineMaterial = new THREE.LineBasicMaterial({
 
 /**
  * Creates a longitude and latitude grid for a planet.
- * @param {number} radius - The radius of the planet.
+ * Optimized: Uses shared unit geometries and scaling.
+ * @param {number} radius - The radius of the planet (use 1.0 for unit-scaled planets).
  * @returns {THREE.Group} The grid group.
  */
 export function createLatLonGrid(radius) {
@@ -23,11 +24,10 @@ export function createLatLonGrid(radius) {
   group.userData.isGrid = true;
 
   // Offset slightly to avoid Z-fighting with the planet surface
-  // Increased from 1.005 to 1.02 to prevent labels from clipping into the sphere
   const gridRadius = radius * 1.02;
 
   // Scale labels relative to planet size
-  const labelScale = radius * 0.08; // Reduced size
+  const labelScale = radius * 0.08;
 
   const allPoints = [];
 
@@ -61,7 +61,6 @@ export function createLatLonGrid(radius) {
     // Latitude Label placed on the "Prime Meridian" of the sphere (x=r, z=0)
     const labelText = lat === 0 ? '0°' : `${Math.abs(lat)}°${lat > 0 ? 'N' : 'S'}`;
     const sprite = createTextSprite(labelText, labelScale);
-    // Add a tiny extra offset for labels to stay clear of lines
     const labelRadius = r * 1.005;
     sprite.position.set(labelRadius, y * 1.005, 0);
     group.add(sprite);
@@ -69,7 +68,6 @@ export function createLatLonGrid(radius) {
 
   // Longitudes (0 to 330, every 30 degrees)
   for (let lon = 0; lon < 360; lon += 30) {
-    // Negative longitude to match Three.js SphereGeometry UV mapping (East is negative theta)
     const theta = THREE.MathUtils.degToRad(-lon);
     const segments = 64;
     for (let i = 0; i < segments; i++) {
@@ -88,7 +86,6 @@ export function createLatLonGrid(radius) {
     }
 
     // Longitude Label (placed on Equator)
-    // Avoid redundant label at (lat 0, lon 0)
     if (lon !== 0) {
       const sprite = createTextSprite(`${lon}°`, labelScale);
       const labelR = gridRadius * 1.005;
@@ -100,11 +97,9 @@ export function createLatLonGrid(radius) {
   // Optimized: Create one LineSegments object instead of many individual Lines
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(allPoints, 3));
-  // Optimized: Use shared material
   const segmentsMesh = new THREE.LineSegments(geometry, sharedLineMaterial);
   group.add(segmentsMesh);
 
-  // Initially hidden
   group.visible = false;
   return group;
 }
@@ -123,20 +118,18 @@ function createTextSprite(text, scale) {
     canvas.height = size;
     const ctx = canvas.getContext('2d');
 
-    // Use a smaller, regular weight font
     ctx.font = '32px Arial';
     ctx.fillStyle = 'white';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
-    // Add a semi-transparent black stroke for better readability against various planetary backgrounds
     ctx.strokeStyle = 'rgba(0, 0, 0, 0.7)';
     ctx.lineWidth = 6;
     ctx.strokeText(text, size / 2, size / 2);
     ctx.fillText(text, size / 2, size / 2);
 
     const texture = new THREE.CanvasTexture(canvas);
-    texture.minFilter = THREE.LinearFilter; // Avoid pixelation
+    texture.minFilter = THREE.LinearFilter;
 
     material = new THREE.SpriteMaterial({
       map: texture,

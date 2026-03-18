@@ -6,18 +6,36 @@ export interface HolographicOptions extends Partial<THREE.MeshBasicMaterialParam
   opacity?: number
 }
 
+const materialCache = new Map<number, THREE.MeshBasicMaterial>()
+
 /**
  * Creates a standard holographic wireframe material.
+ * Optimized: Uses a cache to reuse materials with the same opacity.
  */
 export function createHolographicMaterial(options: HolographicOptions = {}): THREE.MeshBasicMaterial {
-  return new THREE.MeshBasicMaterial({
+  const opacity = options.opacity || 0.6
+
+  // Only cache if it's a standard holographic material (no extra options)
+  const hasExtraOptions = Object.keys(options).length > (options.hasOwnProperty('opacity') ? 1 : 0)
+
+  if (!hasExtraOptions && materialCache.has(opacity)) {
+    return materialCache.get(opacity)!
+  }
+
+  const material = new THREE.MeshBasicMaterial({
     color: HOLOGRAPHIC_COLOR,
     wireframe: true,
     transparent: true,
-    opacity: options.opacity || 0.6,
+    opacity: opacity,
     side: THREE.DoubleSide,
     ...options
   })
+
+  if (!hasExtraOptions) {
+    materialCache.set(opacity, material)
+  }
+
+  return material
 }
 
 /**

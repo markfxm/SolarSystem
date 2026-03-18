@@ -54,6 +54,9 @@ const fragmentShader = `
   }
 `;
 
+// Shared unit geometry for all planets to reduce memory usage and GPU state changes
+const unitSphereGeometry = new THREE.SphereGeometry(1, 48, 48);
+
 export class BasePlanet {
   constructor(name, radius, scene) {
     this.name = name;
@@ -66,7 +69,7 @@ export class BasePlanet {
   }
 
   createMesh(dayTexture, nightTexture = null) {
-    const geometry = new THREE.SphereGeometry(this.radius, 48, 48);
+    // Optimized: Use shared unit geometry and scale the mesh by this.radius
     const material = new THREE.ShaderMaterial({
       uniforms: {
         dayTexture: { value: dayTexture },
@@ -78,7 +81,9 @@ export class BasePlanet {
     });
 
     this.originalMaterial = material;
-    this.mesh = new THREE.Mesh(geometry, material);
+    this.mesh = new THREE.Mesh(unitSphereGeometry, material);
+    this.mesh.scale.setScalar(this.radius);
+
     this.mesh.userData.name = this.name;
     this.mesh.userData.originalRadius = this.radius;
     this.mesh.userData.isPlanet = true;
@@ -93,13 +98,15 @@ export class BasePlanet {
   }
 
   addGrid() {
-    const grid = createLatLonGrid(this.radius);
+    // Pass 1.0 since it's added as a child of the scaled planet mesh
+    const grid = createLatLonGrid(1.0);
     this.mesh.add(grid);
     this.mesh.userData.grid = grid;
   }
 
   addPOIs() {
-    const pois = createPOIMarkers(this.name, this.radius);
+    // Pass 1.0 since it's added as a child of the scaled planet mesh
+    const pois = createPOIMarkers(this.name, 1.0);
     if (pois) {
       this.mesh.add(pois);
       this.mesh.userData.pois = pois;
@@ -145,8 +152,7 @@ export class BasePlanet {
             obj.userData.originalMaterial = obj.material;
           }
 
-          // For rings, we keep the original material but adjust it for a blueprint look
-          // Actually, standard wireframe is fine for rings too
+          // Optimized: Use material from the holographic cache
           obj.material = this.holographicMaterial;
         }
       };
@@ -225,6 +231,7 @@ export class BasePlanet {
         this.mesh.userData.name = this.name;
         this.mesh.userData.isPlanet = true;
         this.mesh.userData.isModel = true; // Mark as imported model
+        this.mesh.userData.originalRadius = this.radius;
 
         this.scene.add(this.mesh);
         resolve(this.mesh);
