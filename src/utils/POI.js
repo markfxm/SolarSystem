@@ -19,9 +19,24 @@ export const PLANET_POIS = {
   ]
 };
 
+// Optimized: Shared unit geometries and materials for POIs
+const dotUnitGeometry = new THREE.CircleGeometry(0.015, 32);
+const dotSharedMaterial = new THREE.MeshBasicMaterial({
+  color: 0xffffff,
+  side: THREE.DoubleSide,
+  transparent: true,
+  opacity: 0.9,
+  depthTest: true
+});
+
+// Shared unit PlaneGeometry for labels
+const labelUnitGeometry = new THREE.PlaneGeometry(0.45, 0.45 * 0.25);
+// Shift geometry so it's anchored at the bottom-center
+labelUnitGeometry.translate(0, (0.45 * 0.25) * 1.2, 0);
+
 /**
  * Creates interactive POI markers for a planet.
- * Now uses Mesh for BOTH dot and label for a surface-stuck "cyberpunk" look.
+ * Optimized: Uses shared geometries and scale-based positioning.
  */
 export function createPOIMarkers(planetName, radius) {
   const pois = PLANET_POIS[planetName];
@@ -34,16 +49,6 @@ export function createPOIMarkers(planetName, radius) {
     planetName: planetName
   };
 
-  // Shared geometry and material for the dots
-  const dotGeometry = new THREE.CircleGeometry(radius * 0.015, 32);
-  const dotMaterial = new THREE.MeshBasicMaterial({
-    color: 0xffffff,
-    side: THREE.DoubleSide,
-    transparent: true,
-    opacity: 0.9,
-    depthTest: true
-  });
-
   pois.forEach(poi => {
     const poiGroup = new THREE.Group();
     poiGroup.name = `POI_${poi.id}`;
@@ -51,7 +56,7 @@ export function createPOIMarkers(planetName, radius) {
     const latRad = THREE.MathUtils.degToRad(poi.lat);
     const lonRad = THREE.MathUtils.degToRad(-poi.lon);
 
-    // Position on surface (slightly above to prevent z-fighting)
+    // Position on surface
     const r = radius * 1.005;
     const pos = new THREE.Vector3(
       r * Math.cos(latRad) * Math.cos(lonRad),
@@ -60,33 +65,18 @@ export function createPOIMarkers(planetName, radius) {
     );
 
     // 1. Solid White Dot (Stuck to surface)
-    // Optimized: Share the dotMaterial instead of cloning it for every marker
-    const dot = new THREE.Mesh(dotGeometry, dotMaterial);
+    const dot = new THREE.Mesh(dotUnitGeometry, dotSharedMaterial);
     dot.position.copy(pos);
-    // Orient to surface normal
     dot.lookAt(pos.clone().multiplyScalar(1.1));
     poiGroup.add(dot);
 
-    // 2. Text Label (Now also stuck to surface - Cyberpunk style)
-    const labelMesh = createLabelMesh(poi, radius, planetName);
-    // Position label slightly above the dot and offset radially
-    const labelOffset = radius * 0.045;
-    const labelPos = pos.clone().add(pos.clone().normalize().multiplyScalar(0.002)); // Minimal hover
-
-    // Instead of simple adding, we move it "up" on the sphere's surface relative to the dot
-    // But for a ground look, keeping it near the dot works well if we rotate it correctly.
+    // 2. Text Label
+    const labelMesh = createLabelMesh(poi, planetName);
+    const labelPos = pos.clone().add(pos.clone().normalize().multiplyScalar(0.002));
     labelMesh.position.copy(labelPos);
-
-    // Orient to surface normal
     labelMesh.lookAt(labelPos.clone().multiplyScalar(1.1));
-
-    // We want the text to be oriented "north" or consistently
-    // For now, lookAt handles the normal, but we might want a secondary rotation
-    // to keep the text from being upside down depending on hemisphere.
-
     poiGroup.add(labelMesh);
 
-    // Attach data to the group for raycasting
     poiGroup.userData = {
       ...poi,
       isPOI: true,
@@ -102,31 +92,23 @@ export function createPOIMarkers(planetName, radius) {
   return group;
 }
 
-// Scratch variable for POI scaling to avoid per-frame allocations
 const _tempScale = new THREE.Vector3();
 
-/**
- * Updates POI visibility and animations.
- * Optimized: Removed per-frame translation calls.
- */
 export function updatePOIs(group, camera, planetPosition) {
   if (!group) return;
 
-  // Optimized: Use squared distance to avoid expensive square root (Math.sqrt)
   const distSq = camera.position.distanceToSquared(planetPosition);
-  const isVisible = distSq < 1600; // 40^2
+  const isVisible = distSq < 1600;
   group.visible = isVisible;
 
   if (isVisible) {
     const children = group.children;
     for (let i = 0; i < children.length; i++) {
       const poiGroup = children[i];
-      // Handle hover scaling (interaction script will set isHovered)
       const targetScale = poiGroup.userData.isHovered ? 1.5 : 1.0;
       const dot = poiGroup.userData.dot;
       const label = poiGroup.userData.label;
 
-      // Threshold check to skip scaling logic if already at target
       if (Math.abs(dot.scale.x - targetScale) > 0.001) {
         _tempScale.setScalar(targetScale);
         dot.scale.lerp(_tempScale, 0.1);
@@ -136,10 +118,6 @@ export function updatePOIs(group, camera, planetPosition) {
   }
 }
 
-/**
- * Manually refresh all POI labels in a group for the current language.
- * Called only when language changes.
- */
 export function refreshPOILabels(group) {
   if (!group) return;
   group.children.forEach(poiGroup => {
@@ -153,7 +131,7 @@ export function refreshPOILabels(group) {
   });
 }
 
-function createLabelMesh(poi, radius, planetName) {
+function createLabelMesh(poi, planetName) {
   const canvas = document.createElement('canvas');
   canvas.width = 512;
   canvas.height = 128;
@@ -169,16 +147,8 @@ function createLabelMesh(poi, radius, planetName) {
     side: THREE.DoubleSide
   });
 
-  // Aspect ratio 4:1 (512:128)
-  const width = radius * 0.45;
-  const height = width * 0.25;
-  const geometry = new THREE.PlaneGeometry(width, height);
-
-  // Shift geometry so it's anchored at the bottom (or top) relative to the dot
-  // We'll translate the geometry so the origin is at the bottom-center
-  geometry.translate(0, height * 1.2, 0);
-
-  const mesh = new THREE.Mesh(geometry, material);
+  // Optimized: Use shared unit PlaneGeometry
+  const mesh = new THREE.Mesh(labelUnitGeometry, material);
   return mesh;
 }
 
@@ -188,21 +158,17 @@ function updateLabelCanvas(canvas, text) {
   const h = canvas.height;
   ctx.clearRect(0, 0, w, h);
 
-  // Stronger shadow for better readability against planet surface
   ctx.shadowBlur = 8;
   ctx.shadowColor = 'rgba(0, 0, 0, 1.0)';
 
-  // Dynamic font sizing to prevent truncation
   let fontSize = 52;
   ctx.font = `400 ${fontSize}px "Segoe UI", Arial, sans-serif`;
 
-  // Measure text and scale down if it exceeds canvas width (with some padding)
   const maxWidth = w - 40;
   let metrics = ctx.measureText(text);
 
   if (metrics.width > maxWidth) {
     fontSize = Math.floor(fontSize * (maxWidth / metrics.width));
-    // Set a minimum font size to keep it readable
     if (fontSize < 24) fontSize = 24;
     ctx.font = `400 ${fontSize}px "Segoe UI", Arial, sans-serif`;
   }

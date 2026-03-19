@@ -110,6 +110,7 @@ export const J2000_EPOCH = 946728000000;
 export const DEG2RAD = Math.PI / 180;
 export const RAD2DEG = 180 / Math.PI;
 export const TWO_PI = Math.PI * 2;
+export const INV_TWO_PI = 1.0 / TWO_PI;
 
 /**
  * Pre-convert constants to radians at module initialization
@@ -180,8 +181,8 @@ export function computePosition(elements, scale = 10, target = null) {
   const sqrtEE = elements.sqrtEE;
   let M = elements.M;
 
-  // Reduce M to [-π, π]
-  M = M - Math.floor(M / TWO_PI + 0.5) * TWO_PI;
+  // Optimized: Use INV_TWO_PI to replace division
+  M = M - Math.floor(M * INV_TWO_PI + 0.5) * TWO_PI;
 
   // Solve Kepler's equation with early exit for low eccentricity
   let E = M;

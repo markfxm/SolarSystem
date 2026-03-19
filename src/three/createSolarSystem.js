@@ -249,11 +249,7 @@ export async function createSolarSystem(scene, zodiacNames = [], onProgress = ()
       });
 
       // 3. Environment Adjustments
-      scene.traverse(obj => {
-        if (obj.userData.isStarfield || obj.userData.isNebula) {
-          obj.visible = !enabled; // Hide natural environment for blueprint look
-        }
-      });
+      // Removed: Keep natural environment visible in holographic mode for better contrast
 
       // 4. Update Grid visibility if active
       // (This will be handled by the UI toggle in SolarSystem.vue if needed)
