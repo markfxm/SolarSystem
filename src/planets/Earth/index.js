@@ -14,7 +14,8 @@ export class Earth extends BasePlanet {
 
     // Earth Atmosphere
     const atmos = new THREE.Mesh(
-      new THREE.SphereGeometry(this.radius * 1.05, 64, 64),
+      // Optimized: Use normalized radius (1.05) as it is a child of the scaled planet mesh
+      new THREE.SphereGeometry(1.05, 64, 64),
       new THREE.MeshBasicMaterial({
         color: 0x4488ff,
         transparent: true,
