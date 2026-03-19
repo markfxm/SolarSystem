@@ -41,3 +41,7 @@
 ## 2026-03-17 - [Throttled Terrain Chunk Generation]
 **Learning:** In procedural 3D environments, generating multiple terrain chunks (including geometry and Perlin noise calculations) in a single frame during rapid movement causes significant frame-time spikes (jank). Even when the logic is "fast," the aggregate cost of multiple `BufferGeometry` allocations and vertex calculations blocks the main thread.
 **Action:** Implement a prioritized queue (`chunkQueue`) to process only one chunk creation per frame. Sort the queue by distance to ensure chunks closest to the camera appear first.
+
+## 2026-03-19 - [Resource Sharing via Mesh Scaling]
+**Learning:** In Three.js, creating unique `SphereGeometry` instances for every celestial body (each with its own radius) prevents vertex buffer reuse and increases memory footprint. Using a single shared unit `SphereGeometry(1, 48, 48)` and applying `mesh.scale.setScalar(radius)` allows for 100% geometry reuse. However, this requires updating raycasting/interaction logic to use the original radius (stored in `userData`) and being careful with nested objects (like atmospheres) to avoid double-scaling.
+**Action:** Prefer unit geometries and mesh scaling for identical shapes. Store original dimensions in `userData` for navigation/logic and ensure child meshes account for parent scaling.
