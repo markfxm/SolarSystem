@@ -71,7 +71,7 @@ export function createPOIMarkers(planetName, radius) {
     poiGroup.add(dot);
 
     // 2. Text Label
-    const labelMesh = createLabelMesh(poi, radius, planetName);
+    const labelMesh = createLabelMesh(poi, planetName);
     const labelPos = pos.clone().add(pos.clone().normalize().multiplyScalar(0.002));
     labelMesh.position.copy(labelPos);
     labelMesh.lookAt(labelPos.clone().multiplyScalar(1.1));
@@ -131,7 +131,7 @@ export function refreshPOILabels(group) {
   });
 }
 
-function createLabelMesh(poi, radius, planetName) {
+function createLabelMesh(poi, planetName) {
   const canvas = document.createElement('canvas');
   canvas.width = 512;
   canvas.height = 128;
