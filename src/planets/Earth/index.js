@@ -7,9 +7,6 @@ export class Earth extends BasePlanet {
   }
 
   create(dayTexture, nightTexture) {
-    // To use a Blender model, uncomment the line below and provide the correct path:
-    // this.loadModel('/models/earth.glb', dayTexture, nightTexture);
-
     const mesh = this.createMesh(dayTexture, nightTexture);
 
     // Earth Atmosphere

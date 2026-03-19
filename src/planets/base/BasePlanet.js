@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { createLatLonGrid } from '../../utils/Grid.js';
 import { createPOIMarkers } from '../../utils/POI.js';
 import { createHolographicMaterial } from '../../utils/HolographicMaterial';
@@ -114,24 +113,12 @@ export class BasePlanet {
   }
 
   updateHQ(hqTexture, isNight = false) {
-    if (!this.mesh) return;
+    if (!this.mesh || !this.mesh.material || !this.mesh.material.uniforms) return;
 
-    const applyToMaterial = (mat) => {
-      if (mat && mat.uniforms) {
-        const target = isNight ? 'nightTexture' : 'dayTexture';
-        const oldTex = mat.uniforms[target].value;
-        mat.uniforms[target].value = hqTexture;
-        if (oldTex && oldTex !== hqTexture) oldTex.dispose();
-      }
-    };
-
-    if (this.mesh.isMesh) {
-      applyToMaterial(this.mesh.material);
-    } else {
-      this.mesh.traverse(child => {
-        if (child.isMesh) applyToMaterial(child.material);
-      });
-    }
+    const target = isNight ? 'nightTexture' : 'dayTexture';
+    const oldTex = this.mesh.material.uniforms[target].value;
+    this.mesh.material.uniforms[target].value = hqTexture;
+    if (oldTex && oldTex !== hqTexture) oldTex.dispose();
   }
 
   setHolographic(enabled) {
@@ -143,102 +130,14 @@ export class BasePlanet {
         this.holographicMaterial = createHolographicMaterial();
       }
 
-      const applyHolo = (obj) => {
-        if (obj.isMesh) {
-          // Skip Grid and POIs as they are already high-tech/UI elements
-          if (obj.userData.isGrid || obj.userData.isPOIGroup) return;
-
-          if (!obj.userData.originalMaterial) {
-            obj.userData.originalMaterial = obj.material;
-          }
-
-          // Optimized: Use material from the holographic cache
-          obj.material = this.holographicMaterial;
-        }
-      };
-
-      if (this.mesh.isMesh) {
-        applyHolo(this.mesh);
-      } else {
-        this.mesh.traverse(applyHolo);
+      if (!this.mesh.userData.originalMaterial) {
+        this.mesh.userData.originalMaterial = this.mesh.material;
       }
+      this.mesh.material = this.holographicMaterial;
     } else {
-      const restoreOrig = (obj) => {
-        if (obj.isMesh && obj.userData.originalMaterial) {
-          obj.material = obj.userData.originalMaterial;
-        }
-      };
-
-      if (this.mesh.isMesh) {
-        restoreOrig(this.mesh);
-      } else {
-        this.mesh.traverse(restoreOrig);
+      if (this.mesh.userData.originalMaterial) {
+        this.mesh.material = this.mesh.userData.originalMaterial;
       }
     }
-  }
-
-  /**
-   * Template for loading Blender GLB models with Day/Night switching support.
-   * @param {string} url - Path to the .glb file
-   * @param {THREE.Texture} dayTexture - Optional override for day texture
-   * @param {THREE.Texture} nightTexture - Optional override for night texture
-   */
-  async loadModel(url, dayTexture = null, nightTexture = null) {
-    const loader = new GLTFLoader();
-
-    return new Promise((resolve, reject) => {
-      loader.load(url, (gltf) => {
-        const model = gltf.scene;
-
-        model.traverse(child => {
-          if (child.isMesh) {
-            // Setup Day/Night shader for the model
-            // If textures aren't provided, we try to use the ones from the GLB material
-            const meshDayTex = dayTexture || child.material.map;
-            const meshNightTex = nightTexture || (child.material.emissiveMap || new THREE.Texture());
-
-            child.material = new THREE.ShaderMaterial({
-              uniforms: {
-                dayTexture: { value: meshDayTex },
-                nightTexture: { value: meshNightTex },
-                useNight: { value: true }, // Enable night lights for models by default
-              },
-              vertexShader,
-              fragmentShader
-            });
-            child.userData.originalMaterial = child.material;
-
-            // Ensure the model works with our interaction system
-            child.userData.name = this.name;
-            child.userData.isPlanet = true;
-          }
-        });
-
-        // Replace placeholder mesh if it exists
-        if (this.mesh) {
-          // Keep common components (Grid, POIs)
-          const children = [...this.mesh.children];
-          children.forEach(c => {
-            if (c.userData.isGrid || c.userData.isPOIGroup) {
-               model.add(c);
-            }
-          });
-
-          this.scene.remove(this.mesh);
-        }
-
-        this.mesh = model;
-        this.mesh.userData.name = this.name;
-        this.mesh.userData.isPlanet = true;
-        this.mesh.userData.isModel = true; // Mark as imported model
-        this.mesh.userData.originalRadius = this.radius;
-
-        this.scene.add(this.mesh);
-        resolve(this.mesh);
-      }, undefined, (err) => {
-        console.error(`Error loading model for ${this.name}:`, err);
-        reject(err);
-      });
-    });
   }
 }
