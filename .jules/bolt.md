@@ -45,3 +45,7 @@
 ## 2026-03-19 - [Resource Sharing via Mesh Scaling]
 **Learning:** In Three.js, creating unique `SphereGeometry` instances for every celestial body (each with its own radius) prevents vertex buffer reuse and increases memory footprint. Using a single shared unit `SphereGeometry(1, 48, 48)` and applying `mesh.scale.setScalar(radius)` allows for 100% geometry reuse. However, this requires updating raycasting/interaction logic to use the original radius (stored in `userData`) and being careful with nested objects (like atmospheres) to avoid double-scaling.
 **Action:** Prefer unit geometries and mesh scaling for identical shapes. Store original dimensions in `userData` for navigation/logic and ensure child meshes account for parent scaling.
+
+## 2025-05-15 - [Minimap GC Pressure & Idle Loop Optimization]
+**Learning:** The Mars minimap rendering loop in `MarsHUD.vue` was a significant performance bottleneck due to its "always-on" `requestAnimationFrame` and high garbage collection (GC) pressure. Specifically, the `drawMap` function allocated thousands of temporary `{x, y}` objects per frame to transform coordinates when drawing the `explorationPath`.
+**Action:** Inline coordinate math (avoiding object creation) and use reactive state watchers to stop animation loops when components are not visible. Always capture reactive props into local variables before entering high-frequency loops to minimize Proxy overhead. Move i18n translation lookups out of the 60fps loop into computed properties.

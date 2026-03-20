@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, onUnmounted, computed } from 'vue';
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
 
 const props = defineProps({
   isVisible: Boolean,
@@ -50,6 +50,22 @@ const currentLon = computed(() => {
 const zoomLevel = ref(1) // Base zoom
 const canvasRef = ref(null)
 
+// i18n Caching: Pre-translate static labels to avoid lookup overhead in the 60fps loop
+const labels = computed(() => ({
+  start: t('mars.start'),
+  north: t('mars.north'),
+  south: t('mars.south'),
+  west: t('mars.west'),
+  east: t('mars.east'),
+  location: t('mars.location'),
+  surface: t('mars.surface'),
+  lat: t('mars.lat'),
+  lon: t('mars.lon'),
+  resetPath: t('mars.reset_path'),
+  mapHintExpanded: t('mars.map_hint_expanded'),
+  mapHintCollapsed: t('mars.map_hint_collapsed')
+}))
+
 const MAP_SIZE = 180
 const EXPANDED_MAP_SIZE = 500
 
@@ -63,16 +79,31 @@ const handleWheel = (e) => {
   zoomLevel.value = Math.max(0.1, Math.min(10, zoomLevel.value * delta))
 }
 
+// Cache canvas context at component level to avoid redundant lookups in the 60fps loop
+let cachedCtx = null;
+
 const drawMap = () => {
   const canvas = canvasRef.value
   if (!canvas) return
-  const ctx = canvas.getContext('2d')
-  const size = isExpanded.value ? EXPANDED_MAP_SIZE : MAP_SIZE
+  if (!cachedCtx) cachedCtx = canvas.getContext('2d', { alpha: true });
+  const ctx = cachedCtx;
+
+  // Capture reactive values into local variables to minimize proxy overhead
+  const expanded = isExpanded.value;
+  const size = expanded ? EXPANDED_MAP_SIZE : MAP_SIZE
+  const zoom = zoomLevel.value
+  const path = props.explorationPath
+  const px = props.playerPos?.x ?? 0
+  const pz = props.playerPos?.z ?? 0
+  const lx = props.landerPos?.x ?? 0
+  const lz = props.landerPos?.z ?? 0
 
   // Ensure canvas dimensions match the internal size (Fixes rectangle bug on first load)
   if (canvas.width !== size || canvas.height !== size) {
     canvas.width = size
     canvas.height = size
+    // Reset context on resize (using consistent alpha option)
+    cachedCtx = canvas.getContext('2d', { alpha: true });
   }
 
   ctx.clearRect(0, 0, size, size)
@@ -81,18 +112,12 @@ const drawMap = () => {
   ctx.fillStyle = 'rgba(0, 20, 40, 0.6)'
   ctx.fillRect(0, 0, size, size)
 
-  // Safety checks
-  const px = props.playerPos?.x ?? 0
-  const pz = props.playerPos?.z ?? 0
-  const lx = props.landerPos?.x ?? 0
-  const lz = props.landerPos?.z ?? 0
-
   // Grid
   ctx.strokeStyle = 'rgba(0, 163, 255, 0.2)'
   ctx.lineWidth = 1
-  const gridSize = 50 * zoomLevel.value
-  const offsetX = ((-px * zoomLevel.value) % gridSize + gridSize) % gridSize
-  const offsetZ = ((-pz * zoomLevel.value) % gridSize + gridSize) % gridSize
+  const gridSize = 50 * zoom
+  const offsetX = ((-px * zoom) % gridSize + gridSize) % gridSize
+  const offsetZ = ((-pz * zoom) % gridSize + gridSize) % gridSize
 
   ctx.beginPath()
   for (let x = offsetX; x < size; x += gridSize) {
@@ -108,44 +133,39 @@ const drawMap = () => {
   const centerX = size / 2
   const centerY = size / 2
 
-  const worldToMap = (wx, wz) => {
-    return {
-      x: centerX + (wx - px) * zoomLevel.value,
-      y: centerY + (wz - pz) * zoomLevel.value
-    }
-  }
-
   // Draw Path
-  if (props.explorationPath.length > 0) {
+  if (path.length > 0) {
     ctx.beginPath()
     ctx.strokeStyle = 'rgba(255, 200, 0, 0.6)'
     ctx.setLineDash([5, 5])
     ctx.lineWidth = 2
 
     // Only show recent path on small map, or full path on expanded?
-    // User said: "由于minimap不是很大，就只能显示最近的走过的路程。当我放大map的时候，显示的范围就更大"
-    const startIdx = isExpanded.value ? 0 : Math.max(0, props.explorationPath.length - 50)
+    const startIdx = expanded ? 0 : Math.max(0, path.length - 50)
 
-    for (let i = startIdx; i < props.explorationPath.length; i++) {
-      const p = props.explorationPath[i]
-      const mapPos = worldToMap(p.x, p.z)
-      if (i === startIdx) ctx.moveTo(mapPos.x, mapPos.y)
-      else ctx.lineTo(mapPos.x, mapPos.y)
+    // Optimized path drawing: Inline coordinate transformation to avoid object allocations
+    for (let i = startIdx; i < path.length; i++) {
+      const p = path[i]
+      const mx = centerX + (p.x - px) * zoom
+      const my = centerY + (p.z - pz) * zoom
+      if (i === startIdx) ctx.moveTo(mx, my)
+      else ctx.lineTo(mx, my)
     }
     ctx.stroke()
     ctx.setLineDash([])
   }
 
-  // Draw Start (Lander)
-  const startPos = worldToMap(props.landerPos.x, props.landerPos.z)
+  // Draw Start (Lander) - inline worldToMap logic
+  const startPosMX = centerX + (lx - px) * zoom
+  const startPosMY = centerY + (lz - pz) * zoom
   ctx.fillStyle = '#ff0000'
   ctx.beginPath()
-  ctx.arc(startPos.x, startPos.y, 4, 0, Math.PI * 2)
+  ctx.arc(startPosMX, startPosMY, 4, 0, Math.PI * 2)
   ctx.fill()
   ctx.fillStyle = '#fff'
   ctx.font = '10px Arial'
   ctx.textAlign = 'left'
-  ctx.fillText(t('mars.start'), startPos.x + 6, startPos.y + 4)
+  ctx.fillText(labels.value.start, startPosMX + 6, startPosMY + 4)
 
   // Draw Player Marker (Always at center because we are centering on player)
   ctx.save()
@@ -167,14 +187,15 @@ const drawMap = () => {
   ctx.textAlign = 'center'
 
   // N S W E
-  ctx.fillText(t('mars.north'), centerX, 15)
-  ctx.fillText(t('mars.south'), centerX, size - 10)
-  ctx.fillText(t('mars.west'), 10, centerY + 4)
-  ctx.fillText(t('mars.east'), size - 15, centerY + 4)
+  ctx.fillText(labels.value.north, centerX, 15)
+  ctx.fillText(labels.value.south, centerX, size - 10)
+  ctx.fillText(labels.value.west, 10, centerY + 4)
+  ctx.fillText(labels.value.east, size - 15, centerY + 4)
 
-  if (isExpanded.value) {
-    const dist = Math.sqrt(Math.pow(px - lx, 2) + Math.pow(pz - lz, 2)).toFixed(1)
+  if (expanded) {
+    const dist = Math.sqrt((px - lx) * (px - lx) + (pz - lz) * (pz - lz)).toFixed(1)
     ctx.textAlign = 'left'
+    // Dynamic translation: still involves lookup but only when expanded and once per frame
     ctx.fillText(t('mars.dist_start', { dist }), 10, size - 25)
   }
 }
@@ -185,12 +206,27 @@ const loop = () => {
   animationFrame = requestAnimationFrame(loop)
 }
 
-onMounted(() => {
-  loop()
-})
+const startLoop = () => {
+  if (!animationFrame) {
+    loop()
+  }
+}
+
+const stopLoop = () => {
+  if (animationFrame) {
+    cancelAnimationFrame(animationFrame)
+    animationFrame = null
+  }
+}
+
+// Optimization: Start/Stop rendering loop based on visibility to save CPU/GPU when idle
+watch(() => props.isVisible, (visible) => {
+  if (visible) startLoop()
+  else stopLoop()
+}, { immediate: true })
 
 onUnmounted(() => {
-  cancelAnimationFrame(animationFrame)
+  stopLoop()
 })
 </script>
 
@@ -200,14 +236,14 @@ onUnmounted(() => {
       <!-- Location Drawer Overlay (Positioned below Zodiac button) -->
       <div class="location-drawer-container">
         <div class="location-panel">
-          <div class="label">{{ t('mars.location') }}</div>
-          <div class="value">{{ planetName }} {{ t('mars.surface') }}</div>
+          <div class="label">{{ labels.location }}</div>
+          <div class="value">{{ planetName }} {{ labels.surface }}</div>
           <div class="coords">
-            {{ t('mars.lat') }}: {{ currentLat }} | {{ t('mars.lon') }}: {{ currentLon }}
+            {{ labels.lat }}: {{ currentLat }} | {{ labels.lon }}: {{ currentLon }}
           </div>
 
           <div v-if="planetId === 'mars'" class="history-actions">
-            <button class="clear-btn" @click="$emit('clear-path')">📍 {{ t('mars.reset_path') }}</button>
+            <button class="clear-btn" @click="$emit('clear-path')">📍 {{ labels.resetPath }}</button>
           </div>
         </div>
       </div>
@@ -225,7 +261,7 @@ onUnmounted(() => {
         >
           <canvas ref="canvasRef"></canvas>
         </div>
-        <div class="map-hint">{{ isExpanded ? t('mars.map_hint_expanded') : t('mars.map_hint_collapsed') }}</div>
+        <div class="map-hint">{{ isExpanded ? labels.mapHintExpanded : labels.mapHintCollapsed }}</div>
       </div>
 
       <!-- Scanline / Sci-fi Overlay Effect -->
