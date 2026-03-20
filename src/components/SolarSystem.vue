@@ -142,7 +142,7 @@
 </template>
 
 <script setup>
-import { ref, shallowRef, onMounted, onUnmounted, computed, watch } from 'vue'
+import { ref, reactive, shallowRef, onMounted, onUnmounted, computed, watch } from 'vue'
 
 import PlanetNavigationPanel from './PlanetNavigationPanel.vue'
 import SystemConsole from './SystemConsole.vue'
@@ -197,7 +197,7 @@ const poiDragStartMouse = { x: 0, y: 0 }
 const poiDragStartOffset = { x: 0, y: 0 }
 
 
-const poiUI = ref({
+const poiUI = reactive({
   visible: false,
   x: 0,
   y: 0,
@@ -215,8 +215,8 @@ const marsLanderPos = ref({ x: 0, z: -10 })
 const poiPanelStyle = computed(() => {
   return {
     position: 'absolute',
-    left: `${poiUI.value.panelX}px`,
-    top: `${poiUI.value.panelY}px`,
+    left: `${poiUI.panelX}px`,
+    top: `${poiUI.panelY}px`,
     zIndex: 1002,
     pointerEvents: 'none'
   };
@@ -722,9 +722,9 @@ onMounted(async () => {
           const x = (_tempV.x * 0.5 + 0.5) * window.innerWidth;
           const half = window.innerWidth / 2;
 
-          if (x < half - 100) poiUI.value.initialSide = 'left';
-          else if (x > half + 100) poiUI.value.initialSide = 'right';
-          else poiUI.value.initialSide = Math.random() > 0.5 ? 'left' : 'right';
+          if (x < half - 100) poiUI.initialSide = 'left';
+          else if (x > half + 100) poiUI.initialSide = 'right';
+          else poiUI.initialSide = Math.random() > 0.5 ? 'left' : 'right';
         }
       }
       selectedPOI.value = poi
@@ -760,7 +760,7 @@ onMounted(async () => {
             const px = (_tempV.x * 0.5 + 0.5) * window.innerWidth;
 
             // Side logic: panel is either to the left or right of the POI
-            const side = poiUI.value.initialSide;
+            const side = poiUI.initialSide;
             const panelWidth = 280;
             const marginX = 100;
             const marginY = -120; // Default height offset
@@ -776,33 +776,27 @@ onMounted(async () => {
             // Flip side if dragged across the POI
             const currentSide = (panelX + panelWidth / 2 < x) ? 'left' : 'right';
 
+            // Optimized: Update reactive properties directly to eliminate per-frame object allocations
+            poiUI.visible = true;
+            poiUI.x = x;
+            poiUI.y = y;
+            poiUI.side = currentSide;
+            poiUI.panelX = panelX;
+            poiUI.panelY = panelY;
+
             // 3-Point Path: POI -> Near Top Corner -> Far Top Corner
-            let p1 = { x, y };
-            let p2, p3;
-
+            // Optimized: Inline coordinate math in the template string to avoid p1/p2/p3 object creation
             if (currentSide === 'left') {
-              p2 = { x: panelX + panelWidth, y: panelY };
-              p3 = { x: panelX, y: panelY };
+              poiUI.linePath = `M ${x} ${y} L ${panelX + panelWidth} ${panelY} L ${panelX} ${panelY}`;
             } else {
-              p2 = { x: panelX, y: panelY };
-              p3 = { x: panelX + panelWidth, y: panelY };
+              poiUI.linePath = `M ${x} ${y} L ${panelX} ${panelY} L ${panelX + panelWidth} ${panelY}`;
             }
-
-            poiUI.value = {
-              ...poiUI.value,
-              visible: true,
-              x, y,
-              side: currentSide,
-              linePath: `M ${p1.x} ${p1.y} L ${p2.x} ${p2.y} L ${p3.x} ${p3.y}`,
-              panelX,
-              panelY
-            };
           } else {
-            poiUI.value.visible = false;
+            poiUI.visible = false;
           }
         }
       } else {
-        poiUI.value.visible = false;
+        poiUI.visible = false;
       }
 
       // Update POIs visibility and labels

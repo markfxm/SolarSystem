@@ -49,3 +49,11 @@
 ## 2025-05-15 - [Minimap GC Pressure & Idle Loop Optimization]
 **Learning:** The Mars minimap rendering loop in `MarsHUD.vue` was a significant performance bottleneck due to its "always-on" `requestAnimationFrame` and high garbage collection (GC) pressure. Specifically, the `drawMap` function allocated thousands of temporary `{x, y}` objects per frame to transform coordinates when drawing the `explorationPath`.
 **Action:** Inline coordinate math (avoiding object creation) and use reactive state watchers to stop animation loops when components are not visible. Always capture reactive props into local variables before entering high-frequency loops to minimize Proxy overhead. Move i18n translation lookups out of the 60fps loop into computed properties.
+
+## 2026-03-20 - [Vue Reactivity & SVG Path Optimization]
+**Learning:** In a 60fps projection loop (like POI UI), updating a `ref` with a new object every frame triggers massive GC pressure. Converting the state to a `reactive` object and mutating properties directly eliminates these allocations. Furthermore, inlining coordinate math directly into SVG `d` attribute strings (using template literals) avoids the creation of multiple intermediate "point" objects.
+**Action:** For high-frequency UI updates, use `reactive` for state and mutate properties individually. Inline all coordinate-to-string math for SVG paths.
+
+## 2026-03-20 - [Material Update Thresholding]
+**Learning:** Assigning values to Three.js material properties (like `opacity`) every frame, even when the value hasn't changed or is "close enough" to the target, can trigger unnecessary GPU state updates and CPU overhead in the renderer's uniform sync logic.
+**Action:** Implement a small threshold check (e.g., `Math.abs(target - current) > 0.001`) before updating material properties in an animation loop to early-exit once the visual state is stable.

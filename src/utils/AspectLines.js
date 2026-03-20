@@ -133,7 +133,14 @@ export class AspectLinesManager {
             // Animate opacity (Linear interpolation)
             const line = data.line;
             const target = line.userData.targetOpacity;
-            line.material.opacity += (target - line.material.opacity) * 0.1;
+            const current = line.material.opacity;
+
+            // Optimized: Skip redundant material updates if the target opacity is already reached
+            if (Math.abs(target - current) > 0.001) {
+                line.material.opacity = current + (target - current) * 0.1;
+            } else if (current !== target) {
+                line.material.opacity = target;
+            }
         }
     }
 
