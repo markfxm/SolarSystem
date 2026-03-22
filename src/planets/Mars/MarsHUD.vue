@@ -82,7 +82,17 @@ const handleWheel = (e) => {
 // Cache canvas context at component level to avoid redundant lookups in the 60fps loop
 let cachedCtx = null;
 
-const drawMap = () => {
+// Performance Optimization: Track last state to skip redundant draws when stationary
+const lastState = {
+  px: 0,
+  pz: 0,
+  yaw: 0,
+  zoom: 1,
+  expanded: false,
+  pathLen: 0
+}
+
+const drawMap = (force = false) => {
   const canvas = canvasRef.value
   if (!canvas) return
   if (!cachedCtx) cachedCtx = canvas.getContext('2d', { alpha: true });
@@ -95,8 +105,28 @@ const drawMap = () => {
   const path = props.explorationPath
   const px = props.playerPos?.x ?? 0
   const pz = props.playerPos?.z ?? 0
+  const pyaw = props.playerYaw
   const lx = props.landerPos?.x ?? 0
   const lz = props.landerPos?.z ?? 0
+
+  // Dirty check: Only redraw if state changed or forced (e.g. resize)
+  if (!force &&
+      lastState.px === px &&
+      lastState.pz === pz &&
+      lastState.yaw === pyaw &&
+      lastState.zoom === zoom &&
+      lastState.expanded === expanded &&
+      lastState.pathLen === path.length) {
+    return
+  }
+
+  // Update last state
+  lastState.px = px
+  lastState.pz = pz
+  lastState.yaw = pyaw
+  lastState.zoom = zoom
+  lastState.expanded = expanded
+  lastState.pathLen = path.length
 
   // Ensure canvas dimensions match the internal size (Fixes rectangle bug on first load)
   if (canvas.width !== size || canvas.height !== size) {
