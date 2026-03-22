@@ -438,18 +438,27 @@ export function createMarsSurface(renderer, options = {}) {
       }
     }
 
-    // Remove far chunks
-    for (const [key, chunk] of chunks) {
-      const x = chunk.userData.cx
-      const z = chunk.userData.cz
-      if (Math.abs(x - camX) > renderDistance + 1 || Math.abs(z - camZ) > renderDistance + 1) {
-        scene.remove(chunk)
-        chunk.geometry.dispose()
-        chunk.material.dispose()
-        chunks.delete(key)
+    // Performance Optimization: Only perform the O(N) cleanup loop when a chunk boundary is crossed
+    if (camX !== lastCleanupX || camZ !== lastCleanupZ) {
+      lastCleanupX = camX;
+      lastCleanupZ = camZ;
+
+      // Remove far chunks
+      for (const [key, chunk] of chunks) {
+        const x = chunk.userData.cx
+        const z = chunk.userData.cz
+        if (Math.abs(x - camX) > renderDistance + 1 || Math.abs(z - camZ) > renderDistance + 1) {
+          scene.remove(chunk)
+          chunk.geometry.dispose()
+          chunk.material.dispose()
+          chunks.delete(key)
+        }
       }
     }
   }
+
+  let lastCleanupX = Infinity;
+  let lastCleanupZ = Infinity;
 
   updateChunks()
 
