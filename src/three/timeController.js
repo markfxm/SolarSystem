@@ -28,7 +28,10 @@ export function createTimeController(planetObjects, orbitScale, extraRotating = 
 
   // Scratch variables to avoid per-frame GC
   const _earthPos = new THREE.Vector3();
-  const _scratchEl = { a: 1, e: 0, i: 0, N: 0, w: 0, M: 0, sqrtEE: 1 };
+  const _scratchEl = {
+    a: 1, e: 0, i: 0, N: 0, w: 0, M: 0, sqrtEE: 1,
+    sinW: 0, cosW: 1, sinN: 0, cosN: 1, sinI: 0, cosI: 1
+  };
   const _scratchPos = { x: 0, y: 0, z: 0, r: 0 };
 
   function setRealTime() {

@@ -43,9 +43,15 @@ const ASPECT_PRIORITY = {
 const CALIBRATION_OFFSET = 1.7;
 
 // Scratch variables to avoid per-frame GC and fix re-entrancy bugs
-const _earthElements = { a: 1, e: 0, i: 0, N: 0, w: 0, M: 0 };
+const _earthElements = {
+    a: 1, e: 0, i: 0, N: 0, w: 0, M: 0, sqrtEE: 1,
+    sinW: 0, cosW: 1, sinN: 0, cosN: 1, sinI: 0, cosI: 1
+};
 const _earthPos = { x: 0, y: 0, z: 0, r: 0 };
-const _pElements = { a: 1, e: 0, i: 0, N: 0, w: 0, M: 0 };
+const _pElements = {
+    a: 1, e: 0, i: 0, N: 0, w: 0, M: 0, sqrtEE: 1,
+    sinW: 0, cosW: 1, sinN: 0, cosN: 1, sinI: 0, cosI: 1
+};
 const _pPos = { x: 0, y: 0, z: 0, r: 0 };
 
 export class AstrologyService {
