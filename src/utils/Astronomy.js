@@ -131,6 +131,9 @@ export const INV_TWO_PI = 1.0 / TWO_PI;
         c.delta0 *= DEG2RAD;
         c.W0 *= DEG2RAD;
         c.Wdot *= DEG2RAD;
+        // Pre-calculate half-values to save multiplications in computePlanetQuaternion
+        c.W0_half = c.W0 * 0.5;
+        c.Wdot_half = c.Wdot * 0.5;
     }
 })();
 
@@ -143,7 +146,10 @@ export function computeD(date) {
 const _qResult = new THREE.Quaternion();
 const _q3 = new THREE.Quaternion();
 const _posResult = { x: 0, y: 0, z: 0, r: 0 };
-const _elResult = { a: 1, e: 0, i: 0, N: 0, w: 0, M: 0, sqrtEE: 1 };
+const _elResult = {
+    a: 1, e: 0, i: 0, N: 0, w: 0, M: 0, sqrtEE: 1,
+    sinW: 0, cosW: 1, sinN: 0, cosN: 1, sinI: 0, cosI: 1
+};
 
 /**
  * Returns orbital elements.
@@ -154,6 +160,7 @@ export function computeElements(planetName, d, target = null) {
   const res = target || _elResult;
   if (!data || !data.e) {
     res.a = 1; res.e = 0; res.i = 0; res.N = 0; res.w = 0; res.M = 0; res.sqrtEE = 1;
+    res.sinW = 0; res.cosW = 1; res.sinN = 0; res.cosN = 1; res.sinI = 0; res.cosI = 1;
     return res;
   }
   res.a = data.a;
@@ -162,14 +169,25 @@ export function computeElements(planetName, d, target = null) {
   res.N = data.N[0] + data.N[1] * d;
   res.w = data.w[0] + data.w[1] * d;
   res.M = data.M[0] + data.M[1] * d;
+
   // Pre-calculate eccentricity constant to avoid repeated Math.sqrt in computePosition
   res.sqrtEE = Math.sqrt(1 - res.e * res.e);
+
+  // Performance Optimization: Pre-calculate sin/cos for angles that change very slowly.
+  // This saves 6 trigonometric calls per planet per frame in the main render loop.
+  res.sinW = Math.sin(res.w);
+  res.cosW = Math.cos(res.w);
+  res.sinN = Math.sin(res.N);
+  res.cosN = Math.cos(res.N);
+  res.sinI = Math.sin(res.i);
+  res.cosI = Math.cos(res.i);
+
   return res;
 }
 
 /**
  * Computes world-space position from orbital elements.
- * Optimized: Input elements are now in radians. Reuses sin/cos from Kepler solver.
+ * Optimized: Input elements are now in radians. Reuses sin/cos from Kepler solver and element caching.
  */
 export function computePosition(elements, scale = 10, target = null) {
   const res = target || _posResult;
@@ -177,7 +195,6 @@ export function computePosition(elements, scale = 10, target = null) {
   const e = elements.e;
   const i = elements.i;
   const N = elements.N;
-  const w = elements.w;
   const sqrtEE = elements.sqrtEE;
   let M = elements.M;
 
@@ -200,8 +217,8 @@ export function computePosition(elements, scale = 10, target = null) {
   // r*cos(v) = a * (cosE - e)
   // r*sin(v) = a * sqrt(1 - e^2) * sinE
   // r = a * denom
-  const cosW = Math.cos(w);
-  const sinW = Math.sin(w);
+  const cosW = elements.cosW;
+  const sinW = elements.sinW;
   const rCosV = a * (cosE - e);
   const rSinV = a * sqrtEE * sinE;
 
@@ -218,10 +235,10 @@ export function computePosition(elements, scale = 10, target = null) {
     y = yOrb;
     z = 0;
   } else {
-    const cosN = Math.cos(N);
-    const sinN = Math.sin(N);
-    const cosI = Math.cos(i);
-    const sinI = Math.sin(i);
+    const cosN = elements.cosN;
+    const sinN = elements.sinN;
+    const cosI = elements.cosI;
+    const sinI = elements.sinI;
 
     x = xOrb * cosN - yOrb * cosI * sinN;
     y = xOrb * sinN + yOrb * cosI * cosN;
@@ -270,7 +287,8 @@ export function computePlanetQuaternion(planetName, d) {
 
   const c = ORIENTATION_CONSTANTS[planetName];
   // Constants are already in radians. W is the prime meridian rotation.
-  const halfW = (c.W0 + c.Wdot * d) * 0.5;
+  // Optimized: Use pre-calculated half-values to save one multiplication and one addition per call.
+  const halfW = c.W0_half + c.Wdot_half * d;
 
   const s = Math.sin(halfW);
   const cW = Math.cos(halfW);
