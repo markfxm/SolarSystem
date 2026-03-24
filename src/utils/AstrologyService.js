@@ -55,18 +55,17 @@ const _pElements = {
 const _pPos = { x: 0, y: 0, z: 0, r: 0 };
 
 export class AstrologyService {
-    static getSignAndDegree(longitude) {
+    static getSignAndDegree(longitude, target = {}) {
         let normalized = (longitude + CALIBRATION_OFFSET) % 360;
         if (normalized < 0) normalized += 360;
 
         const signIndex = Math.floor(normalized / 30);
         const degreeWithinSign = normalized % 30;
 
-        return {
-            index: signIndex,
-            signId: ZODIAC_SIGNS[signIndex],
-            degree: degreeWithinSign
-        };
+        target.index = signIndex;
+        target.signId = ZODIAC_SIGNS[signIndex];
+        target.degree = degreeWithinSign;
+        return target;
     }
 
     static calculateHeliocentricChart(d) {
@@ -84,8 +83,8 @@ export class AstrologyService {
         return results;
     }
 
-    static calculateGeocentricChart(d) {
-        const results = {};
+    static calculateGeocentricChart(d, target = null) {
+        const results = target || {};
 
         // Use dedicated scratch variables to avoid being overwritten by planet loop
         const earthElements = computeElements('earth', d, _earthElements);
@@ -113,7 +112,7 @@ export class AstrologyService {
             const longitudeRad = Math.atan2(relY, relX);
             const longitudeDeg = longitudeRad * RAD2DEG;
 
-            results[name] = this.getSignAndDegree(longitudeDeg);
+            results[name] = this.getSignAndDegree(longitudeDeg, results[name]);
         }
 
         return results;
@@ -225,8 +224,12 @@ export class AstrologyService {
         };
     }
 
-    static calculateElementBalance(chart) {
-        const balance = { fire: 0, earth: 0, air: 0, water: 0 };
+    static calculateElementBalance(chart, targetBalance = null) {
+        const balance = targetBalance || { fire: 0, earth: 0, air: 0, water: 0 };
+        balance.fire = 0;
+        balance.earth = 0;
+        balance.air = 0;
+        balance.water = 0;
 
         for (const name in chart) {
             const info = chart[name];

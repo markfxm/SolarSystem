@@ -207,9 +207,10 @@ const poiUI = reactive({
   panelY: 0,
   initialSide: 'right'
 })
-const marsPlayerPos = ref({ x: 0, z: 0 })
+// Optimization: Use reactive for position to avoid 60 object allocations per second
+const marsPlayerPos = reactive({ x: 0, y: 0, z: 0 })
 const marsPlayerYaw = ref(0)
-const marsPath = ref([])
+const marsPath = shallowRef([])
 const marsLanderPos = ref({ x: 0, z: -10 })
 
 const poiPanelStyle = computed(() => {
@@ -232,6 +233,7 @@ let engine
 let solar
 let timeController
 let sunController
+let lastSimD = 0
 let interactions
 let marsSurface
 let clockTimer
@@ -809,11 +811,15 @@ onMounted(async () => {
     } else if (viewMode.value === 'mars' && marsSurface) {
       marsSurface.update(delta)
       const pPos = marsSurface.camera.position
-      marsPlayerPos.value = { x: pPos.x, y: pPos.y, z: pPos.z }
+      // Optimization: Mutate reactive properties directly
+      marsPlayerPos.x = pPos.x
+      marsPlayerPos.y = pPos.y
+      marsPlayerPos.z = pPos.z
       marsPlayerYaw.value = marsSurface.camera.rotation.y
       const currentPath = marsSurface.getExplorationPath();
+      // Optimization: Avoid shallow copy spread; MarsHUD handles the array
       if (currentPath.length !== marsPath.value.length) {
-        marsPath.value = [...currentPath];
+        marsPath.value = currentPath;
       }
 
       const lPos = marsSurface.getLanderPosition()
@@ -825,10 +831,18 @@ onMounted(async () => {
     // Update simulation time display from controller
     // Throttle: update only every 30 frames to avoid toLocaleString perf hit
     frameCount++
+    const d = timeController?.getSimulationD() || 0
+    const hasTimeMoved = Math.abs(d - lastSimD) > 1e-8
+    lastSimD = d
+
     if (frameCount % 30 === 0 && timeController) {
       try {
         const simDate = timeController.getSimulationDate()
-        simulationTime.value = simDate.toLocaleString()
+        const newSimTime = simDate.toLocaleString()
+        // Optimization: Throttled reactivity trigger
+        if (simulationTime.value !== newSimTime) {
+          simulationTime.value = newSimTime
+        }
       } catch (e) {
         console.warn('Error updating simulation time', e)
       }
@@ -836,17 +850,14 @@ onMounted(async () => {
 
     if (showZodiac.value && solar?.aspectsManager && timeController) {
       // Throttle heavy astrological calculations to ~10-12fps to save CPU
-      // Pulse animations in auraManager still look okay at this rate,
-      // but the calculation overhead is significantly reduced.
-      if (frameCount % 5 === 0) {
-        const d = timeController.getSimulationD()
-        const chart = AstrologyService.calculateGeocentricChart(d)
+      // Also skip if time hasn't moved.
+      if (frameCount % 5 === 0 && hasTimeMoved) {
+        const chart = AstrologyService.calculateGeocentricChart(d, currentChart.value)
         const aspects = AstrologyService.calculateAspects(chart)
-        const vibe = AstrologyService.calculateElementBalance(chart)
+        const vibe = AstrologyService.calculateElementBalance(chart, elementBalance.value)
 
-        currentChart.value = chart
+        // currentChart.value and elementBalance.value updated in-place by service
         activeAspects.value = aspects
-        elementBalance.value = vibe.balance
         dominantElement.value = vibe.dominant
 
         solar.aspectsManager.update(aspects)
