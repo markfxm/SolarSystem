@@ -3,10 +3,11 @@ import * as THREE from 'three';
 // Module-level caches to reuse assets across all planets
 const textureCache = new Map();
 const materialCache = new Map();
+let unitGridCache = null;
 
-// Shared material for all grid lines
+// Shared material for all grid lines to reduce draw state changes
 const sharedLineMaterial = new THREE.LineBasicMaterial({
-  color: 0xaaaaaa, // Light gray instead of pure white to appear thinner
+  color: 0xaaaaaa, // Light gray
   transparent: true,
   opacity: 0.6,
   depthTest: true
@@ -14,28 +15,46 @@ const sharedLineMaterial = new THREE.LineBasicMaterial({
 
 /**
  * Creates a longitude and latitude grid for a planet.
- * Optimized: Uses shared unit geometries and scaling.
+ * Optimized: Uses shared unit geometries, pre-calculated trig, and caches radius=1.0 result.
  * @param {number} radius - The radius of the planet (use 1.0 for unit-scaled planets).
  * @returns {THREE.Group} The grid group.
  */
 export function createLatLonGrid(radius) {
+  // Optimization: If radius is 1.0 (standard for all planets in this app),
+  // return a clone of the cached unit grid. This avoids regenerating the same 8k points 9+ times.
+  if (radius === 1.0 && unitGridCache) {
+    return unitGridCache.clone();
+  }
+
   const group = new THREE.Group();
   group.name = 'LatLonGrid';
   group.userData.isGrid = true;
 
   // Offset slightly to avoid Z-fighting with the planet surface
   const gridRadius = radius * 1.02;
-
-  // Scale labels relative to planet size
   const labelScale = radius * 0.08;
 
-  const allPoints = [];
+  // Optimized: Use a fixed-size Float32Array to avoid dynamic Array growth/allocations
+  // 5 latitude circles (excluding poles) * 128 segments * 2 points * 3 floats = 3840
+  // 12 longitude lines * 64 segments * 2 points * 3 floats = 4608
+  // Total = 8448 floats
+  const allPoints = new Float32Array(8448);
+  let pIdx = 0;
+
+  // Pre-calculate trig for latitude circles
+  const latSegments = 128;
+  const latTrig = new Float32Array((latSegments + 1) * 2);
+  for (let i = 0; i <= latSegments; i++) {
+    const theta = (i / latSegments) * Math.PI * 2;
+    latTrig[i * 2] = Math.cos(theta);
+    latTrig[i * 2 + 1] = Math.sin(theta);
+  }
 
   // Latitudes (-90 to 90, every 30 degrees)
   for (let lat = -90; lat <= 90; lat += 30) {
     if (Math.abs(lat) === 90) {
       // Points at poles - add a label
-      const y = gridRadius * 1.005 * Math.sin(THREE.MathUtils.degToRad(lat));
+      const y = gridRadius * 1.005 * Math.sin(lat * Math.PI / 180);
       const labelText = lat === 90 ? '90°N' : '90°S';
       const sprite = createTextSprite(labelText, labelScale);
       sprite.position.set(0, y, 0);
@@ -43,22 +62,19 @@ export function createLatLonGrid(radius) {
       continue;
     }
 
-    const phi = THREE.MathUtils.degToRad(lat);
+    const phi = lat * Math.PI / 180;
     const y = gridRadius * Math.sin(phi);
     const r = gridRadius * Math.cos(phi);
 
-    const segments = 128; // High resolution circles
-    for (let i = 0; i < segments; i++) {
-      const theta1 = (i / segments) * Math.PI * 2;
-      const theta2 = ((i + 1) / segments) * Math.PI * 2;
+    for (let i = 0; i < latSegments; i++) {
+      const c1 = latTrig[i * 2], s1 = latTrig[i * 2 + 1];
+      const c2 = latTrig[(i + 1) * 2], s2 = latTrig[(i + 1) * 2 + 1];
 
-      allPoints.push(
-        r * Math.cos(theta1), y, r * Math.sin(theta1),
-        r * Math.cos(theta2), y, r * Math.sin(theta2)
-      );
+      allPoints[pIdx++] = r * c1; allPoints[pIdx++] = y; allPoints[pIdx++] = r * s1;
+      allPoints[pIdx++] = r * c2; allPoints[pIdx++] = y; allPoints[pIdx++] = r * s2;
     }
 
-    // Latitude Label placed on the "Prime Meridian" of the sphere (x=r, z=0)
+    // Latitude Label
     const labelText = lat === 0 ? '0°' : `${Math.abs(lat)}°${lat > 0 ? 'N' : 'S'}`;
     const sprite = createTextSprite(labelText, labelScale);
     const labelRadius = r * 1.005;
@@ -66,41 +82,56 @@ export function createLatLonGrid(radius) {
     group.add(sprite);
   }
 
+  // Pre-calculate trig for longitude segments
+  const lonSegments = 64;
+  const lonTrig = new Float32Array((lonSegments + 1) * 2);
+  for (let i = 0; i <= lonSegments; i++) {
+    const phi = (i / lonSegments) * Math.PI - Math.PI / 2;
+    lonTrig[i * 2] = Math.cos(phi);
+    lonTrig[i * 2 + 1] = Math.sin(phi);
+  }
+
   // Longitudes (0 to 330, every 30 degrees)
   for (let lon = 0; lon < 360; lon += 30) {
-    const theta = THREE.MathUtils.degToRad(-lon);
-    const segments = 64;
-    for (let i = 0; i < segments; i++) {
-      const phi1 = (i / segments) * Math.PI - Math.PI / 2;
-      const phi2 = ((i + 1) / segments) * Math.PI - Math.PI / 2;
+    const theta = -lon * Math.PI / 180;
+    const cosTheta = Math.cos(theta);
+    const sinTheta = Math.sin(theta);
 
-      const x1 = gridRadius * Math.cos(phi1) * Math.cos(theta);
-      const y1 = gridRadius * Math.sin(phi1);
-      const z1 = gridRadius * Math.cos(phi1) * Math.sin(theta);
+    for (let i = 0; i < lonSegments; i++) {
+      const c1 = lonTrig[i * 2], s1 = lonTrig[i * 2 + 1];
+      const c2 = lonTrig[(i + 1) * 2], s2 = lonTrig[(i + 1) * 2 + 1];
 
-      const x2 = gridRadius * Math.cos(phi2) * Math.cos(theta);
-      const y2 = gridRadius * Math.sin(phi2);
-      const z2 = gridRadius * Math.cos(phi2) * Math.sin(theta);
+      allPoints[pIdx++] = gridRadius * c1 * cosTheta;
+      allPoints[pIdx++] = gridRadius * s1;
+      allPoints[pIdx++] = gridRadius * c1 * sinTheta;
 
-      allPoints.push(x1, y1, z1, x2, y2, z2);
+      allPoints[pIdx++] = gridRadius * c2 * cosTheta;
+      allPoints[pIdx++] = gridRadius * s2;
+      allPoints[pIdx++] = gridRadius * c2 * sinTheta;
     }
 
-    // Longitude Label (placed on Equator)
+    // Longitude Label
     if (lon !== 0) {
       const sprite = createTextSprite(`${lon}°`, labelScale);
       const labelR = gridRadius * 1.005;
-      sprite.position.set(labelR * Math.cos(theta), 0, labelR * Math.sin(theta));
+      sprite.position.set(labelR * cosTheta, 0, labelR * sinTheta);
       group.add(sprite);
     }
   }
 
-  // Optimized: Create one LineSegments object instead of many individual Lines
   const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.Float32BufferAttribute(allPoints, 3));
+  geometry.setAttribute('position', new THREE.BufferAttribute(allPoints, 3));
   const segmentsMesh = new THREE.LineSegments(geometry, sharedLineMaterial);
   group.add(segmentsMesh);
 
   group.visible = false;
+
+  // Cache if unit radius
+  if (radius === 1.0) {
+    unitGridCache = group;
+    return group.clone();
+  }
+
   return group;
 }
 
