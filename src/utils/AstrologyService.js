@@ -25,6 +25,23 @@ const HELIOCENTRIC_PLANETS = ['mercury', 'venus', 'earth', 'mars', 'jupiter', 's
 const GEOCENTRIC_PLANETS = ['sun', 'moon', 'mercury', 'venus', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune'];
 const ALL_BODIES = ['sun', 'moon', 'mercury', 'venus', 'earth', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune'];
 
+export const BODY_TO_ID = {
+    sun: 0,
+    moon: 1,
+    mercury: 2,
+    venus: 3,
+    earth: 4,
+    mars: 5,
+    jupiter: 6,
+    saturn: 7,
+    uranus: 8,
+    neptune: 9
+};
+
+export const ID_TO_BODY = Object.fromEntries(
+    Object.entries(BODY_TO_ID).map(([name, id]) => [id, name])
+);
+
 export const ZODIAC_ELEMENTS = {
     aries: 'fire', leo: 'fire', sagittarius: 'fire',
     taurus: 'earth', virgo: 'earth', capricorn: 'earth',
@@ -53,6 +70,9 @@ const _pElements = {
     sinW: 0, cosW: 1, sinN: 0, cosN: 1, sinI: 0, cosI: 1
 };
 const _pPos = { x: 0, y: 0, z: 0, r: 0 };
+
+// Scratch variables for calculateAspects
+const _longitudes = new Float32Array(16);
 
 export class AstrologyService {
     static getSignAndDegree(longitude, target = {}) {
@@ -183,35 +203,49 @@ export class AstrologyService {
     static _aspectPool = Array.from({ length: 100 }, () => ({}));
     static _aspectPoolIdx = 0;
 
+    // Additional pool for aspect WRAPPERS {p1, p2, aspect}
+    static _wrapperPool = Array.from({ length: 100 }, () => ({ p1: '', p2: '', aspect: null }));
+    static _wrapperPoolIdx = 0;
+
     static calculateAspects(chart) {
         const aspects = [];
         this._aspectPoolIdx = 0;
+        this._wrapperPoolIdx = 0;
         const bodies = ALL_BODIES;
 
-        // Pre-calculate longitudes to avoid redundant math in inner loop
-        const longitudes = {};
+        // Pre-calculate longitudes to avoid redundant math and object lookups in inner loop
+        _longitudes.fill(-1);
         for (let i = 0; i < bodies.length; i++) {
-            const b = bodies[i];
-            const c = chart[b];
+            const name = bodies[i];
+            const c = chart[name];
             if (c) {
-                longitudes[b] = c.index * 30 + c.degree;
+                const id = BODY_TO_ID[name];
+                _longitudes[id] = c.index * 30 + c.degree;
             }
         }
 
         for (let i = 0; i < bodies.length; i++) {
             const b1 = bodies[i];
-            const long1 = longitudes[b1];
-            if (long1 === undefined) continue;
+            const id1 = BODY_TO_ID[b1];
+            const long1 = _longitudes[id1];
+            if (long1 === -1) continue;
 
             for (let j = i + 1; j < bodies.length; j++) {
                 const b2 = bodies[j];
-                const long2 = longitudes[b2];
-                if (long2 === undefined) continue;
+                const id2 = BODY_TO_ID[b2];
+                const long2 = _longitudes[id2];
+                if (long2 === -1) continue;
 
                 const aspect = this.findAspect(long1, long2, this._aspectPool[this._aspectPoolIdx]);
                 if (aspect) {
-                    aspects.push({ p1: b1, p2: b2, aspect: aspect });
+                    const wrapper = this._wrapperPool[this._wrapperPoolIdx];
+                    wrapper.p1 = b1;
+                    wrapper.p2 = b2;
+                    wrapper.aspect = aspect;
+                    aspects.push(wrapper);
+
                     this._aspectPoolIdx = (this._aspectPoolIdx + 1) % this._aspectPool.length;
+                    this._wrapperPoolIdx = (this._wrapperPoolIdx + 1) % this._wrapperPool.length;
                 }
             }
         }

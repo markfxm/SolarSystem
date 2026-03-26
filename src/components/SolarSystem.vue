@@ -185,9 +185,9 @@ const capturedImage = ref('')
 const showZodiac = ref(false) // Controls 3D features (Ring, Lines, Auras)
 const showTransitPanel = ref(false) // Controls UI Panel
 const showHolo = ref(false)
-const currentChart = ref({})
-const activeAspects = ref([])
-const elementBalance = ref({ fire: 0, earth: 0, air: 0, water: 0 })
+const currentChart = shallowRef({})
+const activeAspects = shallowRef([])
+const elementBalance = shallowRef({ fire: 0, earth: 0, air: 0, water: 0 })
 const dominantElement = ref('none')
 const showGrid = ref(false)
 const selectedPOI = ref(null)
@@ -853,17 +853,21 @@ onMounted(async () => {
       // Throttle heavy astrological calculations to ~10-12fps to save CPU
       // Also skip if time hasn't moved.
       if (frameCount % 5 === 0 && hasTimeMoved) {
-        // Optimization: Pass planetObjects to reuse already-calculated positions
+        // Optimization: Use shallowRef and update once to minimize reactivity overhead.
+        // Also reuse current objects for in-place updates.
         const chart = AstrologyService.calculateGeocentricChart(d, solar.planetObjects, currentChart.value)
         const aspects = AstrologyService.calculateAspects(chart)
         const vibe = AstrologyService.calculateElementBalance(chart, elementBalance.value)
 
-        // currentChart.value and elementBalance.value updated in-place by service
-        activeAspects.value = aspects
+        // Trigger reactivity only once for all 3 shallowRefs
+        currentChart.value = { ...chart }
+        elementBalance.value = { ...vibe.balance }
+        activeAspects.value = [...aspects]
+
         dominantElement.value = vibe.dominant
 
-        solar.aspectsManager.update(aspects)
-        solar.auraManager.update(chart, vibe.dominant, showZodiac.value)
+        solar.aspectsManager.update(activeAspects.value)
+        solar.auraManager.update(currentChart.value, vibe.dominant, showZodiac.value)
       }
     } else if (solar?.auraManager) {
       // Only call hideAll if it was previously visible (throttle/guard redundant calls)
