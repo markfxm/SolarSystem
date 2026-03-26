@@ -83,30 +83,57 @@ export class AstrologyService {
         return results;
     }
 
-    static calculateGeocentricChart(d, target = null) {
+    /**
+     * Calculates planetary longitudes relative to Earth.
+     * Performance Optimization: Can accept planetObjects (scene meshes) to reuse
+     * already-calculated positions, skipping expensive Keplerian math.
+     */
+    static calculateGeocentricChart(d, planetObjects = null, target = null) {
         const results = target || {};
 
-        // Use dedicated scratch variables to avoid being overwritten by planet loop
-        const earthElements = computeElements('earth', d, _earthElements);
-        const earthPos = computePosition(earthElements, 1, _earthPos);
+        let earthX = 0, earthY = 0;
+
+        if (planetObjects && planetObjects.earth) {
+            // Optimization: Reuse scene positions. In our coordinate system,
+            // x_ecliptic = world.x, y_ecliptic = -world.z
+            const earth = planetObjects.earth;
+            earthX = earth.position.x;
+            earthY = -earth.position.z;
+        } else {
+            const earthElements = computeElements('earth', d, _earthElements);
+            const earthPos = computePosition(earthElements, 1, _earthPos);
+            earthX = earthPos.x;
+            earthY = earthPos.y;
+        }
 
         for (let i = 0; i < GEOCENTRIC_PLANETS.length; i++) {
             const name = GEOCENTRIC_PLANETS[i];
             let relX, relY;
 
             if (name === 'sun') {
-                relX = -earthPos.x;
-                relY = -earthPos.y;
+                relX = -earthX;
+                relY = -earthY;
+            } else if (name === 'moon' && planetObjects && planetObjects.moon && planetObjects.earth) {
+                // Moon is already geocentric in our scene relative to Earth's mesh
+                // so we use its local position relative to Earth
+                const moon = planetObjects.moon;
+                const earth = planetObjects.earth;
+                relX = moon.position.x - earth.position.x;
+                relY = -(moon.position.z - earth.position.z);
             } else if (name === 'moon') {
                 const elements = computeElements('moon', d, _pElements);
                 const pPos = computePosition(elements, 1, _pPos);
                 relX = pPos.x;
                 relY = pPos.y;
+            } else if (planetObjects && planetObjects[name]) {
+                const p = planetObjects[name];
+                relX = p.position.x - earthX;
+                relY = -(p.position.z - earthY);
             } else {
                 const elements = computeElements(name, d, _pElements);
                 const pPos = computePosition(elements, 1, _pPos);
-                relX = pPos.x - earthPos.x;
-                relY = pPos.y - earthPos.y;
+                relX = pPos.x - earthX;
+                relY = pPos.y - earthY;
             }
 
             const longitudeRad = Math.atan2(relY, relX);
@@ -124,7 +151,11 @@ export class AstrologyService {
         return `${d}°${m.toString().padStart(2, '0')}'`;
     }
 
-    static findAspect(long1, long2) {
+    /**
+     * Finds if there is an aspect between two longitudes.
+     * Optimized: Returns a result from a scratch object pool to avoid allocations.
+     */
+    static findAspect(long1, long2, target = null) {
         let diff = Math.abs(long1 - long2);
         if (diff > 180) diff = 360 - diff;
 
@@ -134,15 +165,27 @@ export class AstrologyService {
             const data = entry[1];
             const orb = Math.abs(diff - data.angle);
             if (orb <= data.orb) {
-                // Return original data to include colorStr
-                return { type: entry[0], orb, ...data };
+                // Reuse target object if provided to avoid per-aspect allocations
+                const res = target || {};
+                res.type = entry[0];
+                res.orb = orb;
+                res.angle = data.angle;
+                res.color = data.color;
+                res.label = data.label;
+                res.colorStr = data.colorStr;
+                return res;
             }
         }
         return null;
     }
 
+    // Scratch pool for aspect results to avoid massive object churn in the loop
+    static _aspectPool = Array.from({ length: 100 }, () => ({}));
+    static _aspectPoolIdx = 0;
+
     static calculateAspects(chart) {
         const aspects = [];
+        this._aspectPoolIdx = 0;
         const bodies = ALL_BODIES;
 
         // Pre-calculate longitudes to avoid redundant math in inner loop
@@ -165,9 +208,10 @@ export class AstrologyService {
                 const long2 = longitudes[b2];
                 if (long2 === undefined) continue;
 
-                const aspect = this.findAspect(long1, long2);
+                const aspect = this.findAspect(long1, long2, this._aspectPool[this._aspectPoolIdx]);
                 if (aspect) {
                     aspects.push({ p1: b1, p2: b2, aspect: aspect });
+                    this._aspectPoolIdx = (this._aspectPoolIdx + 1) % this._aspectPool.length;
                 }
             }
         }
@@ -224,8 +268,14 @@ export class AstrologyService {
         };
     }
 
-    static calculateElementBalance(chart, targetBalance = null) {
+    /**
+     * Calculates the balance of elements based on the chart.
+     * Optimized: Updates targetBalance in-place and returns a result object.
+     */
+    static calculateElementBalance(chart, targetBalance = null, targetResult = null) {
         const balance = targetBalance || { fire: 0, earth: 0, air: 0, water: 0 };
+        const result = targetResult || { balance, dominant: 'none' };
+
         balance.fire = 0;
         balance.earth = 0;
         balance.air = 0;
@@ -247,7 +297,9 @@ export class AstrologyService {
             }
         }
 
-        return { balance, dominant };
+        result.balance = balance;
+        result.dominant = dominant;
+        return result;
     }
 
     static getArchetype(sunSignId, dominantElement) {

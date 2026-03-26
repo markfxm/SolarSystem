@@ -38,18 +38,6 @@ export class AspectLinesManager {
             this.lastResolution.copy(_resolution);
         }
 
-        // Pre-update matrices for all planets involved to ensure sync and avoid redundant calculations
-        // Reuse scratch Set to avoid per-frame allocations
-        _planetsToUpdate.clear();
-        for (let i = 0; i < aspects.length; i++) {
-            _planetsToUpdate.add(aspects[i].p1);
-            _planetsToUpdate.add(aspects[i].p2);
-        }
-        for (const name of _planetsToUpdate) {
-            const obj = this.planetObjects[name];
-            if (obj) obj.updateMatrixWorld();
-        }
-
         // Process aspects
         for (let i = 0; i < aspects.length; i++) {
             const item = aspects[i];
@@ -63,9 +51,12 @@ export class AspectLinesManager {
 
             if (!p1Obj || !p2Obj) continue;
 
-            // Use getWorldPosition with scratch variables for robustness and performance
-            p1Obj.getWorldPosition(_v1);
-            p2Obj.getWorldPosition(_v2);
+            // Performance Optimization: All planets are direct children of the scene
+            // and are updated earlier in the frame by timeController.
+            // Using .position directly instead of .getWorldPosition() saves matrix calculations
+            // and avoids O(N) traversals per planet per aspect.
+            _v1.copy(p1Obj.position);
+            _v2.copy(p2Obj.position);
 
             if (!this.lines.has(key)) {
                 // Create new line using Line2
