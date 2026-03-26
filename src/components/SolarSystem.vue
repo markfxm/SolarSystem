@@ -746,7 +746,8 @@ onMounted(async () => {
 
         if (planetMesh && poi.dot) {
           poi.dot.getWorldPosition(_poiWorldPos);
-          planetMesh.getWorldPosition(_planetWorldPos);
+          // Optimization: Reuse mesh.position as world position since planets are direct children of the scene
+          _planetWorldPos.copy(planetMesh.position);
 
           // Occlusion check
           _normal.copy(_poiWorldPos).sub(_planetWorldPos).normalize();
@@ -852,7 +853,8 @@ onMounted(async () => {
       // Throttle heavy astrological calculations to ~10-12fps to save CPU
       // Also skip if time hasn't moved.
       if (frameCount % 5 === 0 && hasTimeMoved) {
-        const chart = AstrologyService.calculateGeocentricChart(d, currentChart.value)
+        // Optimization: Pass planetObjects to reuse already-calculated positions
+        const chart = AstrologyService.calculateGeocentricChart(d, solar.planetObjects, currentChart.value)
         const aspects = AstrologyService.calculateAspects(chart)
         const vibe = AstrologyService.calculateElementBalance(chart, elementBalance.value)
 
