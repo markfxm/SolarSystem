@@ -198,6 +198,7 @@ const poiDragStartOffset = { x: 0, y: 0 }
 
 
 const poiUI = reactive({
+  id: '',
   visible: false,
   x: 0,
   y: 0,
@@ -241,6 +242,8 @@ let planetsWithPOIs = []
 
 // Scratch variables for POI projection to minimize GC
 const _poiWorldPos = new THREE.Vector3()
+let _lastPoiX = -1;
+let _lastPoiY = -1;
 const _planetWorldPos = new THREE.Vector3()
 const _normal = new THREE.Vector3()
 const _viewDir = new THREE.Vector3()
@@ -759,40 +762,49 @@ onMounted(async () => {
             const x = (_tempV.x * 0.5 + 0.5) * window.innerWidth;
             const y = (-(_tempV.y * 0.5) + 0.5) * window.innerHeight;
 
-            _tempV.copy(_planetWorldPos).project(engine.camera);
-            const px = (_tempV.x * 0.5 + 0.5) * window.innerWidth;
+            // Performance Boost: Only update reactive UI state if position moved significantly (>0.1px)
+            // This eliminates hundreds of redundant SVG path recalculations and Vue reactivity triggers
+            // per second during slow movements or when the camera is nearly stationary.
+            if (Math.abs(x - _lastPoiX) > 0.1 || Math.abs(y - _lastPoiY) > 0.1 || poiUI.id !== poi.poiId) {
+              _lastPoiX = x;
+              _lastPoiY = y;
+              poiUI.id = poi.poiId;
 
-            // Side logic: panel is either to the left or right of the POI
-            const side = poiUI.initialSide;
-            const panelWidth = 280;
-            const marginX = 100;
-            const marginY = -120; // Default height offset
+              _tempV.copy(_planetWorldPos).project(engine.camera);
+              const px = (_tempV.x * 0.5 + 0.5) * window.innerWidth;
 
-            // Current Panel position
-            let panelX = (side === 'left') ? (x - panelWidth - marginX) : (x + marginX);
-            let panelY = y + marginY;
+              // Side logic: panel is either to the left or right of the POI
+              const side = poiUI.initialSide;
+              const panelWidth = 280;
+              const marginX = 100;
+              const marginY = -120; // Default height offset
 
-            // Apply drag offset
-            panelX += poiDragOffset.value.x;
-            panelY += poiDragOffset.value.y;
+              // Current Panel position
+              let panelX = (side === 'left') ? (x - panelWidth - marginX) : (x + marginX);
+              let panelY = y + marginY;
 
-            // Flip side if dragged across the POI
-            const currentSide = (panelX + panelWidth / 2 < x) ? 'left' : 'right';
+              // Apply drag offset
+              panelX += poiDragOffset.value.x;
+              panelY += poiDragOffset.value.y;
 
-            // Optimized: Update reactive properties directly to eliminate per-frame object allocations
-            poiUI.visible = true;
-            poiUI.x = x;
-            poiUI.y = y;
-            poiUI.side = currentSide;
-            poiUI.panelX = panelX;
-            poiUI.panelY = panelY;
+              // Flip side if dragged across the POI
+              const currentSide = (panelX + panelWidth / 2 < x) ? 'left' : 'right';
 
-            // 3-Point Path: POI -> Near Top Corner -> Far Top Corner
-            // Optimized: Inline coordinate math in the template string to avoid p1/p2/p3 object creation
-            if (currentSide === 'left') {
-              poiUI.linePath = `M ${x} ${y} L ${panelX + panelWidth} ${panelY} L ${panelX} ${panelY}`;
-            } else {
-              poiUI.linePath = `M ${x} ${y} L ${panelX} ${panelY} L ${panelX + panelWidth} ${panelY}`;
+              // Optimized: Update reactive properties directly to eliminate per-frame object allocations
+              poiUI.visible = true;
+              poiUI.x = x;
+              poiUI.y = y;
+              poiUI.side = currentSide;
+              poiUI.panelX = panelX;
+              poiUI.panelY = panelY;
+
+              // 3-Point Path: POI -> Near Top Corner -> Far Top Corner
+              // Optimized: Inline coordinate math in the template string to avoid p1/p2/p3 object creation
+              if (currentSide === 'left') {
+                poiUI.linePath = `M ${x} ${y} L ${panelX + panelWidth} ${panelY} L ${panelX} ${panelY}`;
+              } else {
+                poiUI.linePath = `M ${x} ${y} L ${panelX} ${panelY} L ${panelX + panelWidth} ${panelY}`;
+              }
             }
           } else {
             poiUI.visible = false;
