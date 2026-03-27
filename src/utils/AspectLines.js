@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { Line2 } from 'three/examples/jsm/lines/Line2.js';
 import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js';
 import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
-import { ASPECT_TYPES } from './AstrologyService.js';
+import { ASPECT_TYPES, BODY_TO_ID } from './AstrologyService.js';
 
 // Pre-allocated scratch variables to eliminate per-frame GC pressure
 const _v1 = new THREE.Vector3();
@@ -42,8 +42,11 @@ export class AspectLinesManager {
         for (let i = 0; i < aspects.length; i++) {
             const item = aspects[i];
 
-            // Robust key generation that doesn't rely on input order but avoids array allocation
-            const key = item.p1 < item.p2 ? item.p1 + '-' + item.p2 : item.p2 + '-' + item.p1;
+            // Optimized key generation using bit-shifting of body IDs.
+            // This avoids constant string concatenation in the 60fps astrology loop.
+            const id1 = BODY_TO_ID[item.p1];
+            const id2 = BODY_TO_ID[item.p2];
+            const key = id1 < id2 ? (id1 << 8) | id2 : (id2 << 8) | id1;
             _activeKeys.add(key);
 
             const p1Obj = this.planetObjects[item.p1];

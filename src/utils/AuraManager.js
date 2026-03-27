@@ -68,6 +68,10 @@ export class AuraManager {
 
         const time = performance.now() * 0.001;
 
+        // Pre-calculate pulse values to save thousands of Math.sin calls in aggregate
+        const pulseNormal = Math.sin(time * 1.5) * 0.1;
+        const pulseDominant = Math.sin(time * 3.0) * 0.1;
+
         // Use for...in to avoid array allocations from keys/entries
         for (const name in chart) {
             const mesh = this.planetObjects[name];
@@ -90,9 +94,9 @@ export class AuraManager {
             }
 
             // Dynamic pulse based on if it's the dominant element
-            const pulseSpeed = (element === dominantElement) ? 3.0 : 1.5;
-            const pulseBase = (element === dominantElement) ? 1.4 : 1.25;
-            const scale = pulseBase + Math.sin(time * pulseSpeed) * 0.1;
+            const isDominant = element === dominantElement;
+            const pulseBase = isDominant ? 1.4 : 1.25;
+            const scale = pulseBase + (isDominant ? pulseDominant : pulseNormal);
 
             // Correctly calculate the size based on geometry radius
             // Cache the radius to avoid recomputing bounding sphere every frame
