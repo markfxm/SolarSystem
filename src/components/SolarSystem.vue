@@ -862,7 +862,7 @@ onMounted(async () => {
         // Trigger reactivity only once for all 3 shallowRefs
         currentChart.value = { ...chart }
         elementBalance.value = { ...vibe.balance }
-        activeAspects.value = [...aspects]
+        activeAspects.value = aspects
 
         dominantElement.value = vibe.dominant
 

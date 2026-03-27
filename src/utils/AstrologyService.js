@@ -38,10 +38,6 @@ export const BODY_TO_ID = {
     neptune: 9
 };
 
-export const ID_TO_BODY = Object.fromEntries(
-    Object.entries(BODY_TO_ID).map(([name, id]) => [id, name])
-);
-
 export const ZODIAC_ELEMENTS = {
     aries: 'fire', leo: 'fire', sagittarius: 'fire',
     taurus: 'earth', virgo: 'earth', capricorn: 'earth',
