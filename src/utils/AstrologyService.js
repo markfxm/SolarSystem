@@ -311,10 +311,13 @@ export class AstrologyService {
         balance.air = 0;
         balance.water = 0;
 
-        for (const name in chart) {
+        for (let i = 0; i < GEOCENTRIC_PLANETS.length; i++) {
+            const name = GEOCENTRIC_PLANETS[i];
             const info = chart[name];
-            const element = ZODIAC_ELEMENTS[info.signId];
-            if (element) balance[element]++;
+            if (info) {
+                const element = ZODIAC_ELEMENTS[info.signId];
+                if (element) balance[element]++;
+            }
         }
 
         let maxVal = -1;

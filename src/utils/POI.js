@@ -99,7 +99,11 @@ export function updatePOIs(group, camera, planetPosition) {
 
   const distSq = camera.position.distanceToSquared(planetPosition);
   const isVisible = distSq < 1600;
-  group.visible = isVisible;
+
+  // Optimized: Only update visibility if it changed to avoid redundant Three.js state updates
+  if (group.visible !== isVisible) {
+    group.visible = isVisible;
+  }
 
   if (isVisible) {
     const children = group.children;

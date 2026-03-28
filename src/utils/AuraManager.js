@@ -8,6 +8,7 @@ export class AuraManager {
     constructor(scene, planetObjects) {
         this.scene = scene;
         this.planetObjects = planetObjects;
+        this.planetNames = Object.keys(planetObjects);
         this.auras = new Map(); // name -> sprite
 
         this.colors = {
@@ -72,10 +73,11 @@ export class AuraManager {
         const pulseNormal = Math.sin(time * 1.5) * 0.1;
         const pulseDominant = Math.sin(time * 3.0) * 0.1;
 
-        // Use for...in to avoid array allocations from keys/entries
-        for (const name in chart) {
+        // Use a standard for loop to avoid object property lookup/iteration overhead
+        for (let i = 0; i < this.planetNames.length; i++) {
+            const name = this.planetNames[i];
             const mesh = this.planetObjects[name];
-            if (!mesh) continue;
+            if (!mesh || !chart[name]) continue;
 
             const signId = chart[name].signId;
             const element = ZODIAC_ELEMENTS[signId];
