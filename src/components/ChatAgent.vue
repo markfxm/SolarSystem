@@ -24,6 +24,7 @@
           <div class="status-dot" :class="{ 'is-ready': isReady }"></div>
           <h3>{{ t('chat.title') }}</h3>
           <span v-if="isReady" class="mode-badge">{{ chatService.mode.toUpperCase() }}</span>
+          <span v-else-if="hasStartedInit" class="mode-badge book-mode">BOOKS</span>
         </div>
         <button class="close-btn" @click="isOpen = false">×</button>
       </div>
@@ -55,7 +56,7 @@
         </template>
 
         <!-- Loading Overlay with Circular Progress -->
-        <div v-if="loadingModel" class="loading-overlay">
+        <div v-if="loadingModel" class="loading-overlay pointer-events-none">
           <div class="progress-circle-container">
             <svg class="progress-circle" viewBox="0 0 100 100">
               <circle class="circle-bg" cx="50" cy="50" r="45"></circle>
@@ -77,12 +78,12 @@
           v-model="userInput"
           :placeholder="t('chat.placeholder')"
           @keydown.enter.prevent="sendMessage"
-          :disabled="!isReady || isTyping"
+          :disabled="(!isReady && !hasStartedInit) || isTyping"
         ></textarea>
         <button
           class="send-btn"
           @click="sendMessage"
-          :disabled="!isReady || isTyping || !userInput.trim()"
+          :disabled="( !isReady && !hasStartedInit ) || isTyping || !userInput.trim()"
         >
           {{ t('chat.send') }}
         </button>
@@ -166,8 +167,7 @@ const initializeAI = async () => {
   try {
     await chatService.init((p) => {
       initProgress.value = p.progress
-    })
-    isReady.value = true
+    }, isReady)
     messages.value.push({ role: 'assistant', content: t('chat.welcome') })
   } catch (e) {
     console.error('AI Init Error:', e)
@@ -180,7 +180,8 @@ const initializeAI = async () => {
 }
 
 const sendMessage = async () => {
-  if (!userInput.value.trim() || !isReady.value || isTyping.value) return
+  if (!userInput.value.trim() || isTyping.value) return
+  if (!isReady.value && !hasStartedInit.value) return
 
   const userText = userInput.value.trim()
   messages.value.push({ role: 'user', content: userText })
@@ -486,7 +487,8 @@ onUnmounted(() => {
 .loading-overlay {
   position: absolute;
   inset: 0;
-  background: rgba(10, 10, 20, 0.9);
+  background: rgba(10, 10, 20, 0.7);
+  pointer-events: none;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -500,6 +502,12 @@ onUnmounted(() => {
   padding: 12px;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
   flex-shrink: 0;
+}
+
+.mode-badge.book-mode {
+  background: rgba(var(--glow-rgb), 0.2);
+  color: var(--glow-color);
+  border: 1px solid rgba(var(--glow-rgb), 0.3);
 }
 
 textarea {
