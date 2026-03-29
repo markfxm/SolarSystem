@@ -45,6 +45,10 @@ export const ZODIAC_ELEMENTS = {
     cancer: 'water', scorpio: 'water', pisces: 'water'
 };
 
+// Optimization: Pre-indexed element lookup to avoid string key lookups in 60fps loops
+export const ELEMENTS = ['fire', 'earth', 'air', 'water'];
+export const ELEMENT_BY_INDEX = ['fire', 'earth', 'air', 'water', 'fire', 'earth', 'air', 'water', 'fire', 'earth', 'air', 'water'];
+
 const ASPECT_PRIORITY = {
     'CONJUNCTION': 1,
     'OPPOSITION': 2,
@@ -301,6 +305,7 @@ export class AstrologyService {
     /**
      * Calculates the balance of elements based on the chart.
      * Optimized: Updates targetBalance in-place and returns a result object.
+     * Performance: Uses O(1) numeric lookups and standard for loops to minimize GC/CPU overhead.
      */
     static calculateElementBalance(chart, targetBalance = null, targetResult = null) {
         const balance = targetBalance || { fire: 0, earth: 0, air: 0, water: 0 };
@@ -315,14 +320,17 @@ export class AstrologyService {
             const name = GEOCENTRIC_PLANETS[i];
             const info = chart[name];
             if (info) {
-                const element = ZODIAC_ELEMENTS[info.signId];
+                // Optimization: Use pre-indexed element lookup instead of string key
+                const element = ELEMENT_BY_INDEX[info.index];
                 if (element) balance[element]++;
             }
         }
 
         let maxVal = -1;
         let dominant = 'none';
-        for (const el in balance) {
+        // Optimization: Use standard for loop over elements array to avoid for...in overhead
+        for (let i = 0; i < ELEMENTS.length; i++) {
+            const el = ELEMENTS[i];
             const count = balance[el];
             if (count > maxVal) {
                 maxVal = count;

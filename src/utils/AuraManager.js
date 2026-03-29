@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { ZODIAC_ELEMENTS } from './AstrologyService.js';
+import { ELEMENT_BY_INDEX } from './AstrologyService.js';
 
 /**
  * Manages glowing "Auras" around planets based on their astrological elements.
@@ -77,10 +77,11 @@ export class AuraManager {
         for (let i = 0; i < this.planetNames.length; i++) {
             const name = this.planetNames[i];
             const mesh = this.planetObjects[name];
-            if (!mesh || !chart[name]) continue;
+            const info = chart[name];
+            if (!mesh || !info) continue;
 
-            const signId = chart[name].signId;
-            const element = ZODIAC_ELEMENTS[signId];
+            // Optimization: Use pre-indexed element lookup instead of string key from AstrologyService
+            const element = ELEMENT_BY_INDEX[info.index];
 
             let aura = this.auras.get(name);
             if (!aura) {
