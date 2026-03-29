@@ -312,26 +312,42 @@ export function createMarsSurface(renderer, options = {}) {
 
   function updateParticles(delta) {
     const positions = particleGeo.attributes.position.array
+    const velocities = particleVelocities
     const camX = camera.position.x
     const camY = camera.position.y
     const camZ = camera.position.z
     const range = 100 // Half-size of the box around camera
+    const doubleRange = range * 2
+
+    // Pre-calculate boundaries to avoid redundant additions in the loop
+    const minX = camX - range, maxX = camX + range
+    const minY = camY - range, maxY = camY + range
+    const minZ = camZ - range, maxZ = camZ + range
 
     for (let i = 0; i < particleCount; i++) {
+      const i3 = i * 3
+      const i31 = i3 + 1
+      const i32 = i3 + 2
+
       // 1. Move particles by their velocity (drifting)
-      positions[i * 3] += particleVelocities[i * 3] * delta
-      positions[i * 3 + 1] += particleVelocities[i * 3 + 1] * delta
-      positions[i * 3 + 2] += particleVelocities[i * 3 + 2] * delta
+      // Optimized: Use local variables to minimize TypedArray access
+      let px = positions[i3] + velocities[i3] * delta
+      let py = positions[i31] + velocities[i31] * delta
+      let pz = positions[i32] + velocities[i32] * delta
 
       // 2. Wrap world positions around camera to keep them local but in world space
-      if (positions[i * 3] > camX + range) positions[i * 3] -= range * 2
-      else if (positions[i * 3] < camX - range) positions[i * 3] += range * 2
+      if (px > maxX) px -= doubleRange
+      else if (px < minX) px += doubleRange
 
-      if (positions[i * 3 + 1] > camY + range) positions[i * 3 + 1] -= range * 2
-      else if (positions[i * 3 + 1] < camY - range) positions[i * 3 + 1] += range * 2
+      if (py > maxY) py -= doubleRange
+      else if (py < minY) py += doubleRange
 
-      if (positions[i * 3 + 2] > camZ + range) positions[i * 3 + 2] -= range * 2
-      else if (positions[i * 3 + 2] < camZ - range) positions[i * 3 + 2] += range * 2
+      if (pz > maxZ) pz -= doubleRange
+      else if (pz < minZ) pz += doubleRange
+
+      positions[i3] = px
+      positions[i31] = py
+      positions[i32] = pz
     }
     particleGeo.attributes.position.needsUpdate = true
   }
@@ -522,8 +538,9 @@ export function createMarsSurface(renderer, options = {}) {
     }
 
     // Path recording
-    const dist = camera.position.distanceTo(lastPosition)
-    if (dist > 5) {
+    // Performance Optimization: Use squared distance to avoid Math.sqrt in the hot path
+    const distSq = camera.position.distanceToSquared(lastPosition)
+    if (distSq > 25) { // 5^2
       recordPoint(camera.position)
     }
 

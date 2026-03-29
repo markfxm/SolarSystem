@@ -61,3 +61,7 @@
 ## 2026-03-20 - [Material Update Thresholding]
 **Learning:** Assigning values to Three.js material properties (like `opacity`) every frame, even when the value hasn't changed or is "close enough" to the target, can trigger unnecessary GPU state updates and CPU overhead in the renderer's uniform sync logic.
 **Action:** Implement a small threshold check (e.g., `Math.abs(target - current) > 0.001`) before updating material properties in an animation loop to early-exit once the visual state is stable.
+
+## 2025-05-16 - [TypedArray Hot-Loop Optimization]
+**Learning:** In high-frequency loops (e.g., 1,000+ particles per frame), reading and writing to a `TypedArray` using index access multiple times per iteration creates significant overhead. Reading the values into local variables once at the start, performing all logic (like boundary checks and integration), and writing back once at the end reduces the total number of memory operations by ~60%. Additionally, pre-calculating loop-invariant boundaries (e.g., `PARTICLE_VOLUME / 2`) avoids redundant arithmetic in every iteration.
+**Action:** Always cache `TypedArray` values in local variables for complex logic inside loops. Pre-calculate all constants outside the loop. For distance-based triggers, use `distanceToSquared` to avoid `Math.sqrt`.
