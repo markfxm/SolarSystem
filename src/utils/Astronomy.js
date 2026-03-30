@@ -240,8 +240,9 @@ export function computePosition(elements, scale = 10, target = null) {
     const cosI = elements.cosI;
     const sinI = elements.sinI;
 
-    x = xOrb * cosN - yOrb * cosI * sinN;
-    y = xOrb * sinN + yOrb * cosI * cosN;
+    const yOrbCosI = yOrb * cosI;
+    x = xOrb * cosN - yOrbCosI * sinN;
+    y = xOrb * sinN + yOrbCosI * cosN;
     z = yOrb * sinI;
   }
 
