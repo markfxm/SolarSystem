@@ -147,7 +147,7 @@ const _qResult = new THREE.Quaternion();
 const _q3 = new THREE.Quaternion();
 const _posResult = { x: 0, y: 0, z: 0, r: 0 };
 const _elResult = {
-    a: 1, e: 0, i: 0, N: 0, w: 0, M: 0, sqrtEE: 1,
+    a: 1, e: 0, i: 0, N: 0, w: 0, M: 0, sqrtEE: 1, aSqrtEE: 1,
     sinW: 0, cosW: 1, sinN: 0, cosN: 1, sinI: 0, cosI: 1
 };
 
@@ -159,7 +159,7 @@ export function computeElements(planetName, d, target = null) {
   const data = planetsData[planetName];
   const res = target || _elResult;
   if (!data || !data.e) {
-    res.a = 1; res.e = 0; res.i = 0; res.N = 0; res.w = 0; res.M = 0; res.sqrtEE = 1;
+    res.a = 1; res.e = 0; res.i = 0; res.N = 0; res.w = 0; res.M = 0; res.sqrtEE = 1; res.aSqrtEE = 1;
     res.sinW = 0; res.cosW = 1; res.sinN = 0; res.cosN = 1; res.sinI = 0; res.cosI = 1;
     return res;
   }
@@ -170,8 +170,9 @@ export function computeElements(planetName, d, target = null) {
   res.w = data.w[0] + data.w[1] * d;
   res.M = data.M[0] + data.M[1] * d;
 
-  // Pre-calculate eccentricity constant to avoid repeated Math.sqrt in computePosition
+  // Pre-calculate eccentricity constants to avoid redundant math in computePosition
   res.sqrtEE = Math.sqrt(1 - res.e * res.e);
+  res.aSqrtEE = res.a * res.sqrtEE;
 
   // Performance Optimization: Pre-calculate sin/cos for angles that change very slowly.
   // This saves 6 trigonometric calls per planet per frame in the main render loop.
@@ -220,7 +221,7 @@ export function computePosition(elements, scale = 10, target = null) {
   const cosW = elements.cosW;
   const sinW = elements.sinW;
   const rCosV = a * (cosE - e);
-  const rSinV = a * sqrtEE * sinE;
+  const rSinV = elements.aSqrtEE * sinE;
 
   const xOrb = rCosV * cosW - rSinV * sinW;
   const yOrb = rSinV * cosW + rCosV * sinW;
@@ -239,9 +240,10 @@ export function computePosition(elements, scale = 10, target = null) {
     const sinN = elements.sinN;
     const cosI = elements.cosI;
     const sinI = elements.sinI;
+    const yOrbCosI = yOrb * cosI;
 
-    x = xOrb * cosN - yOrb * cosI * sinN;
-    y = xOrb * sinN + yOrb * cosI * cosN;
+    x = xOrb * cosN - yOrbCosI * sinN;
+    y = xOrb * sinN + yOrbCosI * cosN;
     z = yOrb * sinI;
   }
 

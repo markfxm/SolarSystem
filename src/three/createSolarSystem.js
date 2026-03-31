@@ -168,7 +168,7 @@ export async function createSolarSystem(scene, zodiacNames = [], onProgress = ()
   const starCount = 15000;
   const starVertices = new Float32Array(starCount * 3);
   for (let i = 0; i < starCount * 3; i++) {
-    starVertices[i] = (Math.random() - 0.5) * 200000;
+    starVertices[i] = Math.random() * 200000 - 100000;
   }
   starGeo.setAttribute('position', new THREE.BufferAttribute(starVertices, 3))
   const starPoints = new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 2 }))

@@ -18,15 +18,15 @@ export function createNebula(position) {
     // 1. Position calculation
     const radius = 40000 + Math.random() * 80000; // Shell distribution: 40k to 120k
     const theta = Math.random() * Math.PI * 2;
-    const phi = Math.acos(2 * Math.random() - 1);
 
-    // Optimized: Reuse trig results
-    const sinPhi = Math.sin(phi);
-    const cosPhi = Math.cos(phi);
+    // Optimized: Use direct spherical coordinate math to avoid Math.acos, Math.sin, and Math.cos
+    const cosPhi = 2 * Math.random() - 1;
+    const sinPhi = Math.sqrt(1 - cosPhi * cosPhi);
+    const rSinPhi = radius * sinPhi;
 
     const idx3 = i * 3;
-    nebulaPositions[idx3] = radius * sinPhi * Math.cos(theta);
-    nebulaPositions[idx3 + 1] = radius * sinPhi * Math.sin(theta);
+    nebulaPositions[idx3] = rSinPhi * Math.cos(theta);
+    nebulaPositions[idx3 + 1] = rSinPhi * Math.sin(theta);
     nebulaPositions[idx3 + 2] = radius * cosPhi;
 
     // 2. Color and Size calculation (Merged from second loop)
