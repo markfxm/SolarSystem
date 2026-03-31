@@ -41,16 +41,19 @@ export function createEllipticalOrbit(
   const cosW = Math.cos(w)
   const sinW = Math.sin(w)
   const sqrtEE = Math.sqrt(1 - e * e)
+  const aSqrtEE = a * sqrtEE
+  const TWO_PI = Math.PI * 2
+  const step = TWO_PI / segments
 
   // Fast-path for planets with zero inclination (e.g. Earth)
   const isZeroInclination = (i === 0 && N === 0)
 
   for (let k = 0; k <= segments; k++) {
     // Sweep mean anomaly from 0 to 2π
-    let M = (k / segments) * 2 * Math.PI
+    let M = k * step
 
     // Keep M in [-π, π]
-    M = M - Math.floor(M / (2 * Math.PI) + 0.5) * 2 * Math.PI
+    M = M - Math.floor(M / TWO_PI + 0.5) * TWO_PI
 
     // Solve Kepler's equation with early exit for low eccentricity
     let E = M
@@ -71,7 +74,7 @@ export function createEllipticalOrbit(
     // r*sin(v) = a * sqrt(1 - e^2) * sinE
     // This eliminates ~1000 divisions and redundant trig calls per orbit.
     const rCosV = a * (cosE - e)
-    const rSinV = a * sqrtEE * sinE
+    const rSinV = aSqrtEE * sinE
 
     const xOrb = rCosV * cosW - rSinV * sinW
     const yOrb = rSinV * cosW + rCosV * sinW
@@ -82,8 +85,9 @@ export function createEllipticalOrbit(
       y = yOrb
       z = 0
     } else {
-      x = xOrb * cosN - yOrb * cosI * sinN
-      y = xOrb * sinN + yOrb * cosI * cosN
+      const yOrbCosI = yOrb * cosI
+      x = xOrb * cosN - yOrbCosI * sinN
+      y = xOrb * sinN + yOrbCosI * cosN
       z = yOrb * sinI
     }
 

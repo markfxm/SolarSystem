@@ -172,6 +172,7 @@ export function computeElements(planetName, d, target = null) {
 
   // Pre-calculate eccentricity constant to avoid repeated Math.sqrt in computePosition
   res.sqrtEE = Math.sqrt(1 - res.e * res.e);
+  res.aSqrtEE = res.a * res.sqrtEE;
 
   // Performance Optimization: Pre-calculate sin/cos for angles that change very slowly.
   // This saves 6 trigonometric calls per planet per frame in the main render loop.
@@ -220,7 +221,7 @@ export function computePosition(elements, scale = 10, target = null) {
   const cosW = elements.cosW;
   const sinW = elements.sinW;
   const rCosV = a * (cosE - e);
-  const rSinV = a * sqrtEE * sinE;
+  const rSinV = elements.aSqrtEE * sinE;
 
   const xOrb = rCosV * cosW - rSinV * sinW;
   const yOrb = rSinV * cosW + rCosV * sinW;
