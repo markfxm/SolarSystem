@@ -81,10 +81,11 @@ export function createZodiacRing(radius = 10000, initialNames = []) {
 
     // 1. The main ring line
     const ringSegments = 128;
+    const ringStep = (Math.PI * 2) / ringSegments;
     // Optimized: Use Float32Array directly instead of Curve.getPoints() to avoid object allocations
     const ringPoints = new Float32Array((ringSegments + 1) * 3);
     for (let i = 0; i <= ringSegments; i++) {
-        const theta = (i / ringSegments) * Math.PI * 2;
+        const theta = i * ringStep;
         const idx = i * 3;
         // Transform Ecliptic (XY-plane, Z-up) to World (XZ-plane, Y-up)
         ringPoints[idx] = Math.cos(theta) * radius;
@@ -111,9 +112,10 @@ export function createZodiacRing(radius = 10000, initialNames = []) {
 
     // 2. Dash/Tick marks every 30 degrees - Batched into a single LineSegments2
     const tickLength = radius * 0.02;
+    const tickStep = (30 * Math.PI) / 180;
     const tickPoints = new Float32Array(12 * 2 * 3); // 12 ticks, 2 points per tick, 3 components per point
     for (let i = 0; i < 12; i++) {
-        const angle = (i * 30) * Math.PI / 180;
+        const angle = i * tickStep;
         const cos = Math.cos(angle);
         const sin = Math.sin(angle);
 
@@ -151,8 +153,9 @@ export function createZodiacRing(radius = 10000, initialNames = []) {
     const sprites = [];
 
     // 3. Labels
+    const labelAngleOffset = (15 * Math.PI) / 180;
     for (let i = 0; i < 12; i++) {
-        const labelAngle = (i * 30 + 15) * Math.PI / 180; // Center label in the 30deg segment
+        const labelAngle = i * tickStep + labelAngleOffset; // Center label in the 30deg segment
         const labelRadius = radius * 1.05;
         const lx = Math.cos(labelAngle) * labelRadius;
         const ly = Math.sin(labelAngle) * labelRadius;
