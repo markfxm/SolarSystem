@@ -316,6 +316,7 @@ export function computeMoonPosition(d, target = null) {
   // We force 'a' to 1 so the result is effectively on a unit sphere (eccentricity aside),
   // which allows timeController to apply the visual radius (MOON_ORBIT_RADIUS).
   el.a = 1;
+  el.aSqrtEE = el.sqrtEE; // MUST update this too or rSinV becomes near zero!
 
   return computePosition(el, 1, target);
 }
