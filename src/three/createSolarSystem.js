@@ -155,11 +155,16 @@ export async function createSolarSystem(scene, zodiacNames = [], onProgress = ()
   // Initial positions & orientations
   const startD = computeD(new Date());
   Object.keys(planetObjects).forEach(name => {
+    // Moon position is handled geocentrically in timeController's update loop,
+    // and Sun stays at the origin. Skip initial placement for them here.
+    if (name === 'sun' || name === 'moon') {
+      planetObjects[name].setRotationFromQuaternion(computePlanetQuaternion(name, startD));
+      return;
+    }
+
     const el = computeElements(name, startD)
     const pos = computePosition(el, orbitScale)
-    if (name !== 'sun') {
-      planetObjects[name].position.set(pos.x, pos.y, pos.z)
-    }
+    planetObjects[name].position.set(pos.x, pos.y, pos.z)
     planetObjects[name].setRotationFromQuaternion(computePlanetQuaternion(name, startD));
   })
 
