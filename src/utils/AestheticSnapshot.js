@@ -2,7 +2,9 @@ import * as THREE from 'three'
 import { Line2 } from 'three/examples/jsm/lines/Line2.js'
 import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js'
 import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js'
-import { J2000_EPOCH, computeElements, computePosition } from './Astronomy.js'
+import { J2000_EPOCH, computeElements, computePosition, TWO_PI } from './Astronomy.js'
+
+const geometryCache = new Map()
 
 /**
  * Handles temporary transformations for a schematic "Blueprint" snapshot.
@@ -42,6 +44,9 @@ export class AestheticSnapshotManager {
             uranus: 12.43,
             neptune: 12.03
         }
+
+        // Performance Optimization: Instance-level material reuse
+        this.sharedMaterial = null
     }
 
     /**
@@ -63,28 +68,41 @@ export class AestheticSnapshotManager {
 
     /**
      * Create a thick circular schematic orbit line in the XY plane using Line2.
+     * Optimized: Uses geometry cache, Float32Array, and instance-level material.
      */
     createSchematicOrbit(radius) {
-        const points = []
+        let geometry = geometryCache.get(radius)
         const segments = 128
-        for (let i = 0; i <= segments; i++) {
-            const theta = (i / segments) * Math.PI * 2
-            points.push(Math.cos(theta) * radius, Math.sin(theta) * radius, 0)
+
+        if (!geometry) {
+            const points = new Float32Array((segments + 1) * 3)
+            const step = TWO_PI / segments
+
+            for (let i = 0; i <= segments; i++) {
+                const theta = i * step
+                const idx = i * 3
+                points[idx] = Math.cos(theta) * radius
+                points[idx + 1] = Math.sin(theta) * radius
+                points[idx + 2] = 0
+            }
+
+            geometry = new LineGeometry()
+            geometry.setPositions(points)
+            geometryCache.set(radius, geometry)
         }
 
-        const geometry = new LineGeometry()
-        geometry.setPositions(points)
+        if (!this.sharedMaterial) {
+            this.sharedMaterial = new LineMaterial({
+                color: this.config.orbitColor,
+                linewidth: this.config.orbitThickness,
+                transparent: true,
+                opacity: this.config.orbitOpacity,
+                depthWrite: false,
+                resolution: new THREE.Vector2(window.innerWidth, window.innerHeight)
+            })
+        }
 
-        const material = new LineMaterial({
-            color: this.config.orbitColor,
-            linewidth: this.config.orbitThickness,
-            transparent: true,
-            opacity: this.config.orbitOpacity,
-            depthWrite: false,
-            resolution: new THREE.Vector2(window.innerWidth, window.innerHeight)
-        })
-
-        const line = new Line2(geometry, material)
+        const line = new Line2(geometry, this.sharedMaterial)
         line.computeLineDistances()
         return line
     }
@@ -121,8 +139,11 @@ export class AestheticSnapshotManager {
         // 3. Transform Planets
         const d = (date.getTime() - J2000_EPOCH) / 86400000
 
-        Object.entries(this.planetObjects).forEach(([name, mesh]) => {
-            if (name === 'sun') return; // Skip sun in planetary loop
+        // Performance Optimization: Pre-calculate planet entries to avoid repeated object lookups
+        const planetEntries = Object.entries(this.planetObjects)
+        for (let i = 0; i < planetEntries.length; i++) {
+            const [name, mesh] = planetEntries[i]
+            if (name === 'sun') continue; // Skip sun in planetary loop
 
             // Save state
             this.originalStates.set(mesh, {
@@ -140,11 +161,6 @@ export class AestheticSnapshotManager {
 
             mesh.position.set(unitPos.x * uniformR, unitPos.y * uniformR, 0)
 
-            // Fix planet rotation for top-down view if needed? 
-            // In createSolarSystem they were rotated PI/2 around X.
-            // If we look from Z, we see them from the "top".
-            // That's what we want.
-
             // Adjust scale to reach target visual size
             const baseSize = this.baseSizes[name] || 1
             const pScale = this.config.targetVisualSize / baseSize
@@ -152,14 +168,22 @@ export class AestheticSnapshotManager {
 
             // Create and add schematic orbit
             const orbit = this.createSchematicOrbit(uniformR)
-            // Ensure material resolution is correct for capture later
-            orbit.material.resolution.set(3840, 2160) // High res for snapshot
             this.scene.add(orbit)
             this.tempOrbits.push(orbit)
-        })
+        }
+
+        // Performance Optimization: Update material resolution to high-res for capture
+        // We do this AFTER creation since creation ensures this.sharedMaterial exists.
+        if (this.sharedMaterial) {
+            this.sharedMaterial.resolution.set(3840, 2160)
+        }
 
         // 4. Transform Sun
-        const sun = this.scene.getObjectByName('sun')
+        // Performance Optimization: Cache the sun reference during the first apply call
+        if (!this.sun) {
+            this.sun = this.scene.getObjectByName('sun')
+        }
+        const sun = this.sun
         if (sun) {
             if (!this.originalStates.has(sun)) {
                 this.originalStates.set(sun, {
@@ -189,11 +213,22 @@ export class AestheticSnapshotManager {
             this.camera.updateProjectionMatrix()
         }
 
-        this.tempOrbits.forEach(orbit => {
-            this.scene.remove(orbit)
-            if (orbit.geometry) orbit.geometry.dispose()
-            if (orbit.material) orbit.material.dispose()
-        })
+        // Performance Optimization: Reset material resolution to viewport size
+        if (this.sharedMaterial) {
+            this.sharedMaterial.resolution.set(window.innerWidth, window.innerHeight)
+        }
+
+        for (let i = 0; i < this.tempOrbits.length; i++) {
+            this.scene.remove(this.tempOrbits[i])
+            // Do not dispose geometry as it is now cached.
+            // Material is owned by the instance, so we also don't dispose here.
+        }
         this.tempOrbits = []
+    }
+
+    dispose() {
+        if (this.sharedMaterial) {
+            this.sharedMaterial.dispose()
+        }
     }
 }

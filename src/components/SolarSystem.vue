@@ -571,6 +571,7 @@ async function onStellarCapture(date) {
   } finally {
     // Restore scene state
     aesthetic.restore()
+    aesthetic.dispose()
     // Restore orbit resolution to screen size
     updateOrbitResolution(window.innerWidth, window.innerHeight)
     // Restore UI
