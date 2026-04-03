@@ -169,7 +169,10 @@ export function computeElements(planetName, d, target = null) {
   res.i = data.i[0] + data.i[1] * d;
   res.N = data.N[0] + data.N[1] * d;
   res.w = data.w[0] + data.w[1] * d;
-  res.M = data.M[0] + data.M[1] * d;
+
+  // Normalize Mean Anomaly here to avoid redundant calculation in computePosition
+  let M = data.M[0] + data.M[1] * d;
+  res.M = M - Math.floor(M * INV_TWO_PI + 0.5) * TWO_PI;
 
   // Pre-calculate eccentricity constants to avoid redundant math in computePosition
   res.sqrtEE = Math.sqrt(1 - res.e * res.e);
@@ -180,24 +183,35 @@ export function computeElements(planetName, d, target = null) {
   // directly to the ecliptic plane, saving ~6 multiplications and 4 trig calls in the hot path.
   const sinW = Math.sin(res.w);
   const cosW = Math.cos(res.w);
-  const sinN = Math.sin(res.N);
-  const cosN = Math.cos(res.N);
-  const sinI = Math.sin(res.i);
-  const cosI = Math.cos(res.i);
 
-  const cosNcosW = cosN * cosW;
-  const cosNsinW = cosN * sinW;
-  const sinNcosW = sinN * cosW;
-  const sinNsinW = sinN * sinW;
-  const sinNcosI = sinN * cosI;
-  const cosNcosI = cosN * cosI;
+  // Optimization: Check for zero-inclination (e.g. Earth) to skip 4 trig calls and complex matrix math.
+  if (res.i === 0 && res.N === 0) {
+    res.Px = cosW;
+    res.Qx = -sinW;
+    res.Py = sinW;
+    res.Qy = cosW;
+    res.Pz = 0;
+    res.Qz = 0;
+  } else {
+    const sinN = Math.sin(res.N);
+    const cosN = Math.cos(res.N);
+    const sinI = Math.sin(res.i);
+    const cosI = Math.cos(res.i);
 
-  res.Px = cosNcosW - sinNcosI * sinW;
-  res.Qx = -cosNsinW - sinNcosI * cosW;
-  res.Py = sinNcosW + cosNcosI * sinW;
-  res.Qy = -sinNsinW + cosNcosI * cosW;
-  res.Pz = sinW * sinI;
-  res.Qz = cosW * sinI;
+    const cosNcosW = cosN * cosW;
+    const cosNsinW = cosN * sinW;
+    const sinNcosW = sinN * cosW;
+    const sinNsinW = sinN * sinW;
+    const sinNcosI = sinN * cosI;
+    const cosNcosI = cosN * cosI;
+
+    res.Px = cosNcosW - sinNcosI * sinW;
+    res.Qx = -cosNsinW - sinNcosI * cosW;
+    res.Py = sinNcosW + cosNcosI * sinW;
+    res.Qy = -sinNsinW + cosNcosI * cosW;
+    res.Pz = sinW * sinI;
+    res.Qz = cosW * sinI;
+  }
 
   return res;
 }
@@ -210,10 +224,7 @@ export function computePosition(elements, scale = 10, target = null) {
   const res = target || _posResult;
   const a = elements.a;
   const e = elements.e;
-  let M = elements.M;
-
-  // Optimized: Use INV_TWO_PI to replace division
-  M = M - Math.floor(M * INV_TWO_PI + 0.5) * TWO_PI;
+  const M = elements.M;
 
   // Solve Kepler's equation with early exit for low eccentricity
   let E = M;
