@@ -111,6 +111,7 @@ export const DEG2RAD = Math.PI / 180;
 export const RAD2DEG = 180 / Math.PI;
 export const TWO_PI = Math.PI * 2;
 export const INV_TWO_PI = 1.0 / TWO_PI;
+export const INV_MS_PER_DAY = 1.0 / 86400000;
 
 /**
  * Pre-convert constants to radians at module initialization
@@ -138,8 +139,8 @@ export const INV_TWO_PI = 1.0 / TWO_PI;
 })();
 
 export function computeD(date) {
-  // Optimized: Single subtraction and division using pre-calculated J2000 epoch
-  return (date.getTime() - J2000_EPOCH) / 86400000;
+  // Optimized: Single subtraction and multiplication using pre-calculated J2000 epoch
+  return (date.getTime() - J2000_EPOCH) * INV_MS_PER_DAY;
 }
 
 // Internal scratch variables to avoid per-frame GC
@@ -148,7 +149,7 @@ const _q3 = new THREE.Quaternion();
 const _posResult = { x: 0, y: 0, z: 0, r: 0 };
 const _elResult = {
     a: 1, e: 0, i: 0, N: 0, w: 0, M: 0, sqrtEE: 1, aSqrtEE: 1,
-    sinW: 0, cosW: 1, sinN: 0, cosN: 1, sinI: 0, cosI: 1
+    Px: 1, Qx: 0, Py: 0, Qy: 1, Pz: 0, Qz: 0
 };
 
 /**
@@ -160,7 +161,7 @@ export function computeElements(planetName, d, target = null) {
   const res = target || _elResult;
   if (!data || !data.e) {
     res.a = 1; res.e = 0; res.i = 0; res.N = 0; res.w = 0; res.M = 0; res.sqrtEE = 1; res.aSqrtEE = 1;
-    res.sinW = 0; res.cosW = 1; res.sinN = 0; res.cosN = 1; res.sinI = 0; res.cosI = 1;
+    res.Px = 1; res.Qx = 0; res.Py = 0; res.Qy = 1; res.Pz = 0; res.Qz = 0;
     return res;
   }
   res.a = data.a;
@@ -174,29 +175,41 @@ export function computeElements(planetName, d, target = null) {
   res.sqrtEE = Math.sqrt(1 - res.e * res.e);
   res.aSqrtEE = res.a * res.sqrtEE;
 
-  // Performance Optimization: Pre-calculate sin/cos for angles that change very slowly.
-  // This saves 6 trigonometric calls per planet per frame in the main render loop.
-  res.sinW = Math.sin(res.w);
-  res.cosW = Math.cos(res.w);
-  res.sinN = Math.sin(res.N);
-  res.cosN = Math.cos(res.N);
-  res.sinI = Math.sin(res.i);
-  res.cosI = Math.cos(res.i);
+  // Performance Optimization: Pre-calculate orbital-to-ecliptic transformation coefficients.
+  // These coefficients (P, Q) transform orbital plane coordinates (relative to perihelion)
+  // directly to the ecliptic plane, saving ~6 multiplications and 4 trig calls in the hot path.
+  const sinW = Math.sin(res.w);
+  const cosW = Math.cos(res.w);
+  const sinN = Math.sin(res.N);
+  const cosN = Math.cos(res.N);
+  const sinI = Math.sin(res.i);
+  const cosI = Math.cos(res.i);
+
+  const cosNcosW = cosN * cosW;
+  const cosNsinW = cosN * sinW;
+  const sinNcosW = sinN * cosW;
+  const sinNsinW = sinN * sinW;
+  const sinNcosI = sinN * cosI;
+  const cosNcosI = cosN * cosI;
+
+  res.Px = cosNcosW - sinNcosI * sinW;
+  res.Qx = -cosNsinW - sinNcosI * cosW;
+  res.Py = sinNcosW + cosNcosI * sinW;
+  res.Qy = -sinNsinW + cosNcosI * cosW;
+  res.Pz = sinW * sinI;
+  res.Qz = cosW * sinI;
 
   return res;
 }
 
 /**
  * Computes world-space position from orbital elements.
- * Optimized: Input elements are now in radians. Reuses sin/cos from Kepler solver and element caching.
+ * Optimized: Input elements are now in radians. Reuses sin/cos from Kepler solver and pre-calculated matrix coefficients.
  */
 export function computePosition(elements, scale = 10, target = null) {
   const res = target || _posResult;
   const a = elements.a;
   const e = elements.e;
-  const i = elements.i;
-  const N = elements.N;
-  const sqrtEE = elements.sqrtEE;
   let M = elements.M;
 
   // Optimized: Use INV_TWO_PI to replace division
@@ -214,38 +227,20 @@ export function computePosition(elements, scale = 10, target = null) {
     E -= error / denom;
   }
 
-  // Optimized orbital plane coordinates using substitution:
+  // Optimized orbital coordinates using substitution:
   // r*cos(v) = a * (cosE - e)
   // r*sin(v) = a * sqrt(1 - e^2) * sinE
   // r = a * denom
-  const cosW = elements.cosW;
-  const sinW = elements.sinW;
   const rCosV = a * (cosE - e);
   const rSinV = elements.aSqrtEE * sinE;
 
-  const xOrb = rCosV * cosW - rSinV * sinW;
-  const yOrb = rSinV * cosW + rCosV * sinW;
+  // Transform directly to Ecliptic plane using pre-calculated coefficients
+  const x = elements.Px * rCosV + elements.Qx * rSinV;
+  const y = elements.Py * rCosV + elements.Qy * rSinV;
+  const z = elements.Pz * rCosV + elements.Qz * rSinV;
 
   // Distance from primary for scaling - reusing the last calculated denominator
   const r = a * denom;
-
-  let x, y, z;
-  // Fast-path for planets with zero inclination (e.g. Earth)
-  if (i === 0 && N === 0) {
-    x = xOrb;
-    y = yOrb;
-    z = 0;
-  } else {
-    const cosN = elements.cosN;
-    const sinN = elements.sinN;
-    const cosI = elements.cosI;
-    const sinI = elements.sinI;
-    const yOrbCosI = yOrb * cosI;
-
-    x = xOrb * cosN - yOrbCosI * sinN;
-    y = xOrb * sinN + yOrbCosI * cosN;
-    z = yOrb * sinI;
-  }
 
   // Ecliptic to World transform
   res.x = x * scale;
