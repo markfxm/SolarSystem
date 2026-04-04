@@ -69,3 +69,7 @@
 ## 2025-05-16 - [Gaussian Constants for Orbital Mechanics]
 **Learning:** Using Gaussian constants (**P** and **Q** vectors) to represent the transformation from the orbital plane to the ecliptic plane is significantly more efficient than performing three successive trigonometric rotations (longitude of node, inclination, argument of periapsis) per body per frame. This optimization reduces the 3D position calculation to a simple linear combination (6 multiplications and 3 additions), eliminating at least 6 trigonometric calls and multiple intermediate matrix operations in the "hot path".
 **Action:** Pre-calculate orbital rotation coefficients (Gaussian constants) once per orbital element update. Replace all per-frame orbital-to-ecliptic trigonometric rotations with these constants.
+
+## 2025-05-16 - [Mean Anomaly Normalization & Fast-Path Rotations]
+**Learning:** Normalizing the Mean Anomaly ($M$) in every frame's position calculation is redundant if the orbital elements haven't changed. Moving this normalization to the element calculation phase ensures it happens once per update. Furthermore, orbits with zero inclination (like Earth in an ecliptic frame) allow for a significant shortcut in Gaussian constant calculation, bypassing 4 trigonometric calls and 12+ floating-point operations.
+**Action:** Normalize $M$ during element generation and implement conditional fast-paths for planar (zero-inclination) orbits to reduce trigonometric overhead in the hot path.
