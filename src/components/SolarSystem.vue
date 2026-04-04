@@ -239,6 +239,7 @@ let interactions
 let marsSurface
 let clockTimer
 let planetsWithPOIs = []
+let _isAuraVisible = false
 
 // Scratch variables for POI projection to minimize GC
 const _poiWorldPos = new THREE.Vector3()
@@ -863,30 +864,30 @@ onMounted(async () => {
     }
 
     if (showZodiac.value && solar?.aspectsManager && timeController) {
-      // Throttle heavy astrological calculations to ~10-12fps to save CPU
-      // Also skip if time hasn't moved.
+      _isAuraVisible = true
+      // Performance Optimization: Decouple heavy calculations from visual updates.
+      // Calculations run at ~12fps to save CPU, while visuals run at 60fps for smoothness.
       if (frameCount % 5 === 0 && hasTimeMoved) {
-        // Optimization: Use shallowRef and update once to minimize reactivity overhead.
-        // Also reuse current objects for in-place updates.
         const chart = AstrologyService.calculateGeocentricChart(d, solar.planetObjects, currentChart.value)
         const aspects = AstrologyService.calculateAspects(chart)
         const vibe = AstrologyService.calculateElementBalance(chart, elementBalance.value)
 
-        // Trigger reactivity only once for all 3 shallowRefs
+        dominantElement.value = vibe.dominant
+
+        // Update values used by both UI and 3D visual managers
         currentChart.value = { ...chart }
         elementBalance.value = { ...vibe.balance }
         activeAspects.value = aspects
-
-        dominantElement.value = vibe.dominant
-
-        solar.aspectsManager.update(activeAspects.value)
-        solar.auraManager.update(currentChart.value, vibe.dominant, showZodiac.value)
       }
-    } else if (solar?.auraManager) {
-      // Only call hideAll if it was previously visible (throttle/guard redundant calls)
-      if (frameCount % 60 === 0) {
-        solar.auraManager.hideAll()
-      }
+
+      // Visual updates (aura pulsing and line synchronization) run every frame (60fps)
+      // for perfect synchronization with planet movement and camera rotation.
+      solar.aspectsManager.update(activeAspects.value)
+      solar.auraManager.update(currentChart.value, dominantElement.value, showZodiac.value)
+    } else if (solar?.auraManager && _isAuraVisible) {
+      // Ensure visual state is cleaned up immediately when toggled off, but only once.
+      solar.auraManager.hideAll()
+      _isAuraVisible = false
     }
   })
   window.addEventListener('resize', () => {
