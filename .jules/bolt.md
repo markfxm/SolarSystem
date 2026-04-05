@@ -73,3 +73,7 @@
 ## 2025-05-16 - [Mean Anomaly Normalization & Fast-Path Rotations]
 **Learning:** Normalizing the Mean Anomaly ($M$) in every frame's position calculation is redundant if the orbital elements haven't changed. Moving this normalization to the element calculation phase ensures it happens once per update. Furthermore, orbits with zero inclination (like Earth in an ecliptic frame) allow for a significant shortcut in Gaussian constant calculation, bypassing 4 trigonometric calls and 12+ floating-point operations.
 **Action:** Normalize $M$ during element generation and implement conditional fast-paths for planar (zero-inclination) orbits to reduce trigonometric overhead in the hot path.
+
+## 2025-05-16 - [Decoupled Logic/Visual Loops & One-Shot Cleanup]
+**Learning:** Throttling both calculations and visuals to the same low frequency (e.g., 12fps) in a 60fps engine causes noticeable "stutter" as visuals lag behind the camera and moving objects. Decoupling them—keeping heavy logic throttled while running visual updates at 60fps—restores smoothness. Additionally, calling a cleanup function (like `hideAll()`) in every frame of an `else` block when a feature is disabled introduces redundant overhead; using a state flag to ensure it only runs once upon toggling off is more efficient.
+**Action:** Always decouple visual synchronization (60fps) from heavy state calculations (throttled). Use state flags to guard "one-shot" cleanup or initialization logic inside high-frequency render loops.
