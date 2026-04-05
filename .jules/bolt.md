@@ -77,3 +77,7 @@
 ## 2025-05-16 - [Decoupled Logic/Visual Loops & One-Shot Cleanup]
 **Learning:** Throttling both calculations and visuals to the same low frequency (e.g., 12fps) in a 60fps engine causes noticeable "stutter" as visuals lag behind the camera and moving objects. Decoupling them—keeping heavy logic throttled while running visual updates at 60fps—restores smoothness. Additionally, calling a cleanup function (like `hideAll()`) in every frame of an `else` block when a feature is disabled introduces redundant overhead; using a state flag to ensure it only runs once upon toggling off is more efficient.
 **Action:** Always decouple visual synchronization (60fps) from heavy state calculations (throttled). Use state flags to guard "one-shot" cleanup or initialization logic inside high-frequency render loops.
+
+## 2025-05-17 - [Flat Array Pre-linking & Numeric Indexing]
+**Learning:** In high-frequency visual effect managers (60fps), iterating over object keys (`Object.keys`) and performing `Map.get` lookups to link primary bodies (planets) to their secondary effects (auras) every frame creates significant overhead and GC pressure. Pre-linking these objects into a flat `activeAuras` array during initialization and using numeric array indexing for material lookups (instead of string-based keys) transforms the hot path into a simple O(n) iteration with O(1) lookups.
+**Action:** Always pre-link secondary visual elements to their parent bodies in a flat array for 60fps updates. Replace string-key Map/Object lookups in hot paths with numeric array indexing.

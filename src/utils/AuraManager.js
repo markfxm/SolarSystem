@@ -8,8 +8,7 @@ export class AuraManager {
     constructor(scene, planetObjects) {
         this.scene = scene;
         this.planetObjects = planetObjects;
-        this.planetNames = Object.keys(planetObjects);
-        this.auras = new Map(); // name -> sprite
+        this.activeAuras = []; // Array of { name, mesh, aura, baseScale }
 
         this.colors = {
             fire: 0xff3300,  // Bright Red-Orange
@@ -33,15 +32,46 @@ export class AuraManager {
                 depthWrite: false
             }));
         }
+
         // Default material
-        this.materials.set('default', new THREE.SpriteMaterial({
+        const defaultMat = new THREE.SpriteMaterial({
             map: this.texture,
             color: 0xffffff,
             transparent: true,
             opacity: 0.7,
             blending: THREE.AdditiveBlending,
             depthWrite: false
-        }));
+        });
+        this.materials.set('default', defaultMat);
+
+        // Optimization: Numeric indexed material array for O(1) access
+        // Index mapping: 0:fire, 1:earth, 2:air, 3:water
+        this.materialsByElementIndex = [
+            this.materials.get('fire'),
+            this.materials.get('earth'),
+            this.materials.get('air'),
+            this.materials.get('water')
+        ];
+        this.defaultMaterial = defaultMat;
+
+        // Map dominant element string to numeric index for O(1) comparison
+        this.elementToIndex = { fire: 0, earth: 1, air: 2, water: 3 };
+
+        // Pre-link all planets and create their auras immediately to avoid per-frame logic
+        for (const name in planetObjects) {
+            const mesh = planetObjects[name];
+            const aura = this.createAura(mesh);
+
+            if (!mesh.geometry.boundingSphere) mesh.geometry.computeBoundingSphere();
+            const radius = mesh.geometry.boundingSphere.radius;
+
+            this.activeAuras.push({
+                name,
+                mesh,
+                aura,
+                baseScale: radius * 3.5
+            });
+        }
     }
 
     createGlowTexture() {
@@ -73,49 +103,38 @@ export class AuraManager {
         const pulseNormal = Math.sin(time * 1.5) * 0.1;
         const pulseDominant = Math.sin(time * 3.0) * 0.1;
 
-        // Use a standard for loop to avoid object property lookup/iteration overhead
-        for (let i = 0; i < this.planetNames.length; i++) {
-            const name = this.planetNames[i];
-            const mesh = this.planetObjects[name];
-            const info = chart[name];
-            if (!mesh || !info) continue;
+        // Optimization: Pre-resolve dominant element index for fast comparison
+        const dominantIdx = this.elementToIndex[dominantElement] ?? -1;
 
-            // Optimization: Use pre-indexed element lookup instead of string key from AstrologyService
-            const element = ELEMENT_BY_INDEX[info.index];
+        // Use a standard for loop to iterate over pre-linked aura objects
+        for (let i = 0; i < this.activeAuras.length; i++) {
+            const item = this.activeAuras[i];
+            const info = chart[item.name];
+            if (!info) continue;
 
-            let aura = this.auras.get(name);
-            if (!aura) {
-                aura = this.createAura(name, mesh);
-            }
+            // Optimization: info.index directly maps to ELEMENT_BY_INDEX and our materialsByElementIndex
+            const elementIdx = info.index % 4; // Ensure index is in [0,3] range
 
+            const aura = item.aura;
             aura.visible = true;
 
-            // Assign pre-created material based on element
-            const targetMat = this.materials.get(element) || this.materials.get('default');
+            // Assign pre-created material based on element index (O(1) array access)
+            const targetMat = this.materialsByElementIndex[elementIdx] || this.defaultMaterial;
             if (aura.material !== targetMat) {
                 aura.material = targetMat;
             }
 
-            // Dynamic pulse based on if it's the dominant element
-            const isDominant = element === dominantElement;
+            // Dynamic pulse based on if it's the dominant element (O(1) numeric comparison)
+            const isDominant = elementIdx === dominantIdx;
             const pulseBase = isDominant ? 1.4 : 1.25;
             const scale = pulseBase + (isDominant ? pulseDominant : pulseNormal);
 
-            // Correctly calculate the size based on geometry radius
-            // Cache the radius to avoid recomputing bounding sphere every frame
-            if (mesh.userData.auraRadius === undefined) {
-                if (!mesh.geometry.boundingSphere) mesh.geometry.computeBoundingSphere();
-                mesh.userData.auraRadius = mesh.geometry.boundingSphere.radius;
-            }
-            const radius = mesh.userData.auraRadius;
-
-            // Since the aura is now a child of the mesh, it inherits the mesh's scale.
-            // We set the aura's local scale relative to the mesh radius.
-            aura.scale.setScalar(radius * scale * 3.5);
+            // Optimization: Use pre-calculated baseScale (radius * 3.5)
+            aura.scale.setScalar(item.baseScale * scale);
         }
     }
 
-    createAura(name, mesh) {
+    createAura(mesh) {
         // Material will be set in update()
         const sprite = new THREE.Sprite(this.materials.get('default'));
 
@@ -125,21 +144,21 @@ export class AuraManager {
         // Ensure it is skipped by holographic material overrides
         sprite.userData.isPOIGroup = true;
 
-        this.auras.set(name, sprite);
         return sprite;
     }
 
     hideAll() {
-        for (const a of this.auras.values()) {
-            a.visible = false;
+        for (let i = 0; i < this.activeAuras.length; i++) {
+            this.activeAuras[i].aura.visible = false;
         }
     }
 
     dispose() {
-        for (const a of this.auras.values()) {
-            if (a.parent) a.parent.remove(a);
+        for (let i = 0; i < this.activeAuras.length; i++) {
+            const aura = this.activeAuras[i].aura;
+            if (aura.parent) aura.parent.remove(aura);
         }
-        this.auras.clear();
+        this.activeAuras = [];
 
         // Dispose pre-created materials
         for (const mat of this.materials.values()) {
