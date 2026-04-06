@@ -8,10 +8,17 @@ export function createTimeController(planetObjects, orbitScale, extraRotating = 
 
   // Pre-filter and optimize planet list to avoid Object.entries() and redundant if-checks in the update loop
   const activePlanets = [];
+  const planetScratch = {}; // Per-planet scratch objects for threshold-based caching
+
   for (const name in planetObjects) {
     // Sun stays at origin, and Moon is handled separately in its geocentric loop
     if (name !== 'sun' && name !== 'moon') {
       activePlanets.push({ name, mesh: planetObjects[name] });
+      planetScratch[name] = {
+        a: 1, e: 0, i: 0, N: 0, w: 0, M: 0, sqrtEE: 1, aSqrtEE: 1,
+        Px: 1, Qx: 0, Py: 0, Qy: 1, Pz: 0, Qz: 0,
+        lastD: -999999, lastPlanet: name
+      };
     }
   }
 
@@ -28,10 +35,6 @@ export function createTimeController(planetObjects, orbitScale, extraRotating = 
 
   // Scratch variables to avoid per-frame GC
   const _earthPos = new THREE.Vector3();
-  const _scratchEl = {
-    a: 1, e: 0, i: 0, N: 0, w: 0, M: 0, sqrtEE: 1, aSqrtEE: 1,
-    Px: 1, Qx: 0, Py: 0, Qy: 1, Pz: 0, Qz: 0
-  };
   const _scratchPos = { x: 0, y: 0, z: 0, r: 0 };
 
   function setRealTime() {
@@ -61,8 +64,8 @@ export function createTimeController(planetObjects, orbitScale, extraRotating = 
       const name = p.name;
       const mesh = p.mesh;
 
-      // Use scratch variables to avoid allocations
-      const el = computeElements(name, d, _scratchEl);
+      // Use per-planet scratch variables to enable threshold-based caching in computeElements
+      const el = computeElements(name, d, planetScratch[name]);
       const pos = computePosition(el, orbitScale, _scratchPos);
       mesh.position.set(pos.x, pos.y, pos.z);
 

@@ -81,3 +81,7 @@
 ## 2025-05-17 - [Flat Array Pre-linking & Numeric Indexing]
 **Learning:** In high-frequency visual effect managers (60fps), iterating over object keys (`Object.keys`) and performing `Map.get` lookups to link primary bodies (planets) to their secondary effects (auras) every frame creates significant overhead and GC pressure. Pre-linking these objects into a flat `activeAuras` array during initialization and using numeric array indexing for material lookups (instead of string-based keys) transforms the hot path into a simple O(n) iteration with O(1) lookups.
 **Action:** Always pre-link secondary visual elements to their parent bodies in a flat array for 60fps updates. Replace string-key Map/Object lookups in hot paths with numeric array indexing.
+
+## 2026-04-06 - [Threshold-based Trig Caching]
+**Learning:** In a 60fps astronomical simulation, recalculating Gaussian constants and planetary orientations every frame is redundant since these values change extremely slowly at real-time speeds. Threshold-based caching (e.g., 0.01 days for orbits, 0.0001 days for rotation) can skip thousands of trig calls per second without any visible accuracy loss.
+**Action:** Use per-planet scratch objects to enable independent caching in shared math utilities. Always update Mean Anomaly (M) every frame to maintain smooth motion while caching static transformation vectors (P/Q).
