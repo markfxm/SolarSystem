@@ -145,16 +145,17 @@ export function computeD(date) {
 
 // Internal scratch variables to avoid per-frame GC
 const _qResult = new THREE.Quaternion();
-const _q3 = new THREE.Quaternion();
 const _posResult = { x: 0, y: 0, z: 0, r: 0 };
 const _elResult = {
     a: 1, e: 0, i: 0, N: 0, w: 0, M: 0, sqrtEE: 1, aSqrtEE: 1,
-    Px: 1, Qx: 0, Py: 0, Qy: 1, Pz: 0, Qz: 0
+    Px: 1, Qx: 0, Py: 0, Qy: 1, Pz: 0, Qz: 0,
+    lastD: -999999, lastPlanet: ''
 };
 
 /**
  * Returns orbital elements.
- * Optimized: Now returns values in radians by default.
+ * Optimized: Threshold-based caching for slow-moving elements (Gaussian constants).
+ * Reduces ~6 trig calls and 12+ multiplications per body per frame during real-time.
  */
 export function computeElements(planetName, d, target = null) {
   const data = planetsData[planetName];
@@ -164,27 +165,34 @@ export function computeElements(planetName, d, target = null) {
     res.Px = 1; res.Qx = 0; res.Py = 0; res.Qy = 1; res.Pz = 0; res.Qz = 0;
     return res;
   }
+
+  // Mean Anomaly (M) must be updated every frame for smooth motion
+  let M = data.M[0] + data.M[1] * d;
+  res.M = M - Math.floor(M * INV_TWO_PI + 0.5) * TWO_PI;
+
+  // Caching: Slow elements (a, e, i, N, w) change by negligible amounts in 0.01 days (~14 min)
+  // Skip recalculation of P/Q vectors if we are within threshold and same planet
+  if (res.lastPlanet === planetName && Math.abs(d - res.lastD) < 0.01) {
+    return res;
+  }
+
+  res.lastD = d;
+  res.lastPlanet = planetName;
+
   res.a = data.a;
   res.e = data.e[0] + data.e[1] * d;
   res.i = data.i[0] + data.i[1] * d;
   res.N = data.N[0] + data.N[1] * d;
   res.w = data.w[0] + data.w[1] * d;
 
-  // Normalize Mean Anomaly here to avoid redundant calculation in computePosition
-  let M = data.M[0] + data.M[1] * d;
-  res.M = M - Math.floor(M * INV_TWO_PI + 0.5) * TWO_PI;
-
   // Pre-calculate eccentricity constants to avoid redundant math in computePosition
   res.sqrtEE = Math.sqrt(1 - res.e * res.e);
   res.aSqrtEE = res.a * res.sqrtEE;
 
-  // Performance Optimization: Pre-calculate orbital-to-ecliptic transformation coefficients.
-  // These coefficients (P, Q) transform orbital plane coordinates (relative to perihelion)
-  // directly to the ecliptic plane, saving ~6 multiplications and 4 trig calls in the hot path.
+  // Performance Optimization: Pre-calculate orbital-to-ecliptic transformation coefficients (Gaussian constants).
   const sinW = Math.sin(res.w);
   const cosW = Math.cos(res.w);
 
-  // Optimization: Check for zero-inclination (e.g. Earth) to skip 4 trig calls and complex matrix math.
   if (res.i === 0 && res.N === 0) {
     res.Px = cosW;
     res.Qx = -sinW;
@@ -263,7 +271,6 @@ export function computePosition(elements, scale = 10, target = null) {
 
 const PLANET_QUAT_BASES = {};
 const Q_ADJ = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI / 2);
-const _vAxisY = new THREE.Vector3(0, 1, 0);
 
 function initQuatBases() {
   const epsilon = 23.4392911 * DEG2RAD;
@@ -284,43 +291,60 @@ function initQuatBases() {
 }
 initQuatBases();
 
+// Dedicated cache to avoid redundant trig calls for slow planetary rotation (60fps)
+const QUAT_CACHE = new Map();
+
 /**
  * Computes the planetary orientation as a Quaternion in Ecliptic J2000 space.
  * Uses IAU 2015 recommended models.
- * Optimized with pre-computed bases and unrolled quaternion math to avoid GC and redundant trig.
+ * Optimized: Threshold-based caching. Only re-runs unrolled trig if d has shifted
+ * by more than 0.0001 days (~8 seconds), saving 2 trig calls and 8 multiplications.
  */
 export function computePlanetQuaternion(planetName, d) {
   const base = PLANET_QUAT_BASES[planetName];
   if (!base) return _qResult.identity();
 
-  const c = ORIENTATION_CONSTANTS[planetName];
-  // Constants are already in radians. W is the prime meridian rotation.
-  // Optimized: Use pre-calculated half-values to save one multiplication and one addition per call.
-  const halfW = c.W0_half + c.Wdot_half * d;
+  let cache = QUAT_CACHE.get(planetName);
+  if (!cache) {
+    cache = { lastD: -999999, quat: new THREE.Quaternion() };
+    QUAT_CACHE.set(planetName, cache);
+  }
 
+  if (Math.abs(d - cache.lastD) < 0.0001) {
+    return _qResult.copy(cache.quat);
+  }
+
+  const c = ORIENTATION_CONSTANTS[planetName];
+  const halfW = c.W0_half + c.Wdot_half * d;
   const s = Math.sin(halfW);
   const cW = Math.cos(halfW);
 
   // Unrolled quaternion multiplication: qResult = base * q(Y, W)
-  // where q(Y, W) has x=0, y=sin(W/2), z=0, w=cos(W/2)
   const bx = base._x, by = base._y, bz = base._z, bw = base._w;
 
-  _qResult._x = bx * cW - bz * s;
-  _qResult._y = by * cW + bw * s;
-  _qResult._z = bz * cW + bx * s;
-  _qResult._w = bw * cW - by * s;
+  const rx = bx * cW - bz * s;
+  const ry = by * cW + bw * s;
+  const rz = bz * cW + bx * s;
+  const rw = bw * cW - by * s;
 
-  return _qResult;
+  cache.lastD = d;
+  cache.quat.set(rx, ry, rz, rw);
+
+  return _qResult.copy(cache.quat);
 }
+
+// Dedicated Moon scratch objects to avoid interfering with planetary element caching
+const _moonElements = {
+    a: 1, e: 0, i: 0, N: 0, w: 0, M: 0, sqrtEE: 1, aSqrtEE: 1,
+    Px: 1, Qx: 0, Py: 0, Qy: 1, Pz: 0, Qz: 0,
+    lastD: -999999, lastPlanet: 'moon'
+};
 
 export function computeMoonPosition(d, target = null) {
   // Use accurate Keplerian elements for the Moon relative to Earth
-  const el = computeElements('moon', d);
+  const el = computeElements('moon', d, _moonElements);
 
   // We want a normalized direction vector for the visual scaler to use.
-  // The real 'a' is 0.00257 AU, which is too small for our visual logic.
-  // We force 'a' to 1 so the result is effectively on a unit sphere (eccentricity aside),
-  // which allows timeController to apply the visual radius (MOON_ORBIT_RADIUS).
   el.a = 1;
   el.aSqrtEE = el.sqrtEE; // MUST update this too or rSinV becomes near zero!
 
