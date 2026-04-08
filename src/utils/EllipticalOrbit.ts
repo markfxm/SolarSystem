@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { Line2 } from 'three/examples/jsm/lines/Line2.js'
 import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js'
 import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js'
-import { TWO_PI, INV_TWO_PI } from './Astronomy.js'
+import { TWO_PI } from './Astronomy.js'
 
 export interface OrbitalElements {
   a: number // semi-major axis
@@ -13,9 +13,10 @@ export interface OrbitalElements {
 }
 
 /**
- * Creates a perfect elliptical orbit line that EXACTLY matches your computePosition() function
- * Uses the same rotation order, same Kepler solver, same coordinate conventions
- * Optimized: Input elements are now in radians.
+ * Creates a perfect elliptical orbit line.
+ * Optimized: Sweeps Eccentric Anomaly (E) directly instead of Mean Anomaly (M)
+ * to eliminate the iterative Kepler solver. Uses Gaussian constants for
+ * coordinate transformation, matching the high-performance logic in Astronomy.js.
  */
 export function createEllipticalOrbit(
   elements: OrbitalElements,
@@ -33,63 +34,60 @@ export function createEllipticalOrbit(
   const N = elements.N // Already in radians
   const w = elements.w // Already in radians
 
-  const cosN = Math.cos(N)
-  const sinN = Math.sin(N)
-  const cosI = Math.cos(i)
-  const sinI = Math.sin(i)
-
-  // Pre-calculate constants outside the loop
+  // Pre-calculate Gaussian constants (matching Astronomy.js implementation)
+  // These represent the transformation from the orbital plane to the ecliptic plane.
+  let Px, Qx, Py, Qy, Pz, Qz
   const cosW = Math.cos(w)
   const sinW = Math.sin(w)
+
+  if (i === 0 && N === 0) {
+    Px = cosW
+    Qx = -sinW
+    Py = sinW
+    Qy = cosW
+    Pz = 0
+    Qz = 0
+  } else {
+    const cosN = Math.cos(N)
+    const sinN = Math.sin(N)
+    const cosI = Math.cos(i)
+    const sinI = Math.sin(i)
+
+    const cosNcosW = cosN * cosW
+    const cosNsinW = cosN * sinW
+    const sinNcosW = sinN * cosW
+    const sinNsinW = sinN * sinW
+    const sinNcosI = sinN * cosI
+    const cosNcosI = cosN * cosI
+
+    Px = cosNcosW - sinNcosI * sinW
+    Qx = -cosNsinW - sinNcosI * cosW
+    Py = sinNcosW + cosNcosI * sinW
+    Qy = -sinNsinW + cosNcosI * cosW
+    Pz = sinW * sinI
+    Qz = cosW * sinI
+  }
+
   const sqrtEE = Math.sqrt(1 - e * e)
   const aSqrtEE = a * sqrtEE
   const step = TWO_PI / segments
 
-  // Fast-path for planets with zero inclination (e.g. Earth)
-  const isZeroInclination = (i === 0 && N === 0)
-
   for (let k = 0; k <= segments; k++) {
-    // Sweep mean anomaly from 0 to 2π
-    let M = k * step
+    // Optimization: Sweep Eccentric Anomaly (E) directly from 0 to 2π.
+    // This eliminates ~1,500 iterative Kepler solver calls per orbit initialization.
+    // It also results in a more uniform point distribution for high-eccentricity orbits.
+    const E = k * step
+    const cosE = Math.cos(E)
+    const sinE = Math.sin(E)
 
-    // Keep M in [-π, π]
-    M = M - Math.floor(M * INV_TWO_PI + 0.5) * TWO_PI
-
-    // Solve Kepler's equation with early exit for low eccentricity
-    let E = M
-    let sinE = 0
-    let cosE = 0
-    let denom = 0
-    for (let iter = 0; iter < 6; iter++) {
-      sinE = Math.sin(E)
-      cosE = Math.cos(E)
-      denom = 1 - e * cosE
-      const error = E - e * sinE - M
-      if (Math.abs(error) < 1e-6) break
-      E -= error / denom
-    }
-
-    // Optimized orbital plane coordinates using substitution:
-    // r*cos(v) = a * (cosE - e)
-    // r*sin(v) = a * sqrt(1 - e^2) * sinE
-    // This eliminates ~1000 divisions and redundant trig calls per orbit.
+    // Orbital plane coordinates (x = a(cosE - e), y = b*sinE)
     const rCosV = a * (cosE - e)
     const rSinV = aSqrtEE * sinE
 
-    const xOrb = rCosV * cosW - rSinV * sinW
-    const yOrb = rSinV * cosW + rCosV * sinW
-
-    let x, y, z
-    if (isZeroInclination) {
-      x = xOrb
-      y = yOrb
-      z = 0
-    } else {
-      const yOrbCosI = yOrb * cosI
-      x = xOrb * cosN - yOrbCosI * sinN
-      y = xOrb * sinN + yOrbCosI * cosN
-      z = yOrb * sinI
-    }
+    // Transform directly to Ecliptic plane using Gaussian constants
+    const x = Px * rCosV + Qx * rSinV
+    const y = Py * rCosV + Qy * rSinV
+    const z = Pz * rCosV + Qz * rSinV
 
     // Transform Ecliptic (XY-plane, Z-up) to World (XZ-plane, Y-up)
     const idx = k * 3
