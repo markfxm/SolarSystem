@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { J2000_EPOCH, computeD, computeElements, computePosition, computeMoonPosition, computePlanetQuaternion } from '../utils/Astronomy.js'
+import { J2000_EPOCH, computeD, computeElements, computePosition, computeMoonPosition, computePlanetQuaternion, getRotationCache, INV_SEC_PER_DAY } from '../utils/Astronomy.js'
 
 export function createTimeController(planetObjects, orbitScale, extraRotating = [], moon = null, moonOrbit = null, moonOrbitRadius = 10) {
   let speedMultiplier = 1
@@ -13,7 +13,11 @@ export function createTimeController(planetObjects, orbitScale, extraRotating = 
   for (const name in planetObjects) {
     // Sun stays at origin, and Moon is handled separately in its geocentric loop
     if (name !== 'sun' && name !== 'moon') {
-      activePlanets.push({ name, mesh: planetObjects[name] });
+      activePlanets.push({
+        name,
+        mesh: planetObjects[name],
+        rotCache: getRotationCache(name)
+      });
       planetScratch[name] = {
         a: 1, e: 0, i: 0, N: 0, w: 0, M: 0, sqrtEE: 1, aSqrtEE: 1,
         Px: 1, Qx: 0, Py: 0, Qy: 1, Pz: 0, Qz: 0,
@@ -28,7 +32,11 @@ export function createTimeController(planetObjects, orbitScale, extraRotating = 
     for (let i = 0; i < extraRotating.length; i++) {
       const obj = extraRotating[i];
       if (obj && obj.userData && obj.userData.name) {
-        optimizedRotating.push({ name: obj.userData.name, mesh: obj });
+        optimizedRotating.push({
+          name: obj.userData.name,
+          mesh: obj,
+          rotCache: getRotationCache(obj.userData.name)
+        });
       }
     }
   }
@@ -49,8 +57,8 @@ export function createTimeController(planetObjects, orbitScale, extraRotating = 
     if (isFrozen) return
 
     // Always accumulate time based on speed multiplier
-    // 86400 seconds in a day
-    currentD += deltaSeconds * speedMultiplier / 86400
+    // Performance Optimization: Use pre-calculated inverse constant to avoid division
+    currentD += deltaSeconds * speedMultiplier * INV_SEC_PER_DAY
 
     updatePositions(currentD, deltaSeconds)
   }
@@ -70,7 +78,8 @@ export function createTimeController(planetObjects, orbitScale, extraRotating = 
       mesh.position.set(pos.x, pos.y, pos.z);
 
       // Use absolute IAU orientation based on d
-      mesh.setRotationFromQuaternion(computePlanetQuaternion(name, d));
+      // Performance Optimization: Use pre-linked rotCache for O(1) orientation update
+      mesh.setRotationFromQuaternion(computePlanetQuaternion(name, d, p.rotCache));
 
       if (name === 'earth') {
         _earthPos.copy(mesh.position);
@@ -99,7 +108,8 @@ export function createTimeController(planetObjects, orbitScale, extraRotating = 
     // rotate any extra objects (e.g. the Sun, Moon) using optimized list
     for (let i = 0; i < optimizedRotating.length; i++) {
       const p = optimizedRotating[i];
-      p.mesh.setRotationFromQuaternion(computePlanetQuaternion(p.name, d));
+      // Performance Optimization: Use pre-linked rotCache for O(1) orientation update
+      p.mesh.setRotationFromQuaternion(computePlanetQuaternion(p.name, d, p.rotCache));
     }
   }
 
