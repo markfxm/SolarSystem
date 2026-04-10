@@ -112,6 +112,7 @@ export const RAD2DEG = 180 / Math.PI;
 export const TWO_PI = Math.PI * 2;
 export const INV_TWO_PI = 1.0 / TWO_PI;
 export const INV_MS_PER_DAY = 1.0 / 86400000;
+export const INV_SEC_PER_DAY = 1.0 / 86400;
 
 /**
  * Pre-convert constants to radians at module initialization
@@ -295,14 +296,13 @@ initQuatBases();
 const QUAT_CACHE = new Map();
 
 /**
- * Computes the planetary orientation as a Quaternion in Ecliptic J2000 space.
- * Uses IAU 2015 recommended models.
- * Optimized: Threshold-based caching. Only re-runs unrolled trig if d has shifted
- * by more than 0.0001 days (~8 seconds), saving 2 trig calls and 8 multiplications.
+ * Returns a pre-linked rotation cache for a specific planet.
+ * Performance Optimization: Pre-links constants and base quaternion to eliminate
+ * Map/Object lookups in the 60fps render loop when passed to computePlanetQuaternion.
  */
-export function computePlanetQuaternion(planetName, d) {
+export function getRotationCache(planetName) {
   const base = PLANET_QUAT_BASES[planetName];
-  if (!base) return _qResult.identity();
+  if (!base) return null;
 
   let cache = QUAT_CACHE.get(planetName);
   if (!cache) {
@@ -310,11 +310,33 @@ export function computePlanetQuaternion(planetName, d) {
     QUAT_CACHE.set(planetName, cache);
   }
 
+  return {
+    base,
+    constants: ORIENTATION_CONSTANTS[planetName],
+    cache
+  };
+}
+
+/**
+ * Computes the planetary orientation as a Quaternion in Ecliptic J2000 space.
+ * Uses IAU 2015 recommended models.
+ * Optimized: Threshold-based caching. Only re-runs unrolled trig if d has shifted
+ * by more than 0.0001 days (~8 seconds), saving 2 trig calls and 8 multiplications.
+ *
+ * Fast Path: Passing a 'rotationCache' (from getRotationCache) eliminates all
+ * lookups, providing O(1) performance in the hot path.
+ */
+export function computePlanetQuaternion(planetName, d, rotationCache = null) {
+  const r = rotationCache || getRotationCache(planetName);
+  if (!r) return _qResult.identity();
+
+  const cache = r.cache;
   if (Math.abs(d - cache.lastD) < 0.0001) {
     return _qResult.copy(cache.quat);
   }
 
-  const c = ORIENTATION_CONSTANTS[planetName];
+  const base = r.base;
+  const c = r.constants;
   const halfW = c.W0_half + c.Wdot_half * d;
   const s = Math.sin(halfW);
   const cW = Math.cos(halfW);
