@@ -150,6 +150,8 @@ const _posResult = { x: 0, y: 0, z: 0, r: 0 };
 const _elResult = {
     a: 1, e: 0, i: 0, N: 0, w: 0, M: 0, sqrtEE: 1, aSqrtEE: 1,
     Px: 1, Qx: 0, Py: 0, Qy: 1, Pz: 0, Qz: 0,
+    PxA: 1, PyA: 0, PzA: 0, QxAS: 0, QyAS: 1, QzAS: 0,
+    PxAe: 0, PyAe: 0, PzAe: 0, ae: 0,
     lastD: -999999, lastPlanet: ''
 };
 
@@ -222,6 +224,21 @@ export function computeElements(planetName, d, target = null) {
     res.Qz = cosW * sinI;
   }
 
+  // Pre-calculate combined constants to save multiplications in computePosition
+  const a = res.a;
+  const e = res.e;
+  const aSqrtEE = res.aSqrtEE;
+
+  res.PxA = res.Px * a;
+  res.PyA = res.Py * a;
+  res.PzA = res.Pz * a;
+  res.QxAS = res.Qx * aSqrtEE;
+  res.QyAS = res.Qy * aSqrtEE;
+  res.QzAS = res.Qz * aSqrtEE;
+  res.PxAe = res.PxA * e;
+  res.PyAe = res.PyA * e;
+  res.PzAe = res.PzA * e;
+
   return res;
 }
 
@@ -251,13 +268,16 @@ export function computePosition(elements, scale = 10, target = null) {
   // r*cos(v) = a * (cosE - e)
   // r*sin(v) = a * sqrt(1 - e^2) * sinE
   // r = a * denom
-  const rCosV = a * (cosE - e);
-  const rSinV = elements.aSqrtEE * sinE;
+  //
+  // Further Optimized: Combined multiplications
+  // x = Px * a * (cosE - e) + Qx * a * sqrt(1-e^2) * sinE
+  // x = (Px*a) * cosE - (Px*a*e) + (Qx * a * sqrt(1-e^2)) * sinE
+  // x = PxA * cosE - PxAe + QxAS * sinE
 
-  // Transform directly to Ecliptic plane using pre-calculated coefficients
-  const x = elements.Px * rCosV + elements.Qx * rSinV;
-  const y = elements.Py * rCosV + elements.Qy * rSinV;
-  const z = elements.Pz * rCosV + elements.Qz * rSinV;
+  // Transform directly to Ecliptic plane using pre-calculated combined coefficients
+  const x = elements.PxA * cosE - elements.PxAe + elements.QxAS * sinE;
+  const y = elements.PyA * cosE - elements.PyAe + elements.QyAS * sinE;
+  const z = elements.PzA * cosE - elements.PzAe + elements.QzAS * sinE;
 
   // Distance from primary for scaling - reusing the last calculated denominator
   const r = a * denom;
@@ -359,6 +379,8 @@ export function computePlanetQuaternion(planetName, d, rotationCache = null) {
 const _moonElements = {
     a: 1, e: 0, i: 0, N: 0, w: 0, M: 0, sqrtEE: 1, aSqrtEE: 1,
     Px: 1, Qx: 0, Py: 0, Qy: 1, Pz: 0, Qz: 0,
+    PxA: 1, PyA: 0, PzA: 0, QxAS: 0, QyAS: 1, QzAS: 0,
+    PxAe: 0, PyAe: 0, PzAe: 0, ae: 0,
     lastD: -999999, lastPlanet: 'moon'
 };
 
@@ -367,8 +389,20 @@ export function computeMoonPosition(d, target = null) {
   const el = computeElements('moon', d, _moonElements);
 
   // We want a normalized direction vector for the visual scaler to use.
+  // Performance Note: When el.a is modified, we must manually update combined
+  // constants so computePosition uses the correct values.
   el.a = 1;
-  el.aSqrtEE = el.sqrtEE; // MUST update this too or rSinV becomes near zero!
+  el.aSqrtEE = el.sqrtEE;
+
+  el.PxA = el.Px;
+  el.PyA = el.Py;
+  el.PzA = el.Pz;
+  el.QxAS = el.Qx * el.sqrtEE;
+  el.QyAS = el.Qy * el.sqrtEE;
+  el.QzAS = el.Qz * el.sqrtEE;
+  el.PxAe = el.Px * el.e;
+  el.PyAe = el.Py * el.e;
+  el.PzAe = el.Pz * el.e;
 
   return computePosition(el, 1, target);
 }

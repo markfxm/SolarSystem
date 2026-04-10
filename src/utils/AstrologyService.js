@@ -62,12 +62,16 @@ const CALIBRATION_OFFSET = 1.7;
 // Scratch variables to avoid per-frame GC and fix re-entrancy bugs
 const _earthElements = {
     a: 1, e: 0, i: 0, N: 0, w: 0, M: 0, sqrtEE: 1, aSqrtEE: 1,
-    Px: 1, Qx: 0, Py: 0, Qy: 1, Pz: 0, Qz: 0
+    Px: 1, Qx: 0, Py: 0, Qy: 1, Pz: 0, Qz: 0,
+    PxA: 1, PyA: 0, PzA: 0, QxAS: 0, QyAS: 1, QzAS: 0,
+    PxAe: 0, PyAe: 0, PzAe: 0, ae: 0
 };
 const _earthPos = { x: 0, y: 0, z: 0, r: 0 };
 const _pElements = {
     a: 1, e: 0, i: 0, N: 0, w: 0, M: 0, sqrtEE: 1, aSqrtEE: 1,
-    Px: 1, Qx: 0, Py: 0, Qy: 1, Pz: 0, Qz: 0
+    Px: 1, Qx: 0, Py: 0, Qy: 1, Pz: 0, Qz: 0,
+    PxA: 1, PyA: 0, PzA: 0, QxAS: 0, QyAS: 1, QzAS: 0,
+    PxAe: 0, PyAe: 0, PzAe: 0, ae: 0
 };
 const _pPos = { x: 0, y: 0, z: 0, r: 0 };
 
