@@ -72,6 +72,17 @@ export function createEllipticalOrbit(
   const aSqrtEE = a * sqrtEE
   const step = TWO_PI / segments
 
+  // Pre-calculate combined constants to save multiplications in the sweep loop
+  const PxA = Px * a;
+  const PyA = Py * a;
+  const PzA = Pz * a;
+  const QxAS = Qx * aSqrtEE;
+  const QyAS = Qy * aSqrtEE;
+  const QzAS = Qz * aSqrtEE;
+  const PxAe = PxA * e;
+  const PyAe = PyA * e;
+  const PzAe = PzA * e;
+
   for (let k = 0; k <= segments; k++) {
     // Optimization: Sweep Eccentric Anomaly (E) directly from 0 to 2π.
     // This eliminates ~1,500 iterative Kepler solver calls per orbit initialization.
@@ -80,14 +91,10 @@ export function createEllipticalOrbit(
     const cosE = Math.cos(E)
     const sinE = Math.sin(E)
 
-    // Orbital plane coordinates (x = a(cosE - e), y = b*sinE)
-    const rCosV = a * (cosE - e)
-    const rSinV = aSqrtEE * sinE
-
-    // Transform directly to Ecliptic plane using Gaussian constants
-    const x = Px * rCosV + Qx * rSinV
-    const y = Py * rCosV + Qy * rSinV
-    const z = Pz * rCosV + Qz * rSinV
+    // Transform directly to Ecliptic plane using pre-calculated combined coefficients
+    const x = PxA * cosE - PxAe + QxAS * sinE
+    const y = PyA * cosE - PyAe + QyAS * sinE
+    const z = PzA * cosE - PzAe + QzAS * sinE
 
     // Transform Ecliptic (XY-plane, Z-up) to World (XZ-plane, Y-up)
     const idx = k * 3
