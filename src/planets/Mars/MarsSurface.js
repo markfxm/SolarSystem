@@ -242,6 +242,16 @@ export function createMarsSurface(renderer, options = {}) {
   marsTex.repeat.set(10, 10) // Tile slightly for more detail per chunk
   marsTex.anisotropy = renderer.capabilities.getMaxAnisotropy()
 
+  // Optimization: Share materials and pool meshes to avoid GC pressure and redundant GPU state changes
+  const terrainMaterial = new THREE.MeshStandardMaterial({
+    map: marsTex,
+    roughness: 0.8,
+    metalness: 0.1,
+  })
+
+  const chunkMeshPool = []
+  const _dummy = new THREE.Object3D()
+
   const getH = (x, z) => {
     // Apply global offsets for a better starting location (high and open)
     const ox = x + 2500;
@@ -353,13 +363,30 @@ export function createMarsSurface(renderer, options = {}) {
   }
 
   function createChunk(cx, cz) {
-    const geometry = new THREE.PlaneGeometry(chunkSize, chunkSize, chunkRes, chunkRes)
-    geometry.rotateX(-Math.PI / 2)
+    let mesh, geometry, instancedRocks
+    const ox = cx * chunkSize
+    const oz = cz * chunkSize
+
+    if (chunkMeshPool.length > 0) {
+      mesh = chunkMeshPool.pop()
+      geometry = mesh.geometry
+      instancedRocks = mesh.children[0]
+    } else {
+      geometry = new THREE.PlaneGeometry(chunkSize, chunkSize, chunkRes, chunkRes)
+      geometry.rotateX(-Math.PI / 2)
+      mesh = new THREE.Mesh(geometry, terrainMaterial)
+      mesh.receiveShadow = true
+
+      // Add Rocks (Instanced)
+      const rockCount = 50
+      instancedRocks = new THREE.InstancedMesh(rockGeo, rockMat, rockCount)
+      instancedRocks.castShadow = true
+      instancedRocks.receiveShadow = true
+      mesh.add(instancedRocks)
+    }
 
     const pos = geometry.attributes.position
     const pArray = pos.array
-    const ox = cx * chunkSize
-    const oz = cz * chunkSize
 
     // Optimized: Direct access to buffer array avoids function call overhead (getX/setY)
     for (let i = 0; i < pArray.length; i += 3) {
@@ -370,38 +397,26 @@ export function createMarsSurface(renderer, options = {}) {
     pos.needsUpdate = true
     geometry.computeVertexNormals()
 
-    const material = new THREE.MeshStandardMaterial({
-      map: marsTex,
-      roughness: 0.8,
-      metalness: 0.1,
-    })
-
-    const mesh = new THREE.Mesh(geometry, material)
-    mesh.position.set(cx * chunkSize, 0, cz * chunkSize)
-    mesh.receiveShadow = true
+    mesh.position.set(ox, 0, oz)
     mesh.userData.cx = cx
     mesh.userData.cz = cz
     scene.add(mesh)
 
-    // Add Rocks
-    const rockCount = 50
-    const instancedRocks = new THREE.InstancedMesh(rockGeo, rockMat, rockCount)
-    const dummy = new THREE.Object3D()
+    // Update rock positions for the recycled/new chunk
+    const rockCount = instancedRocks.count
     for (let i = 0; i < rockCount; i++) {
-      const rx = (Math.random() - 0.5) * chunkSize + cx * chunkSize
-      const rz = (Math.random() - 0.5) * chunkSize + cz * chunkSize
+      const rx = (Math.random() - 0.5) * chunkSize + ox
+      const rz = (Math.random() - 0.5) * chunkSize + oz
       const ry = getH(rx, rz)
 
-      dummy.position.set(rx - cx * chunkSize, ry, rz - cz * chunkSize)
-      dummy.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI)
+      _dummy.position.set(rx - ox, ry, rz - oz)
+      _dummy.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI)
       const scale = 0.5 + Math.random() * 2
-      dummy.scale.set(scale, scale, scale)
-      dummy.updateMatrix()
-      instancedRocks.setMatrixAt(i, dummy.matrix)
+      _dummy.scale.set(scale, scale, scale)
+      _dummy.updateMatrix()
+      instancedRocks.setMatrixAt(i, _dummy.matrix)
     }
-    instancedRocks.castShadow = true
-    instancedRocks.receiveShadow = true
-    mesh.add(instancedRocks)
+    instancedRocks.instanceMatrix.needsUpdate = true
 
     return mesh
   }
@@ -465,8 +480,8 @@ export function createMarsSurface(renderer, options = {}) {
         const z = chunk.userData.cz
         if (Math.abs(x - camX) > renderDistance + 1 || Math.abs(z - camZ) > renderDistance + 1) {
           scene.remove(chunk)
-          chunk.geometry.dispose()
-          chunk.material.dispose()
+          // Optimized: Recycle instead of dispose to avoid GC and redundant reallocations
+          chunkMeshPool.push(chunk)
           chunks.delete(key)
         }
       }
@@ -648,10 +663,22 @@ export function createMarsSurface(renderer, options = {}) {
         clearTimeout(saveTimeout)
         saveToStorage() // Final save on dispose
       }
+      // Dispose active chunks
       for (const chunk of chunks.values()) {
         chunk.geometry.dispose()
-        chunk.material.dispose()
       }
+      // Dispose pooled chunks
+      for (const chunk of chunkMeshPool) {
+        chunk.geometry.dispose()
+      }
+      // Dispose shared assets
+      rockGeo.dispose()
+      rockMat.dispose()
+      particleGeo.dispose()
+      particleMat.dispose()
+      skyGeo.dispose()
+      skyMat.dispose()
+      terrainMaterial.dispose()
       marsTex.dispose()
     }
   }
