@@ -89,3 +89,7 @@
 ## 2026-04-06 - [Threshold-based Trig Caching]
 **Learning:** In a 60fps astronomical simulation, recalculating Gaussian constants and planetary orientations every frame is redundant since these values change extremely slowly at real-time speeds. Threshold-based caching (e.g., 0.01 days for orbits, 0.0001 days for rotation) can skip thousands of trig calls per second without any visible accuracy loss.
 **Action:** Use per-planet scratch objects to enable independent caching in shared math utilities. Always update Mean Anomaly (M) every frame to maintain smooth motion while caching static transformation vectors (P/Q).
+
+## 2026-04-10 - [Geometry & Mesh Pooling for Procedural Terrain]
+**Learning:** In procedural terrain systems (like Mars exploration), the constant allocation and disposal of `THREE.Mesh`, `THREE.PlaneGeometry`, and `THREE.InstancedMesh` as the player moves causes significant GC pressure and frame-time spikes. Implementing a `chunkMeshPool` to recycle these objects allows for "near-zero" allocation during movement. Additionally, sharing a single `MeshStandardMaterial` across all chunks reduces draw-state changes and memory footprint.
+**Action:** Always implement pooling for procedural objects that are frequently created and destroyed. Use shared materials for identical terrain types to maximize GPU efficiency and minimize memory usage.
