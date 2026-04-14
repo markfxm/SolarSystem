@@ -22,8 +22,11 @@ for (const key in ASPECT_TYPES) {
 // Pre-cache entries to avoid Object.entries() in high-frequency loops
 const ASPECT_TYPE_LIST = Object.entries(ASPECT_TYPES);
 const HELIOCENTRIC_PLANETS = ['mercury', 'venus', 'earth', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune'];
-const GEOCENTRIC_PLANETS = ['sun', 'moon', 'mercury', 'venus', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune'];
+export const GEOCENTRIC_PLANETS = ['sun', 'moon', 'mercury', 'venus', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune'];
 const ALL_BODIES = ['sun', 'moon', 'mercury', 'venus', 'earth', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune'];
+
+// Pre-calculate minutes padding for formatDegree (00-59)
+const MINUTES_CACHE = Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, '0'));
 
 export const BODY_TO_ID = {
     sun: 0,
@@ -172,7 +175,8 @@ export class AstrologyService {
     static formatDegree(degree) {
         const d = Math.floor(degree);
         const m = Math.floor((degree - d) * 60);
-        return `${d}°${m.toString().padStart(2, '0')}'`;
+        // Optimization: Use pre-calculated padding for minutes
+        return `${d}°${MINUTES_CACHE[m] || '00'}'`;
     }
 
     /**

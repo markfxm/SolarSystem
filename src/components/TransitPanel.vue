@@ -22,7 +22,7 @@
           <div v-for="el in ELEMENTS" :key="el"
                class="bar-segment" 
                :class="el"
-               :style="{ width: ((elementBalance[el] || 0) / TOTAL_PLANETS * 100) + '%' }">
+               :style="{ width: ((elementBalance[el] || 0) / GEOCENTRIC_PLANETS.length * 100) + '%' }">
           </div>
         </div>
       </div>
@@ -58,17 +58,17 @@
         <div class="section">
             <h4>{{ t('transit.positions') || 'Positions' }}</h4>
             <div class="planet-list">
-            <div v-for="(data, id) in chart" :key="id" 
+            <div v-for="id in displayPlanets" :key="id"
                 class="planet-item clickable"
                 @click="$emit('focus-planet', id)">
                 <div class="planet-row-main">
                 <span class="p-name">{{ t('planet.' + id) }}</span>
-                <span class="p-sign">{{ t('zodiac_names')[data.index] }}</span>
-                <span class="p-deg">{{ formatDegree(data.degree) }}</span>
+                <span class="p-sign">{{ t('zodiac_names')[chart[id].index] }}</span>
+                <span class="p-deg">{{ formatDegree(chart[id].degree) }}</span>
                 </div>
                 <div class="planet-row-desc">
                 <span class="p-meaning">{{ t('planet_meaning.' + id) }}</span>
-                <span class="p-keyword">{{ t('sign_keywords.' + data.signId) }}</span>
+                <span class="p-keyword">{{ t('sign_keywords.' + chart[id].signId) }}</span>
                 </div>
             </div>
             </div>
@@ -96,7 +96,7 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { t } from '../utils/i18n'
-import { AstrologyService, ELEMENTS } from '../utils/AstrologyService.js'
+import { AstrologyService, ELEMENTS, GEOCENTRIC_PLANETS } from '../utils/AstrologyService.js'
 
 const props = defineProps({
   visible: Boolean,
@@ -116,7 +116,18 @@ const showDetails = ref(false)
  * as each guidance block now only re-evaluates when its specific planet/condition changes.
  */
 
-const planetCount = computed(() => Object.keys(props.chart).length || 1)
+const displayPlanets = computed(() => {
+  const chartKeys = Object.keys(props.chart)
+  if (chartKeys.length === 0) return []
+
+  // 1. Core geocentric order for known bodies
+  const ordered = GEOCENTRIC_PLANETS.filter(id => props.chart[id] !== undefined)
+
+  // 2. Safeguard: Append any other bodies present in chart but not in GEOCENTRIC_PLANETS
+  const others = chartKeys.filter(id => !GEOCENTRIC_PLANETS.includes(id))
+
+  return [...ordered, ...others]
+})
 
 const archetypeKey = computed(() => {
     if (!props.chart || !props.chart.sun) return null;
