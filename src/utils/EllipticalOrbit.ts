@@ -10,6 +10,16 @@ export interface OrbitalElements {
   i: number // inclination
   N: number // longitude of ascending node
   w: number // argument of perihelion
+  // Pre-calculated Gaussian constants from Astronomy.js
+  PxA: number
+  PyA: number
+  PzA: number
+  QxAS: number
+  QyAS: number
+  QzAS: number
+  PxAe: number
+  PyAe: number
+  PzAe: number
 }
 
 /**
@@ -28,60 +38,8 @@ export function createEllipticalOrbit(
   // Use Float32Array for better memory efficiency and performance with LineGeometry
   const points = new Float32Array((segments + 1) * 3)
 
-  const a = elements.a
-  const e = elements.e
-  const i = elements.i // Already in radians
-  const N = elements.N // Already in radians
-  const w = elements.w // Already in radians
-
-  // Pre-calculate Gaussian constants (matching Astronomy.js implementation)
-  // These represent the transformation from the orbital plane to the ecliptic plane.
-  let Px, Qx, Py, Qy, Pz, Qz
-  const cosW = Math.cos(w)
-  const sinW = Math.sin(w)
-
-  if (i === 0 && N === 0) {
-    Px = cosW
-    Qx = -sinW
-    Py = sinW
-    Qy = cosW
-    Pz = 0
-    Qz = 0
-  } else {
-    const cosN = Math.cos(N)
-    const sinN = Math.sin(N)
-    const cosI = Math.cos(i)
-    const sinI = Math.sin(i)
-
-    const cosNcosW = cosN * cosW
-    const cosNsinW = cosN * sinW
-    const sinNcosW = sinN * cosW
-    const sinNsinW = sinN * sinW
-    const sinNcosI = sinN * cosI
-    const cosNcosI = cosN * cosI
-
-    Px = cosNcosW - sinNcosI * sinW
-    Qx = -cosNsinW - sinNcosI * cosW
-    Py = sinNcosW + cosNcosI * sinW
-    Qy = -sinNsinW + cosNcosI * cosW
-    Pz = sinW * sinI
-    Qz = cosW * sinI
-  }
-
-  const sqrtEE = Math.sqrt(1 - e * e)
-  const aSqrtEE = a * sqrtEE
+  const { PxA, PyA, PzA, QxAS, QyAS, QzAS, PxAe, PyAe, PzAe } = elements
   const step = TWO_PI / segments
-
-  // Pre-calculate combined constants to save multiplications in the sweep loop
-  const PxA = Px * a;
-  const PyA = Py * a;
-  const PzA = Pz * a;
-  const QxAS = Qx * aSqrtEE;
-  const QyAS = Qy * aSqrtEE;
-  const QzAS = Qz * aSqrtEE;
-  const PxAe = PxA * e;
-  const PyAe = PyA * e;
-  const PzAe = PzA * e;
 
   for (let k = 0; k <= segments; k++) {
     // Optimization: Sweep Eccentric Anomaly (E) directly from 0 to 2π.

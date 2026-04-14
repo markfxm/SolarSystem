@@ -166,6 +166,8 @@ export function computeElements(planetName, d, target = null) {
   if (!data || !data.e) {
     res.a = 1; res.e = 0; res.i = 0; res.N = 0; res.w = 0; res.M = 0; res.sqrtEE = 1; res.aSqrtEE = 1;
     res.Px = 1; res.Qx = 0; res.Py = 0; res.Qy = 1; res.Pz = 0; res.Qz = 0;
+    res.PxA = 1; res.PyA = 0; res.PzA = 0; res.QxAS = 0; res.QyAS = 1; res.QzAS = 0;
+    res.PxAe = 0; res.PyAe = 0; res.PzAe = 0;
     return res;
   }
 
@@ -248,45 +250,42 @@ export function computeElements(planetName, d, target = null) {
  */
 export function computePosition(elements, scale = 10, target = null) {
   const res = target || _posResult;
-  const a = elements.a;
-  const e = elements.e;
-  const M = elements.M;
+  const { a, e, M, PxA, PyA, PzA, QxAS, QyAS, QzAS, PxAe, PyAe, PzAe } = elements;
 
   // Solve Kepler's equation with early exit for low eccentricity
   let E = M;
   let sinE, cosE, denom;
+  let converged = false;
   for (let iter = 0; iter < 6; iter++) {
     sinE = Math.sin(E);
     cosE = Math.cos(E);
     denom = 1 - e * cosE;
     const error = E - e * sinE - M;
-    if (Math.abs(error) < 1e-6) break;
+    if (Math.abs(error) < 1e-6) {
+      converged = true;
+      break;
+    }
     E -= error / denom;
   }
 
-  // Optimized orbital coordinates using substitution:
-  // r*cos(v) = a * (cosE - e)
-  // r*sin(v) = a * sqrt(1 - e^2) * sinE
-  // r = a * denom
-  //
-  // Further Optimized: Combined multiplications
-  // x = Px * a * (cosE - e) + Qx * a * sqrt(1-e^2) * sinE
-  // x = (Px*a) * cosE - (Px*a*e) + (Qx * a * sqrt(1-e^2)) * sinE
-  // x = PxA * cosE - PxAe + QxAS * sinE
+  // Ensure sinE/cosE match the final E if loop didn't break early
+  if (!converged) {
+    sinE = Math.sin(E);
+    cosE = Math.cos(E);
+    denom = 1 - e * cosE;
+  }
 
   // Transform directly to Ecliptic plane using pre-calculated combined coefficients
-  const x = elements.PxA * cosE - elements.PxAe + elements.QxAS * sinE;
-  const y = elements.PyA * cosE - elements.PyAe + elements.QyAS * sinE;
-  const z = elements.PzA * cosE - elements.PzAe + elements.QzAS * sinE;
+  // Optimized: Use destructured variables to reduce object property lookups in hot path
+  const x = PxA * cosE - PxAe + QxAS * sinE;
+  const y = PyA * cosE - PyAe + QyAS * sinE;
+  const z = PzA * cosE - PzAe + QzAS * sinE;
 
-  // Distance from primary for scaling - reusing the last calculated denominator
-  const r = a * denom;
-
-  // Ecliptic to World transform
+  // Ecliptic to World transform (Standard mapping: Ecliptic XY -> World XZ, Ecliptic Z -> World Y)
   res.x = x * scale;
   res.y = z * scale;
   res.z = -y * scale;
-  res.r = r * scale;
+  res.r = a * denom * scale;
   return res;
 }
 
