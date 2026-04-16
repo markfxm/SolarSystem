@@ -98,6 +98,6 @@
 **Learning:** In the astrology display pipeline, repeatedly calling `padStart` on minute values for every planet creates unnecessary string allocations. Pre-calculating a `MINUTES_CACHE` (00-59) reduces this to a simple array lookup. Additionally, relying on object key iteration in Vue templates for high-frequency components (like `TransitPanel.vue`) is less stable than computed arrays. Explicitly mapping reactive data to a sorted array (`displayPlanets`) based on a core constant like `GEOCENTRIC_PLANETS` ensures predictable UI updates and prevents bugs caused by undefined length constants in progress bar calculations.
 **Action:** Cache repeating string-padded numbers (00-59) in utility modules. Always use computed arrays for `v-for` loops in hot-path UI components to ensure stable ordering and reliable aggregate calculations (like total counts).
 
-## 2026-04-20 - [Height Calculation Caching]
+## 2026-04-16 - [Height Calculation Caching]
 **Learning:** Even "fast" Perlin noise calls (O(1) complexity) become a significant CPU bottleneck when executed 4-6 times per frame at 60fps, especially in complex update loops that handle physics and camera lerping. For ground-following systems where movement is often slow or stationary, recalculating height every frame is redundant.
 **Action:** Implement a threshold-based cache (e.g., 0.01m) for height lookups. This skips redundant noise calculations in the update loop unless the player has moved significantly, preserving CPU cycles for rendering and simulation.
