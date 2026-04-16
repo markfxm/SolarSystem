@@ -273,6 +273,19 @@ export function createMarsSurface(renderer, options = {}) {
     return h;
   }
 
+  // Performance Optimization: Cache ground height for the player to avoid redundant Perlin calls
+  // when stationary or moving sub-millimeter distances.
+  const _groundCache = { x: Infinity, z: Infinity, h: 0 };
+  const getCachedH = (x, z) => {
+    // Only recalculate if camera moved more than 0.01m (threshold)
+    if (Math.abs(x - _groundCache.x) > 0.01 || Math.abs(z - _groundCache.z) > 0.01) {
+      _groundCache.x = x;
+      _groundCache.z = z;
+      _groundCache.h = getH(x, z);
+    }
+    return _groundCache.h;
+  }
+
   // Terrain Chunks
   const chunkSize = 400
   const chunkRes = 64
@@ -589,7 +602,7 @@ export function createMarsSurface(renderer, options = {}) {
       stepTimer = 0
     }
 
-    const groundH = getH(camera.position.x, camera.position.z)
+    const groundH = getCachedH(camera.position.x, camera.position.z)
     const targetY = groundH + 1.7
 
     // Snappier height adjustment (increased from 0.2 to 0.8)
