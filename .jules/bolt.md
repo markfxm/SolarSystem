@@ -101,3 +101,7 @@
 ## 2026-04-16 - [Height Calculation Caching]
 **Learning:** Even "fast" Perlin noise calls (O(1) complexity) become a significant CPU bottleneck when executed 4-6 times per frame at 60fps, especially in complex update loops that handle physics and camera lerping. For ground-following systems where movement is often slow or stationary, recalculating height every frame is redundant.
 **Action:** Implement a threshold-based cache (e.g., 0.01m) for height lookups. This skips redundant noise calculations in the update loop unless the player has moved significantly, preserving CPU cycles for rendering and simulation.
+
+## 2026-04-16 - [Translation Overhead in Reactive Templates]
+**Learning:** In Vue components with high-frequency updates (e.g., 60fps), calling an i18n `t()` function directly in a `v-for` template loop creates massive overhead due to repeated dictionary traversals and redundant reactive dependency registration. Moving these lookups to a single `computed` property (`translatedPlanets`) allows Vue to cache the results and only re-calculate when the actual data or language changes.
+**Action:** Always pre-resolve translations and formatting for list items in a computed property rather than performing lookups inside the template loop. Ensure custom i18n utilities correctly register reactivity at the start of the function to avoid missing updates.

@@ -495,7 +495,7 @@ const dict: { [key: string]: TranslationDict } = {
 
 // Performance Caches
 const pathCache = new Map<string, string[]>();
-const translationCache = new Map<string, string>();
+const translationCache = new Map<string, any>();
 
 // Clear translation cache on language change immediately
 watch(currentLang, () => {
@@ -504,9 +504,9 @@ watch(currentLang, () => {
 
 /**
  * Optimized translation function.
- * Uses caching for paths and resolved strings to minimize per-frame overhead.
+ * Uses caching for paths and resolved values (strings/arrays) to minimize per-frame overhead.
  */
-export function t(path: string, vars: Record<string, string | number> | null = null): string {
+export function t(path: string, vars: Record<string, string | number> | null = null): any {
   // Access currentLang.value at the very beginning to ensure Vue registers this function
   // as a reactive dependency. This is critical for template and computed updates.
   const _lang = currentLang.value;
@@ -525,7 +525,7 @@ export function t(path: string, vars: Record<string, string | number> | null = n
   }
 
   // 3. Dictionary traversal
-  let cur: any = dict[currentLang.value] || dict.en;
+  let cur: any = dict[_lang] || dict.en;
   for (let i = 0; i < parts.length; i++) {
     cur = cur?.[parts[i]];
     if (cur === undefined) return path;
@@ -537,12 +537,13 @@ export function t(path: string, vars: Record<string, string | number> | null = n
     for (const key in vars) {
       cur = cur.replaceAll(`{${key}}`, String(vars[key]));
     }
-  } else if (typeof cur === 'string') {
-    // Cache resolved static string
+    return cur;
+  } else {
+    // Cache resolved value (string or array)
     translationCache.set(path, cur);
   }
 
-  return typeof cur === 'string' ? cur : path;
+  return cur;
 }
 
 export function setLang(lang: string) {

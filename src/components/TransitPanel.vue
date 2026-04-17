@@ -58,17 +58,17 @@
         <div class="section">
             <h4>{{ t('transit.positions') || 'Positions' }}</h4>
             <div class="planet-list">
-            <div v-for="id in displayPlanets" :key="id"
+            <div v-for="p in translatedPlanets" :key="p.id"
                 class="planet-item clickable"
-                @click="$emit('focus-planet', id)">
+                @click="$emit('focus-planet', p.id)">
                 <div class="planet-row-main">
-                <span class="p-name">{{ t('planet.' + id) }}</span>
-                <span class="p-sign">{{ t('zodiac_names')[chart[id].index] }}</span>
-                <span class="p-deg">{{ formatDegree(chart[id].degree) }}</span>
+                <span class="p-name">{{ p.name }}</span>
+                <span class="p-sign">{{ p.sign }}</span>
+                <span class="p-deg">{{ p.deg }}</span>
                 </div>
                 <div class="planet-row-desc">
-                <span class="p-meaning">{{ t('planet_meaning.' + id) }}</span>
-                <span class="p-keyword">{{ t('sign_keywords.' + chart[id].signId) }}</span>
+                <span class="p-meaning">{{ p.meaning }}</span>
+                <span class="p-keyword">{{ p.keyword }}</span>
                 </div>
             </div>
             </div>
@@ -116,17 +116,35 @@ const showDetails = ref(false)
  * as each guidance block now only re-evaluates when its specific planet/condition changes.
  */
 
-const displayPlanets = computed(() => {
+const zodiacNames = computed(() => t('zodiac_names'))
+
+/**
+ * Performance Optimization: Pre-calculates all translated values and formatted strings
+ * for the planet list in a single pass. This eliminates 30+ redundant reactive
+ * translation lookups and string concatenations in the template's render path.
+ */
+const translatedPlanets = computed(() => {
   const chartKeys = Object.keys(props.chart)
   if (chartKeys.length === 0) return []
 
-  // 1. Core geocentric order for known bodies
+  // 1. Determine Order
   const ordered = GEOCENTRIC_PLANETS.filter(id => props.chart[id] !== undefined)
-
-  // 2. Safeguard: Append any other bodies present in chart but not in GEOCENTRIC_PLANETS
   const others = chartKeys.filter(id => !GEOCENTRIC_PLANETS.includes(id))
+  const ids = [...ordered, ...others]
+  const names = zodiacNames.value
 
-  return [...ordered, ...others]
+  // 2. Map to pre-calculated objects
+  return ids.map(id => {
+    const data = props.chart[id]
+    return {
+      id,
+      name: t('planet.' + id),
+      sign: names[data.index],
+      deg: AstrologyService.formatDegree(data.degree),
+      meaning: t('planet_meaning.' + id),
+      keyword: t('sign_keywords.' + data.signId)
+    }
+  })
 })
 
 const archetypeKey = computed(() => {
