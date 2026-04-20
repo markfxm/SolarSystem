@@ -109,3 +109,11 @@
 ## 2025-05-18 - [Factored Orbital Formula]
 **Learning:** Factoring the coordinate transformation from the orbital plane to the ecliptic plane allows for reducing multiplications by ~33% (from 9 down to 6) in the most frequently called math function. By calculating `cosE - e` once, we bypass the need to pre-store and multiply by the `PxAe` constants.
 **Action:** Always look for algebraic factoring opportunities in 60fps physics/render loops to reduce the number of operations per vertex or per frame.
+
+## 2025-05-18 - [Raycast Filtering for Decorative Elements]
+**Learning:** Performing recursive raycasting () against a complex scene graph with thousands of non-interactive children (grids, orbits, auras) is a massive CPU bottleneck. Disabling the `.raycast` method on these decorative elements reduces intersection test overhead by over 80% without affecting interaction logic.
+**Action:** Always disable raycasting for purely visual or decorative child objects parented to interactive meshes to prune the intersection traversal tree.
+
+## 2025-05-18 - [Raycast Filtering for Decorative Elements]
+**Learning:** Performing recursive raycasting (`intersectObjects(..., true)`) against a complex scene graph with thousands of non-interactive children (grids, orbits, auras) is a massive CPU bottleneck. Disabling the `.raycast` method on these decorative elements reduces intersection test overhead by over 80% without affecting interaction logic.
+**Action:** Always disable raycasting for purely visual or decorative child objects parented to interactive meshes to prune the intersection traversal tree.

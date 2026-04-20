@@ -138,6 +138,9 @@ export class AuraManager {
         // Material will be set in update()
         const sprite = new THREE.Sprite(this.materials.get('default'));
 
+        // Optimization: Aura sprites are not interactive, disable raycasting to save CPU during mouse movement
+        sprite.raycast = () => {};
+
         // Parent the aura to the mesh for 60fps synchronous movement
         mesh.add(sprite);
 

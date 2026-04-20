@@ -78,6 +78,8 @@ export function createEllipticalOrbit(
   material.resolution.set(window.innerWidth, window.innerHeight)
 
   const orbitLine = new Line2(geometry, material)
+  // Optimization: Orbit lines are not interactive, disable raycasting to save CPU during mouse movement
+  orbitLine.raycast = () => {}
   orbitLine.computeLineDistances()
   orbitLine.userData.isOrbit = true
 
