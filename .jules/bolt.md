@@ -105,3 +105,7 @@
 ## 2026-04-16 - [Translation Overhead in Reactive Templates]
 **Learning:** In Vue components with high-frequency updates (e.g., 60fps), calling an i18n `t()` function directly in a `v-for` template loop creates massive overhead due to repeated dictionary traversals and redundant reactive dependency registration. Moving these lookups to a single `computed` property (`translatedPlanets`) allows Vue to cache the results and only re-calculate when the actual data or language changes.
 **Action:** Always pre-resolve translations and formatting for list items in a computed property rather than performing lookups inside the template loop. Ensure custom i18n utilities correctly register reactivity at the start of the function to avoid missing updates.
+
+## 2025-05-18 - [Factored Orbital Formula]
+**Learning:** Factoring the coordinate transformation from the orbital plane to the ecliptic plane allows for reducing multiplications by ~33% (from 9 down to 6) in the most frequently called math function. By calculating `cosE - e` once, we bypass the need to pre-store and multiply by the `PxAe` constants.
+**Action:** Always look for algebraic factoring opportunities in 60fps physics/render loops to reduce the number of operations per vertex or per frame.

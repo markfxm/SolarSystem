@@ -151,7 +151,6 @@ const _elResult = {
     a: 1, e: 0, i: 0, N: 0, w: 0, M: 0, sqrtEE: 1, aSqrtEE: 1,
     Px: 1, Qx: 0, Py: 0, Qy: 1, Pz: 0, Qz: 0,
     PxA: 1, PyA: 0, PzA: 0, QxAS: 0, QyAS: 1, QzAS: 0,
-    PxAe: 0, PyAe: 0, PzAe: 0,
     lastD: -999999, lastPlanet: ''
 };
 
@@ -167,7 +166,6 @@ export function computeElements(planetName, d, target = null) {
     res.a = 1; res.e = 0; res.i = 0; res.N = 0; res.w = 0; res.M = 0; res.sqrtEE = 1; res.aSqrtEE = 1;
     res.Px = 1; res.Qx = 0; res.Py = 0; res.Qy = 1; res.Pz = 0; res.Qz = 0;
     res.PxA = 1; res.PyA = 0; res.PzA = 0; res.QxAS = 0; res.QyAS = 1; res.QzAS = 0;
-    res.PxAe = 0; res.PyAe = 0; res.PzAe = 0;
     return res;
   }
 
@@ -237,9 +235,6 @@ export function computeElements(planetName, d, target = null) {
   res.QxAS = res.Qx * aSqrtEE;
   res.QyAS = res.Qy * aSqrtEE;
   res.QzAS = res.Qz * aSqrtEE;
-  res.PxAe = res.PxA * e;
-  res.PyAe = res.PyA * e;
-  res.PzAe = res.PzA * e;
 
   return res;
 }
@@ -250,7 +245,7 @@ export function computeElements(planetName, d, target = null) {
  */
 export function computePosition(elements, scale = 10, target = null) {
   const res = target || _posResult;
-  const { a, e, M, PxA, PyA, PzA, QxAS, QyAS, QzAS, PxAe, PyAe, PzAe } = elements;
+  const { a, e, M, PxA, PyA, PzA, QxAS, QyAS, QzAS } = elements;
 
   // Solve Kepler's equation with early exit for low eccentricity
   let E = M;
@@ -276,10 +271,12 @@ export function computePosition(elements, scale = 10, target = null) {
   }
 
   // Transform directly to Ecliptic plane using pre-calculated combined coefficients
-  // Optimized: Use destructured variables to reduce object property lookups in hot path
-  const x = PxA * cosE - PxAe + QxAS * sinE;
-  const y = PyA * cosE - PyAe + QyAS * sinE;
-  const z = PzA * cosE - PzAe + QzAS * sinE;
+  // Optimized: Factored formula pos = PxA * (cosE - e) + QxAS * sinE
+  // saves 3 multiplications and 2 subtractions per call.
+  const cosEmE = cosE - e;
+  const x = PxA * cosEmE + QxAS * sinE;
+  const y = PyA * cosEmE + QyAS * sinE;
+  const z = PzA * cosEmE + QzAS * sinE;
 
   // Ecliptic to World transform (Standard mapping: Ecliptic XY -> World XZ, Ecliptic Z -> World Y)
   res.x = x * scale;
@@ -379,7 +376,6 @@ const _moonElements = {
     a: 1, e: 0, i: 0, N: 0, w: 0, M: 0, sqrtEE: 1, aSqrtEE: 1,
     Px: 1, Qx: 0, Py: 0, Qy: 1, Pz: 0, Qz: 0,
     PxA: 1, PyA: 0, PzA: 0, QxAS: 0, QyAS: 1, QzAS: 0,
-    PxAe: 0, PyAe: 0, PzAe: 0,
     lastD: -999999, lastPlanet: 'moon'
 };
 
@@ -399,9 +395,6 @@ export function computeMoonPosition(d, target = null) {
   el.QxAS = el.Qx * el.sqrtEE;
   el.QyAS = el.Qy * el.sqrtEE;
   el.QzAS = el.Qz * el.sqrtEE;
-  el.PxAe = el.Px * el.e;
-  el.PyAe = el.Py * el.e;
-  el.PzAe = el.Pz * el.e;
 
   return computePosition(el, 1, target);
 }

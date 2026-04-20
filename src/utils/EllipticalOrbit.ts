@@ -17,9 +17,6 @@ export interface OrbitalElements {
   QxAS: number
   QyAS: number
   QzAS: number
-  PxAe: number
-  PyAe: number
-  PzAe: number
 }
 
 /**
@@ -38,7 +35,7 @@ export function createEllipticalOrbit(
   // Use Float32Array for better memory efficiency and performance with LineGeometry
   const points = new Float32Array((segments + 1) * 3)
 
-  const { PxA, PyA, PzA, QxAS, QyAS, QzAS, PxAe, PyAe, PzAe } = elements
+  const { e, PxA, PyA, PzA, QxAS, QyAS, QzAS } = elements
   const step = TWO_PI / segments
 
   for (let k = 0; k <= segments; k++) {
@@ -50,9 +47,11 @@ export function createEllipticalOrbit(
     const sinE = Math.sin(E)
 
     // Transform directly to Ecliptic plane using pre-calculated combined coefficients
-    const x = PxA * cosE - PxAe + QxAS * sinE
-    const y = PyA * cosE - PyAe + QyAS * sinE
-    const z = PzA * cosE - PzAe + QzAS * sinE
+    // Optimized: Factored formula pos = PxA * (cosE - e) + QxAS * sinE
+    const cosEmE = cosE - e
+    const x = PxA * cosEmE + QxAS * sinE
+    const y = PyA * cosEmE + QyAS * sinE
+    const z = PzA * cosEmE + QzAS * sinE
 
     // Transform Ecliptic (XY-plane, Z-up) to World (XZ-plane, Y-up)
     const idx = k * 3
