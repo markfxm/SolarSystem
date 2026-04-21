@@ -5,6 +5,10 @@ import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js'
 import { J2000_EPOCH, computeElements, computePosition, TWO_PI } from './Astronomy.js'
 
 const geometryCache = new Map()
+const PLANET_ORDER_MAP = new Map([
+    ['mercury', 0], ['venus', 1], ['earth', 2], ['mars', 3],
+    ['jupiter', 4], ['saturn', 5], ['uranus', 6], ['neptune', 7]
+]);
 
 /**
  * Handles temporary transformations for a schematic "Blueprint" snapshot.
@@ -51,10 +55,10 @@ export class AestheticSnapshotManager {
 
     /**
      * Map planet name to its index (0-7 for Mercury-Neptune)
+     * Optimized: Uses module-level Map for O(1) lookups.
      */
     getPlanetIndex(name) {
-        const order = ['mercury', 'venus', 'earth', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune']
-        return order.indexOf(name)
+        return PLANET_ORDER_MAP.get(name) ?? -1
     }
 
     /**
@@ -127,14 +131,18 @@ export class AestheticSnapshotManager {
         this.camera.updateProjectionMatrix()
 
         // 2. Hide original orbits and HUD items
-        this.scene.traverse(obj => {
+        // Optimized: Uses a flat iteration over scene.children instead of a recursive traverse,
+        // as all relevant objects (orbits, starfield, nebula) are direct children.
+        const children = this.scene.children;
+        for (let i = 0; i < children.length; i++) {
+            const obj = children[i];
             if (obj.userData?.isOrbit || obj.type === 'Line' || obj.type === 'Line2' || obj.type === 'Points') {
                 if (!this.originalStates.has(obj)) {
                     this.originalStates.set(obj, { visible: obj.visible })
                 }
                 obj.visible = false
             }
-        })
+        }
 
         // 3. Transform Planets
         const d = (date.getTime() - J2000_EPOCH) / 86400000
@@ -199,12 +207,13 @@ export class AestheticSnapshotManager {
     }
 
     restore() {
-        this.originalStates.forEach((state, obj) => {
+        // Optimized: Replace forEach with for...of entries for better performance
+        for (const [obj, state] of this.originalStates.entries()) {
             if (state.position) obj.position.copy(state.position)
             if (state.scale) obj.scale.copy(state.scale)
             if (state.rotation) obj.rotation.copy(state.rotation)
             if (state.visible !== undefined) obj.visible = state.visible
-        })
+        }
 
         if (this.originalCameraState) {
             this.camera.position.copy(this.originalCameraState.position)
