@@ -122,6 +122,8 @@ export function createLatLonGrid(radius) {
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.BufferAttribute(allPoints, 3));
   const segmentsMesh = new THREE.LineSegments(geometry, sharedLineMaterial);
+  // Optimization: Grid lines are not interactive, disable raycasting to save CPU during mouse movement
+  segmentsMesh.raycast = () => {};
   group.add(segmentsMesh);
 
   group.visible = false;
@@ -174,6 +176,8 @@ function createTextSprite(text, scale) {
   }
 
   const sprite = new THREE.Sprite(material);
+  // Optimization: Grid labels are not interactive, disable raycasting to save CPU during mouse movement
+  sprite.raycast = () => {};
   sprite.scale.set(scale, scale, 1);
   return sprite;
 }

@@ -106,6 +106,8 @@ export function createZodiacRing(radius = 10000, initialNames = []) {
     });
 
     const ringLine = new Line2(ringGeo, ringMat);
+    // Optimization: Zodiac ring is not interactive, disable raycasting to save CPU
+    ringLine.raycast = () => {};
     ringLine.renderOrder = 5; // Draw early
     ringLine.computeLineDistances();
     group.add(ringLine);
@@ -146,6 +148,8 @@ export function createZodiacRing(radius = 10000, initialNames = []) {
     });
 
     const tickSegments = new LineSegments2(tickGeo, tickMat);
+    // Optimization: Zodiac ticks are not interactive, disable raycasting to save CPU
+    tickSegments.raycast = () => {};
     tickSegments.renderOrder = 5;
     tickSegments.computeLineDistances();
     group.add(tickSegments);
@@ -177,6 +181,8 @@ export function createZodiacRing(radius = 10000, initialNames = []) {
         }
 
         const sprite = new THREE.Sprite(spriteMat);
+        // Optimization: Zodiac labels are not interactive, disable raycasting to save CPU
+        sprite.raycast = () => {};
         // Transform Ecliptic (XY) to World (XZ)
         // Add a small Y-offset to prevent Z-fighting with the ring plane
         sprite.position.set(lx, radius * 0.001, -ly);

@@ -77,6 +77,8 @@ export class AspectLinesManager {
                 });
 
                 const line = new Line2(geometry, material);
+                // Optimization: Aspect lines are not interactive, disable raycasting to save CPU
+                line.raycast = () => {};
                 line.renderOrder = 6; // Draw above ring but below labels
 
                 // Add metadata for animation
