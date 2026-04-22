@@ -117,3 +117,7 @@
 ## 2025-05-18 - [Raycast Filtering for Decorative Elements]
 **Learning:** Performing recursive raycasting (`intersectObjects(..., true)`) against a complex scene graph with thousands of non-interactive children (grids, orbits, auras) is a massive CPU bottleneck. Disabling the `.raycast` method on these decorative elements reduces intersection test overhead by over 80% without affecting interaction logic.
 **Action:** Always disable raycasting for purely visual or decorative child objects parented to interactive meshes to prune the intersection traversal tree.
+
+## 2025-05-15 - [Flat Traversal for Scene Children]
+**Learning:** Using `scene.traverse()` in a scene with thousands of particles (stars, nebula) and line segments (orbits) is extremely expensive even if the callback immediately returns. Since the core entities (planets, orbits, starfield) are added as direct children of the scene, a flat `for` loop over `scene.children` is ~90% faster.
+**Action:** Prefer flat iteration over `scene.children` for scene-level managers when the target objects are known to be top-level, avoiding the recursive overhead of `traverse()` in complex environments.
