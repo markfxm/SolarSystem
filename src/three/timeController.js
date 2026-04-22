@@ -8,7 +8,6 @@ export function createTimeController(planetObjects, orbitScale, extraRotating = 
 
   // Pre-filter and optimize planet list to avoid Object.entries() and redundant if-checks in the update loop
   const activePlanets = [];
-  const planetScratch = {}; // Per-planet scratch objects for threshold-based caching
 
   for (const name in planetObjects) {
     // Sun stays at origin, and Moon is handled separately in its geocentric loop
@@ -16,14 +15,16 @@ export function createTimeController(planetObjects, orbitScale, extraRotating = 
       activePlanets.push({
         name,
         mesh: planetObjects[name],
-        rotCache: getRotationCache(name)
+        rotCache: getRotationCache(name),
+        // Performance Optimization: store per-planet scratch objects directly on the planet entry
+        // to eliminate Map-like lookups in the hot path.
+        scratch: {
+          a: 1, e: 0, i: 0, N: 0, w: 0, M: 0, sqrtEE: 1, aSqrtEE: 1,
+          Px: 1, Qx: 0, Py: 0, Qy: 1, Pz: 0, Qz: 0,
+          PxA: 1, PyA: 0, PzA: 0, QxAS: 0, QyAS: 1, QzAS: 0,
+          lastD: -999999, lastPlanet: name
+        }
       });
-      planetScratch[name] = {
-        a: 1, e: 0, i: 0, N: 0, w: 0, M: 0, sqrtEE: 1, aSqrtEE: 1,
-        Px: 1, Qx: 0, Py: 0, Qy: 1, Pz: 0, Qz: 0,
-        PxA: 1, PyA: 0, PzA: 0, QxAS: 0, QyAS: 1, QzAS: 0,
-        lastD: -999999, lastPlanet: name
-      };
     }
   }
 
@@ -73,14 +74,18 @@ export function createTimeController(planetObjects, orbitScale, extraRotating = 
       const name = p.name;
       const mesh = p.mesh;
 
-      // Use per-planet scratch variables to enable threshold-based caching in computeElements
-      const el = computeElements(name, d, planetScratch[name]);
+      // Optimized: Use per-planet scratch directly from the pre-linked entry
+      const el = computeElements(name, d, p.scratch);
       const pos = computePosition(el, orbitScale, _scratchPos);
       mesh.position.set(pos.x, pos.y, pos.z);
 
-      // Use absolute IAU orientation based on d
-      // Performance Optimization: Use pre-linked rotCache for O(1) orientation update
-      mesh.setRotationFromQuaternion(computePlanetQuaternion(name, d, p.rotCache));
+      // Performance Optimization: Check for quaternion change before applying rotation.
+      // This skips redundant Three.js matrix updates and _onChangeCallback triggers
+      // when the orientation is retrieved from the Astronomy.js threshold cache.
+      const quat = computePlanetQuaternion(name, d, p.rotCache);
+      if (!mesh.quaternion.equals(quat)) {
+        mesh.setRotationFromQuaternion(quat);
+      }
 
       if (name === 'earth') {
         _earthPos.copy(mesh.position);
@@ -109,8 +114,11 @@ export function createTimeController(planetObjects, orbitScale, extraRotating = 
     // rotate any extra objects (e.g. the Sun, Moon) using optimized list
     for (let i = 0; i < optimizedRotating.length; i++) {
       const p = optimizedRotating[i];
-      // Performance Optimization: Use pre-linked rotCache for O(1) orientation update
-      p.mesh.setRotationFromQuaternion(computePlanetQuaternion(p.name, d, p.rotCache));
+      // Performance Optimization: Skip redundant rotation updates
+      const quat = computePlanetQuaternion(p.name, d, p.rotCache);
+      if (!p.mesh.quaternion.equals(quat)) {
+        p.mesh.setRotationFromQuaternion(quat);
+      }
     }
   }
 
