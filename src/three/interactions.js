@@ -22,6 +22,16 @@ export function createInteractions({
   const mouse = new THREE.Vector2()
   const lastMousePos = new THREE.Vector2(-999, -999)
 
+  // Performance Optimization: Cache window dimensions to avoid redundant property access
+  let windowWidth = window.innerWidth
+  let windowHeight = window.innerHeight
+
+  const onResize = () => {
+    windowWidth = window.innerWidth
+    windowHeight = window.innerHeight
+  }
+  window.addEventListener('resize', onResize)
+
   let hoveredObject = null
   let selectedObject = null
   let hoveredPOI = null
@@ -182,8 +192,9 @@ export function createInteractions({
     const now = performance.now()
     if (now - lastMouseMoveTime < 32) return
 
-    const mx = (event.clientX / window.innerWidth) * 2 - 1
-    const my = -(event.clientY / window.innerHeight) * 2 + 1
+    // Optimized: Use cached window dimensions
+    const mx = (event.clientX / windowWidth) * 2 - 1
+    const my = -(event.clientY / windowHeight) * 2 + 1
 
     // Threshold check: only raycast if mouse moved significantly
     const distSq = (mx - lastMousePos.x) ** 2 + (my - lastMousePos.y) ** 2
@@ -385,6 +396,7 @@ export function createInteractions({
   }
 
   function dispose() {
+    window.removeEventListener('resize', onResize)
     renderer.domElement.removeEventListener('mousemove', onMouseMove)
     renderer.domElement.removeEventListener('click', onClick)
     // remove controls listener
