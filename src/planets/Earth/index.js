@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { BasePlanet } from '../base/BasePlanet.js';
+import { unitSphereGeometry } from '../../three/geometries.js';
 
 export class Earth extends BasePlanet {
   constructor(radius, scene) {
@@ -11,8 +12,8 @@ export class Earth extends BasePlanet {
 
     // Earth Atmosphere
     const atmos = new THREE.Mesh(
-      // Optimized: Use normalized radius (1.05) as it is a child of the scaled planet mesh
-      new THREE.SphereGeometry(1.05, 64, 64),
+      // Optimized: Reuse shared unit geometry and apply scale.
+      unitSphereGeometry,
       new THREE.MeshBasicMaterial({
         color: 0x4488ff,
         transparent: true,
@@ -20,6 +21,7 @@ export class Earth extends BasePlanet {
         side: THREE.BackSide
       })
     );
+    atmos.scale.setScalar(1.05);
     mesh.add(atmos);
 
     return mesh;

@@ -1,8 +1,6 @@
 import * as THREE from 'three';
 import { createHolographicMaterial } from '../../utils/HolographicMaterial';
-
-// Optimized: Reuse the same sphere segments as planets for consistency and memory savings
-const unitSphereGeometry = new THREE.SphereGeometry(1, 48, 48);
+import { unitSphereGeometry } from '../../three/geometries.js';
 
 export class Sun {
   constructor(radius, scene) {
