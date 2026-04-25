@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { createLatLonGrid } from '../../utils/Grid.js';
 import { createPOIMarkers } from '../../utils/POI.js';
 import { createHolographicMaterial } from '../../utils/HolographicMaterial';
+import { unitSphereGeometry } from '../../three/geometries.js';
 
 const vertexShader = `
   varying vec2 vUv;
@@ -52,9 +53,6 @@ const fragmentShader = `
     gl_FragColor = vec4(color, 1.0);
   }
 `;
-
-// Shared unit geometry for all planets to reduce memory usage and GPU state changes
-const unitSphereGeometry = new THREE.SphereGeometry(1, 48, 48);
 
 export class BasePlanet {
   constructor(name, radius, scene) {
