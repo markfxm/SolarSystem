@@ -22,6 +22,8 @@ export class Earth extends BasePlanet {
       })
     );
     atmos.scale.setScalar(1.05);
+    // Optimization: Atmosphere is decorative, disable raycasting to save CPU
+    atmos.raycast = () => {};
     mesh.add(atmos);
 
     return mesh;

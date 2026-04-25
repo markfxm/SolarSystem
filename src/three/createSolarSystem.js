@@ -177,6 +177,8 @@ export async function createSolarSystem(scene, zodiacNames = [], onProgress = ()
   }
   starGeo.setAttribute('position', new THREE.BufferAttribute(starVertices, 3))
   const starPoints = new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 2 }))
+  // Optimization: Starfield is not interactive, disable raycasting to save CPU
+  starPoints.raycast = () => {}
   starPoints.userData.isStarfield = true
   scene.add(starPoints)
 
