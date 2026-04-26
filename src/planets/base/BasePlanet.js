@@ -97,6 +97,8 @@ export class BasePlanet {
   addGrid() {
     // Pass 1.0 since it's added as a child of the scaled planet mesh
     const grid = createLatLonGrid(1.0);
+    // Optimization: Grid is decorative, disable raycasting to save CPU during planet raycasting
+    grid.raycast = () => {};
     this.mesh.add(grid);
     this.mesh.userData.grid = grid;
   }
@@ -105,6 +107,9 @@ export class BasePlanet {
     // Pass 1.0 since it's added as a child of the scaled planet mesh
     const pois = createPOIMarkers(this.name, 1.0);
     if (pois) {
+      // Optimization: POIs are interactive but handled separately via specialized raycasting
+      // in interactions.js. Disable recursive raycasting on the group to save CPU.
+      pois.raycast = () => {};
       this.mesh.add(pois);
       this.mesh.userData.pois = pois;
     }

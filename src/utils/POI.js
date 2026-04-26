@@ -66,12 +66,17 @@ export function createPOIMarkers(planetName, radius) {
 
     // 1. Solid White Dot (Stuck to surface)
     const dot = new THREE.Mesh(dotUnitGeometry, dotSharedMaterial);
+    // Optimization: Specialized raycasting is handled via _poiCandidates in interactions.js.
+    // Disable default raycast to save CPU during planetary traversal.
+    dot.raycast = () => {};
     dot.position.copy(pos);
     dot.lookAt(pos.clone().multiplyScalar(1.1));
     poiGroup.add(dot);
 
     // 2. Text Label
     const labelMesh = createLabelMesh(poi, planetName);
+    // Optimization: Disable default raycast for label as well.
+    labelMesh.raycast = () => {};
     const labelPos = pos.clone().add(pos.clone().normalize().multiplyScalar(0.002));
     labelMesh.position.copy(labelPos);
     labelMesh.lookAt(labelPos.clone().multiplyScalar(1.1));

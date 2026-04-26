@@ -51,6 +51,8 @@ export function createNebula(position) {
   });
 
   const nebula = new THREE.Points(geometry, material);
+  // Optimization: Nebula is not interactive, disable raycasting to save CPU
+  nebula.raycast = () => {};
   nebula.position.copy(position);
   return nebula;
 }
