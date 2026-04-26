@@ -23,7 +23,8 @@ export const PLANET_POIS = {
 const dotUnitGeometry = new THREE.CircleGeometry(0.015, 32);
 const dotSharedMaterial = new THREE.MeshBasicMaterial({
   color: 0xffffff,
-  side: THREE.DoubleSide,
+  // Optimization: POI dots only need to be visible from the front
+  side: THREE.FrontSide,
   transparent: true,
   opacity: 0.9,
   depthTest: true
@@ -33,6 +34,10 @@ const dotSharedMaterial = new THREE.MeshBasicMaterial({
 const labelUnitGeometry = new THREE.PlaneGeometry(0.45, 0.45 * 0.25);
 // Shift geometry so it's anchored at the bottom-center
 labelUnitGeometry.translate(0, (0.45 * 0.25) * 1.2, 0);
+
+// Scratch variables to eliminate per-POI allocations during initialization
+const _vPos = new THREE.Vector3();
+const _vLook = new THREE.Vector3();
 
 /**
  * Creates interactive POI markers for a planet.
@@ -58,7 +63,7 @@ export function createPOIMarkers(planetName, radius) {
 
     // Position on surface
     const r = radius * 1.005;
-    const pos = new THREE.Vector3(
+    _vPos.set(
       r * Math.cos(latRad) * Math.cos(lonRad),
       r * Math.sin(latRad),
       r * Math.cos(latRad) * Math.sin(lonRad)
@@ -66,20 +71,28 @@ export function createPOIMarkers(planetName, radius) {
 
     // 1. Solid White Dot (Stuck to surface)
     const dot = new THREE.Mesh(dotUnitGeometry, dotSharedMaterial);
-    // Optimization: Specialized raycasting is handled via _poiCandidates in interactions.js.
-    // Disable default raycast to save CPU during planetary traversal.
-    dot.raycast = () => {};
-    dot.position.copy(pos);
-    dot.lookAt(pos.clone().multiplyScalar(1.1));
+    // Optimization: POIs are interactive but handled separately via specialized raycasting.
+    // Set to Layer 1 to prune them from the expensive recursive planet-wide raycast.
+    dot.layers.set(1);
+    dot.position.copy(_vPos);
+    _vLook.copy(_vPos).multiplyScalar(1.1);
+    dot.lookAt(_vLook);
+    // Optimization: Draw dots above planet but below labels
+    dot.renderOrder = 7;
     poiGroup.add(dot);
 
     // 2. Text Label
     const labelMesh = createLabelMesh(poi, planetName);
-    // Optimization: Disable default raycast for label as well.
-    labelMesh.raycast = () => {};
-    const labelPos = pos.clone().add(pos.clone().normalize().multiplyScalar(0.002));
-    labelMesh.position.copy(labelPos);
-    labelMesh.lookAt(labelPos.clone().multiplyScalar(1.1));
+    // Optimization: Set to Layer 1 to prune from standard raycast passes.
+    labelMesh.layers.set(1);
+    // Offset slightly from dot to avoid Z-fighting
+    _vLook.copy(_vPos).normalize().multiplyScalar(0.002);
+    _vPos.add(_vLook);
+    labelMesh.position.copy(_vPos);
+    _vLook.copy(_vPos).multiplyScalar(1.1);
+    labelMesh.lookAt(_vLook);
+    // Optimization: Draw labels on top of dots
+    labelMesh.renderOrder = 8;
     poiGroup.add(labelMesh);
 
     poiGroup.userData = {
@@ -118,10 +131,16 @@ export function updatePOIs(group, camera, planetPosition) {
       const dot = poiGroup.userData.dot;
       const label = poiGroup.userData.label;
 
+      // Optimization: Skip Three.js property updates and matrix recalculations
+      // if the target scale is already reached.
       if (Math.abs(dot.scale.x - targetScale) > 0.001) {
         _tempScale.setScalar(targetScale);
         dot.scale.lerp(_tempScale, 0.1);
         label.scale.lerp(_tempScale, 0.1);
+      } else if (dot.scale.x !== targetScale) {
+        // Snap to target if very close to avoid persistent sub-pixel updates
+        dot.scale.setScalar(targetScale);
+        label.scale.setScalar(targetScale);
       }
     }
   }
@@ -153,7 +172,11 @@ function createLabelMesh(poi, planetName) {
     map: texture,
     transparent: true,
     depthTest: true,
-    side: THREE.DoubleSide
+    // Optimization: Labels only need to be visible from the front
+    side: THREE.FrontSide,
+    // Optimization: Disable depthWrite for transparent labels to reduce Z-fighting
+    // and improve rendering performance in complex scenes.
+    depthWrite: false
   });
 
   // Optimized: Use shared unit PlaneGeometry
