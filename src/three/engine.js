@@ -13,6 +13,8 @@ export function createEngine(container) {
     0.1,
     500000
   )
+  // Enable Layer 1 so POIs and other interactive overlays are visible
+  camera.layers.enable(1)
   // Initial far position for fly-in animation
   camera.position.set(0, 20000, 40000)
 

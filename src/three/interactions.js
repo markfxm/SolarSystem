@@ -227,7 +227,12 @@ export function createInteractions({
       }
     }
 
-    const poiHits = raycaster.intersectObjects(_poiCandidates, false)
+    // Optimization passing: Check for POIs on Layer 1.
+    // This allows us to prune them from the expensive recursive pass on Layer 0.
+    raycaster.layers.set(1)
+
+    // Optimization: Skip intersection tests if there are no candidates
+    const poiHits = (_poiCandidates.length > 0) ? raycaster.intersectObjects(_poiCandidates, false) : [];
     if (poiHits.length > 0) {
       // Find the parent POI group
       hitPOI = poiHits[0].object.parent
@@ -249,7 +254,13 @@ export function createInteractions({
       }
     }
 
-    if (hitPOI) return
+    if (hitPOI) {
+      raycaster.layers.set(0) // Reset for future calls
+      return
+    }
+
+    // Reset to Layer 0 for Planet raycasting
+    raycaster.layers.set(0)
 
     // Use recursive: true to support Blender models (Groups/Scenes)
     const hits = raycaster.intersectObjects(planets, true)
