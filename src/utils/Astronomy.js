@@ -77,7 +77,7 @@ const planetsData = {
     rotationPeriodHours: 16.11
   },
   moon: {
-    a: 0.00257, // Real semi-major axis in AU (not used for visual scale, but for physics if needed)
+    a: 1.0, // Scaled for direction vector computation
     e: [0.0549, 0],
     i: [5.145, 0],
     N: [125.08, -0.0529538083], // Nodal precession ~ -19 deg/year
@@ -86,6 +86,8 @@ const planetsData = {
     rotationPeriodHours: 655.7 // 27.32 days * 24
   }
 };
+
+export const PLANETS_DATA = planetsData;
 
 /**
  * IAU J2000 Orientation Constants (Report 2015)
@@ -115,16 +117,18 @@ export const INV_MS_PER_DAY = 1.0 / 86400000;
 export const INV_SEC_PER_DAY = 1.0 / 86400;
 
 /**
- * Pre-convert constants to radians at module initialization
+ * Pre-convert constants to radians and flatten linear coefficients for performance
  */
 (function preConvertData() {
     for (const p in planetsData) {
         const d = planetsData[p];
         if (d.e) {
-            d.i[0] *= DEG2RAD; d.i[1] *= DEG2RAD;
-            d.N[0] *= DEG2RAD; d.N[1] *= DEG2RAD;
-            d.w[0] *= DEG2RAD; d.w[1] *= DEG2RAD;
-            d.M[0] *= DEG2RAD; d.M[1] *= DEG2RAD;
+            // Pre-multiply rates and flatten to avoid array access in hot loops
+            d.e0 = d.e[0]; d.e1 = d.e[1];
+            d.i0 = d.i[0] * DEG2RAD; d.i1 = d.i[1] * DEG2RAD;
+            d.N0 = d.N[0] * DEG2RAD; d.N1 = d.N[1] * DEG2RAD;
+            d.w0 = d.w[0] * DEG2RAD; d.w1 = d.w[1] * DEG2RAD;
+            d.M0 = d.M[0] * DEG2RAD; d.M1 = d.M[1] * DEG2RAD;
         }
     }
     for (const p in ORIENTATION_CONSTANTS) {
@@ -159,10 +163,10 @@ const _elResult = {
  * Optimized: Threshold-based caching for slow-moving elements (Gaussian constants).
  * Reduces ~6 trig calls and 12+ multiplications per body per frame during real-time.
  */
-export function computeElements(planetName, d, target = null) {
-  const data = planetsData[planetName];
+export function computeElements(planetNameOrData, d, target = null) {
+  const data = typeof planetNameOrData === 'string' ? planetsData[planetNameOrData] : planetNameOrData;
   const res = target || _elResult;
-  if (!data || !data.e) {
+  if (!data || data.e0 === undefined) {
     res.a = 1; res.e = 0; res.i = 0; res.N = 0; res.w = 0; res.M = 0; res.sqrtEE = 1; res.aSqrtEE = 1;
     res.Px = 1; res.Qx = 0; res.Py = 0; res.Qy = 1; res.Pz = 0; res.Qz = 0;
     res.PxA = 1; res.PyA = 0; res.PzA = 0; res.QxAS = 0; res.QyAS = 1; res.QzAS = 0;
@@ -170,23 +174,25 @@ export function computeElements(planetName, d, target = null) {
   }
 
   // Mean Anomaly (M) must be updated every frame for smooth motion
-  let M = data.M[0] + data.M[1] * d;
+  // Optimized: Uses flattened property for O(1) access
+  let M = data.M0 + data.M1 * d;
   res.M = M - Math.floor(M * INV_TWO_PI + 0.5) * TWO_PI;
 
   // Caching: Slow elements (a, e, i, N, w) change by negligible amounts in 0.01 days (~14 min)
   // Skip recalculation of P/Q vectors if we are within threshold and same planet
-  if (res.lastPlanet === planetName && Math.abs(d - res.lastD) < 0.01) {
+  if (res.lastPlanet === data && Math.abs(d - res.lastD) < 0.01) {
     return res;
   }
 
   res.lastD = d;
-  res.lastPlanet = planetName;
+  res.lastPlanet = data;
 
   res.a = data.a;
-  res.e = data.e[0] + data.e[1] * d;
-  res.i = data.i[0] + data.i[1] * d;
-  res.N = data.N[0] + data.N[1] * d;
-  res.w = data.w[0] + data.w[1] * d;
+  // Optimized: Direct flattened property access eliminates array indexing
+  res.e = data.e0 + data.e1 * d;
+  res.i = data.i0 + data.i1 * d;
+  res.N = data.N0 + data.N1 * d;
+  res.w = data.w0 + data.w1 * d;
 
   // Pre-calculate eccentricity constants to avoid redundant math in computePosition
   res.sqrtEE = Math.sqrt(1 - res.e * res.e);
@@ -251,16 +257,25 @@ export function computePosition(elements, scale = 10, target = null) {
   let E = M;
   let sinE, cosE, denom;
   let converged = false;
-  for (let iter = 0; iter < 6; iter++) {
-    sinE = Math.sin(E);
-    cosE = Math.cos(E);
-    denom = 1 - e * cosE;
-    const error = E - e * sinE - M;
-    if (Math.abs(error) < 1e-6) {
-      converged = true;
-      break;
+
+  // Performance Optimization: Fast-path for zero-eccentricity orbits (like circular Earth approx)
+  if (e < 1e-6) {
+    sinE = Math.sin(M);
+    cosE = Math.cos(M);
+    denom = 1;
+    converged = true;
+  } else {
+    for (let iter = 0; iter < 6; iter++) {
+      sinE = Math.sin(E);
+      cosE = Math.cos(E);
+      denom = 1 - e * cosE;
+      const error = E - e * sinE - M;
+      if (Math.abs(error) < 1e-6) {
+        converged = true;
+        break;
+      }
+      E -= error / denom;
     }
-    E -= error / denom;
   }
 
   // Ensure sinE/cosE match the final E if loop didn't break early
@@ -381,20 +396,8 @@ const _moonElements = {
 
 export function computeMoonPosition(d, target = null) {
   // Use accurate Keplerian elements for the Moon relative to Earth
+  // Optimized: el.a is already 1.0 in planetsData, and computeElements
+  // handles all P/Q pre-calculations correctly.
   const el = computeElements('moon', d, _moonElements);
-
-  // We want a normalized direction vector for the visual scaler to use.
-  // Performance Note: When el.a is modified, we must manually update combined
-  // constants so computePosition uses the correct values.
-  el.a = 1;
-  el.aSqrtEE = el.sqrtEE;
-
-  el.PxA = el.Px;
-  el.PyA = el.Py;
-  el.PzA = el.Pz;
-  el.QxAS = el.Qx * el.sqrtEE;
-  el.QyAS = el.Qy * el.sqrtEE;
-  el.QzAS = el.Qz * el.sqrtEE;
-
   return computePosition(el, 1, target);
 }

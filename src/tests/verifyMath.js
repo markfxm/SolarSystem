@@ -70,6 +70,18 @@ async function runTest() {
         console.log("❌ Position R property mismatch!");
     }
 
+    // Test Moon (Special scaling check)
+    const moonEl = computeElements('moon', d);
+    const moonPos = computePosition(moonEl, 1);
+    const moonR = Math.sqrt(moonPos.x**2 + moonPos.y**2 + moonPos.z**2);
+    console.log("Moon Position at J2000:", moonPos);
+    console.log("Moon calculated R:", moonR);
+    if (Math.abs(moonR - moonPos.r) < 0.001) {
+        console.log("✅ Moon R property matches.");
+    } else {
+        console.log("❌ Moon R property mismatch!");
+    }
+
     console.log("Math Verification Complete.");
 }
 
