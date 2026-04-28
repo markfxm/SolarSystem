@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { J2000_EPOCH, computeD, computeElements, computePosition, computeMoonPosition, computePlanetQuaternion, getRotationCache, INV_SEC_PER_DAY } from '../utils/Astronomy.js'
+import { J2000_EPOCH, computeD, computeElements, computePosition, computeMoonPosition, computePlanetQuaternion, getRotationCache, INV_SEC_PER_DAY, PLANETS_DATA } from '../utils/Astronomy.js'
 
 export function createTimeController(planetObjects, orbitScale, extraRotating = [], moon = null, moonOrbit = null, moonOrbitRadius = 10) {
   let speedMultiplier = 1
@@ -12,8 +12,10 @@ export function createTimeController(planetObjects, orbitScale, extraRotating = 
   for (const name in planetObjects) {
     // Sun stays at origin, and Moon is handled separately in its geocentric loop
     if (name !== 'sun' && name !== 'moon') {
+      const data = PLANETS_DATA[name];
       activePlanets.push({
         name,
+        data, // Performance Boost: Pre-linked data object for O(1) access in computeElements
         mesh: planetObjects[name],
         rotCache: getRotationCache(name),
         // Performance Optimization: store per-planet scratch objects directly on the planet entry
@@ -22,7 +24,7 @@ export function createTimeController(planetObjects, orbitScale, extraRotating = 
           a: 1, e: 0, i: 0, N: 0, w: 0, M: 0, sqrtEE: 1, aSqrtEE: 1,
           Px: 1, Qx: 0, Py: 0, Qy: 1, Pz: 0, Qz: 0,
           PxA: 1, PyA: 0, PzA: 0, QxAS: 0, QyAS: 1, QzAS: 0,
-          lastD: -999999, lastPlanet: name
+          lastD: -999999, lastPlanet: data // Store data object for fast threshold cache check
         }
       });
     }
@@ -74,8 +76,9 @@ export function createTimeController(planetObjects, orbitScale, extraRotating = 
       const name = p.name;
       const mesh = p.mesh;
 
-      // Optimized: Use per-planet scratch directly from the pre-linked entry
-      const el = computeElements(name, d, p.scratch);
+      // Optimized: Use pre-linked data object and per-planet scratch
+      // This eliminates string hashing/lookups and array indexing in the hot path.
+      const el = computeElements(p.data, d, p.scratch);
       const pos = computePosition(el, orbitScale, _scratchPos);
       mesh.position.set(pos.x, pos.y, pos.z);
 

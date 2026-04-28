@@ -121,3 +121,7 @@
 ## 2025-05-15 - [Flat Traversal for Scene Children]
 **Learning:** Using `scene.traverse()` in a scene with thousands of particles (stars, nebula) and line segments (orbits) is extremely expensive even if the callback immediately returns. Since the core entities (planets, orbits, starfield) are added as direct children of the scene, a flat `for` loop over `scene.children` is ~90% faster.
 **Action:** Prefer flat iteration over `scene.children` for scene-level managers when the target objects are known to be top-level, avoiding the recursive overhead of `traverse()` in complex environments.
+
+## 2025-05-18 - [Hot-Path Property Flattening & Data Pre-linking]
+**Learning:** In a 60fps simulation, array indexing (e.g., `data.e[0]`) and string-based object lookups (e.g., `planetsData[name]`) add measurable overhead. Flattening these coefficients into individual properties (e.g., `data.e0`) and pre-linking the data objects into the active simulation list eliminates these costs. Additionally, a fast-path for zero-eccentricity orbits allows skipping iterative solvers entirely without loss of precision for relevant bodies.
+**Action:** Flatten hot-path coefficients into top-level properties during initialization. Pre-link static data references to simulation entries to ensure O(1) zero-lookup access in the update loop. Implement mathematical fast-paths to bypass iterative solvers whenever edge-case conditions (like  < 1e-6$) are met.
