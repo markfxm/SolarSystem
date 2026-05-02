@@ -13,14 +13,14 @@ export const ASPECT_TYPES = {
     SEXTILE: { angle: 60, orb: 6, color: 0xffcc33, label: 'aspect.sextile' }
 };
 
-// Add pre-formatted color strings for UI performance
+// Add pre-formatted color strings for UI performance and flatten for O(1) loop access
+const ASPECT_DATA = [];
 for (const key in ASPECT_TYPES) {
     const aspect = ASPECT_TYPES[key];
+    aspect.type = key;
     aspect.colorStr = '#' + aspect.color.toString(16).padStart(6, '0');
+    ASPECT_DATA.push(aspect);
 }
-
-// Pre-cache entries to avoid Object.entries() in high-frequency loops
-const ASPECT_TYPE_LIST = Object.entries(ASPECT_TYPES);
 const HELIOCENTRIC_PLANETS = ['mercury', 'venus', 'earth', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune'];
 export const GEOCENTRIC_PLANETS = ['sun', 'moon', 'mercury', 'venus', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune'];
 const ALL_BODIES = ['sun', 'moon', 'mercury', 'venus', 'earth', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune'];
@@ -185,15 +185,14 @@ export class AstrologyService {
         let diff = Math.abs(long1 - long2);
         if (diff > 180) diff = 360 - diff;
 
-        // Use pre-cached list to avoid allocations
-        for (let i = 0; i < ASPECT_TYPE_LIST.length; i++) {
-            const entry = ASPECT_TYPE_LIST[i];
-            const data = entry[1];
+        // Use pre-cached flattened data to avoid entry indexing and key lookups
+        for (let i = 0; i < ASPECT_DATA.length; i++) {
+            const data = ASPECT_DATA[i];
             const orb = Math.abs(diff - data.angle);
             if (orb <= data.orb) {
                 // Reuse target object if provided to avoid per-aspect allocations
                 const res = target || {};
-                res.type = entry[0];
+                res.type = data.type;
                 res.orb = orb;
                 res.angle = data.angle;
                 res.color = data.color;

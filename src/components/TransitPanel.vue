@@ -22,7 +22,7 @@
           <div v-for="el in ELEMENTS" :key="el"
                class="bar-segment" 
                :class="el"
-               :style="{ width: ((elementBalance[el] || 0) / GEOCENTRIC_PLANETS.length * 100) + '%' }">
+               :style="{ width: ((elementBalance[el] || 0) / TOTAL_PLANETS * 100) + '%' }">
           </div>
         </div>
       </div>
@@ -74,17 +74,17 @@
             </div>
         </div>
 
-        <div class="section" v-if="aspects.length > 0">
+        <div class="section" v-if="translatedAspects.length > 0">
             <h4>{{ t('transit.active_aspects') || 'Active Aspects' }}</h4>
             <div class="aspect-list">
-            <div v-for="(item, idx) in aspects" :key="idx" class="aspect-item">
+            <div v-for="a in translatedAspects" :key="a.id" class="aspect-item">
                 <span class="a-names">
-                <span>{{ t('planet.' + item.p1) }} & {{ t('planet.' + item.p2) }}</span>
-                <span class="a-type" :style="{ color: item.aspect.colorStr }">
-                    {{ t(item.aspect.label) }}
+                <span>{{ a.names }}</span>
+                <span class="a-type" :style="{ color: a.color }">
+                    {{ a.label }}
                 </span>
                 </span>
-                <span class="a-tip">{{ t('insight.tip_' + item.aspect.type.toLowerCase()) }}</span>
+                <span class="a-tip">{{ a.tip }}</span>
             </div>
             </div>
         </div>
@@ -108,6 +108,7 @@ const props = defineProps({
 
 defineEmits(['close', 'focus-planet'])
 
+const TOTAL_PLANETS = GEOCENTRIC_PLANETS.length
 const showDetails = ref(false)
 
 /**
@@ -124,31 +125,60 @@ const zodiacNames = computed(() => t('zodiac_names'))
  * translation lookups and string concatenations in the template's render path.
  */
 const translatedPlanets = computed(() => {
-  const chartKeys = Object.keys(props.chart)
-  if (chartKeys.length === 0) return []
-
-  // 1. Determine Order
-  const ordered = GEOCENTRIC_PLANETS.filter(id => props.chart[id] !== undefined)
-  const others = chartKeys.filter(id => !GEOCENTRIC_PLANETS.includes(id))
-  const ids = [...ordered, ...others]
   const names = zodiacNames.value
+  const result = []
 
-  // 2. Map to pre-calculated objects
-  return ids.map(id => {
+  // Optimized: Stable iteration order without repeated filtering/spreading
+  for (let i = 0; i < GEOCENTRIC_PLANETS.length; i++) {
+    const id = GEOCENTRIC_PLANETS[i]
     const data = props.chart[id]
-    return {
-      id,
-      name: t('planet.' + id),
-      sign: names[data.index],
-      deg: AstrologyService.formatDegree(data.degree),
-      meaning: t('planet_meaning.' + id),
-      keyword: t('sign_keywords.' + data.signId)
+    if (data) {
+      result.push({
+        id,
+        name: t('planet.' + id),
+        sign: names[data.index],
+        deg: AstrologyService.formatDegree(data.degree),
+        meaning: t('planet_meaning.' + id),
+        keyword: t('sign_keywords.' + data.signId)
+      })
     }
-  })
+  }
+
+  // Handle any extra bodies not in the geocentric list
+  for (const id in props.chart) {
+    if (!GEOCENTRIC_PLANETS.includes(id)) {
+      const data = props.chart[id]
+      result.push({
+        id,
+        name: t('planet.' + id),
+        sign: names[data.index],
+        deg: AstrologyService.formatDegree(data.degree),
+        meaning: t('planet_meaning.' + id),
+        keyword: t('sign_keywords.' + data.signId)
+      })
+    }
+  }
+
+  return result
+})
+
+/**
+ * Performance Optimization: Pre-resolves all aspect-related translations and colors.
+ * This avoids 15+ per-aspect translation lookups and string concatenations
+ * inside the template loop.
+ */
+const translatedAspects = computed(() => {
+  return props.aspects.map((item, idx) => ({
+    id: `${item.p1}-${item.p2}-${idx}`,
+    names: `${t('planet.' + item.p1)} & ${t('planet.' + item.p2)}`,
+    label: t(item.aspect.label),
+    color: item.aspect.colorStr,
+    tip: t('insight.tip_' + item.aspect.type.toLowerCase())
+  }))
 })
 
 const archetypeKey = computed(() => {
-    if (!props.chart || !props.chart.sun) return null;
+    if (!props.chart?.sun || !props.dominantElement || props.dominantElement === 'none') return null;
     return AstrologyService.getArchetype(props.chart.sun.signId, props.dominantElement);
 })
 
@@ -157,19 +187,21 @@ const majorAspect = computed(() => {
 })
 
 const sunGuidance = computed(() => {
-    if (!props.chart?.sun) return '';
-    return t(`guidance.sun.${props.chart.sun.signId}`);
+    const sun = props.chart?.sun
+    if (!sun?.signId) return '';
+    return t(`guidance.sun.${sun.signId}`);
 })
 
 const moonGuidance = computed(() => {
-    if (!props.chart?.moon) return '';
-    return t(`guidance.moon_deep.${props.chart.moon.signId}`);
+    const moon = props.chart?.moon
+    if (!moon?.signId) return '';
+    return t(`guidance.moon_deep.${moon.signId}`);
 })
 
 const strategyGuidance = computed(() => {
     if (!props.chart?.sun || !props.chart?.moon) return '';
     const keys = AstrologyService.getCosmicGuidance(props.chart, majorAspect.value);
-    if (!keys.strategyKey) return t('report.no_aspect');
+    if (!keys?.strategyKey) return t('report.no_aspect');
     
     return t(`guidance.strategy.${keys.strategyKey}`, {
         p1: t(`planet.${keys.p1}`),
