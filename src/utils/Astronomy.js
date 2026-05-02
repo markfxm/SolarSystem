@@ -251,10 +251,12 @@ export function computeElements(planetNameOrData, d, target = null) {
  */
 export function computePosition(elements, scale = 10, target = null) {
   const res = target || _posResult;
-  const { a, e, M, PxA, PyA, PzA, QxAS, QyAS, QzAS } = elements;
+  const e = elements.e;
+  const M = elements.M;
 
   // Solve Kepler's equation with early exit for low eccentricity
-  let E = M;
+  // Optimized: Use better initial guess for higher eccentricity to reduce iterations
+  let E = (e > 0.05) ? M + e * Math.sin(M) : M;
   let sinE, cosE, denom;
   let converged = false;
 
@@ -286,18 +288,17 @@ export function computePosition(elements, scale = 10, target = null) {
   }
 
   // Transform directly to Ecliptic plane using pre-calculated combined coefficients
-  // Optimized: Factored formula pos = PxA * (cosE - e) + QxAS * sinE
-  // saves 3 multiplications and 2 subtractions per call.
+  // Optimized: Use direct property access and factored formula pos = PxA * (cosE - e) + QxAS * sinE
   const cosEmE = cosE - e;
-  const x = PxA * cosEmE + QxAS * sinE;
-  const y = PyA * cosEmE + QyAS * sinE;
-  const z = PzA * cosEmE + QzAS * sinE;
+  const x = elements.PxA * cosEmE + elements.QxAS * sinE;
+  const y = elements.PyA * cosEmE + elements.QyAS * sinE;
+  const z = elements.PzA * cosEmE + elements.QzAS * sinE;
 
   // Ecliptic to World transform (Standard mapping: Ecliptic XY -> World XZ, Ecliptic Z -> World Y)
   res.x = x * scale;
   res.y = z * scale;
   res.z = -y * scale;
-  res.r = a * denom * scale;
+  res.r = elements.a * denom * scale;
   return res;
 }
 
@@ -363,7 +364,9 @@ export function computePlanetQuaternion(planetName, d, rotationCache = null) {
 
   const cache = r.cache;
   if (Math.abs(d - cache.lastD) < 0.0001) {
-    return _qResult.copy(cache.quat);
+    // Optimization: Return the cached reference directly to avoid a copy operation.
+    // Callers must treat the returned quaternion as read-only.
+    return cache.quat;
   }
 
   const base = r.base;
@@ -383,7 +386,7 @@ export function computePlanetQuaternion(planetName, d, rotationCache = null) {
   cache.lastD = d;
   cache.quat.set(rx, ry, rz, rw);
 
-  return _qResult.copy(cache.quat);
+  return cache.quat;
 }
 
 // Dedicated Moon scratch objects to avoid interfering with planetary element caching
