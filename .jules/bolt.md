@@ -129,3 +129,7 @@
 ## 2026-05-01 - [UI Computation Flattening & Aspect Lookup Optimization]
 **Learning:** Performing translation lookups (`t()`), string concatenations, and object key iterations directly within a Vue template loop (like in `TransitPanel.vue`) creates massive CPU overhead during high-frequency simulation updates. Furthermore, using `Object.entries()` and key-based lookups in the core astrology engine (`findAspect`) introduces redundant indexing costs.
 **Action:** Move all UI-specific translations, formatting, and color processing to dedicated computed properties (`translatedPlanets`, `translatedAspects`) to leverage Vue's caching. Flatten static lookup objects into arrays (`ASPECT_DATA`) during module initialization to transform tight loops into high-performance flat-array iterations.
+
+## 2025-05-18 - [Kepler Solver Initialization & Reference Reuse]
+**Learning:** Starting the Newton-Raphson Kepler solver with a first-order approximation ( = M + e \sin M$) for eccentricities $> 0.05$ reduces the number of iterations required for convergence in high-frequency astronomical simulations. Additionally, returning pre-cached object references (like Quaternions) directly instead of copying their properties per frame significantly reduces CPU overhead and avoids unnecessary float operations in the hot path.
+**Action:** Use higher-order initial guesses for iterative solvers when parameters suggest slow convergence. Prefer returning read-only cached references for high-frequency state updates.
