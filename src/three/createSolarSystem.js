@@ -180,6 +180,13 @@ export async function createSolarSystem(scene, zodiacNames = [], onProgress = ()
   // Optimization: Starfield is not interactive, disable raycasting to save CPU
   starPoints.raycast = () => {}
   starPoints.userData.isStarfield = true
+
+  // Performance Optimization: The starfield is static and surrounds the camera.
+  // Disabling matrixAutoUpdate and frustumCulled reduces per-frame scene graph overhead.
+  starPoints.matrixAutoUpdate = false
+  starPoints.updateMatrix()
+  starPoints.frustumCulled = false
+
   scene.add(starPoints)
 
   const nebula = createNebula(new THREE.Vector3(0, 0, -1500))

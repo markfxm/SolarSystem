@@ -54,5 +54,12 @@ export function createNebula(position) {
   // Optimization: Nebula is not interactive, disable raycasting to save CPU
   nebula.raycast = () => {};
   nebula.position.copy(position);
+
+  // Performance Optimization: The nebula is a static background element.
+  // Disabling matrixAutoUpdate and frustumCulled reduces per-frame scene graph overhead.
+  nebula.matrixAutoUpdate = false;
+  nebula.updateMatrix();
+  nebula.frustumCulled = false;
+
   return nebula;
 }
