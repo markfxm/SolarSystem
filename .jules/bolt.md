@@ -133,3 +133,7 @@
 ## 2025-05-18 - [Kepler Solver Initialization & Reference Reuse]
 **Learning:** Starting the Newton-Raphson Kepler solver with a first-order approximation ( = M + e \sin M$) for eccentricities $> 0.05$ reduces the number of iterations required for convergence in high-frequency astronomical simulations. Additionally, returning pre-cached object references (like Quaternions) directly instead of copying their properties per frame significantly reduces CPU overhead and avoids unnecessary float operations in the hot path.
 **Action:** Use higher-order initial guesses for iterative solvers when parameters suggest slow convergence. Prefer returning read-only cached references for high-frequency state updates.
+
+## 2026-05-10 - [Kepler Solver Warm-Start & Trig Optimization]
+**Learning:** Newton-Raphson iteration for Kepler's equation is a major CPU consumer in high-frequency astronomical simulations. By using a "warm-start" initial guess (previous $ + delta $) when time steps are small (< 0.1 radians), the number of iterations can be typically reduced to 1. Additionally, calculating `sin(E)` and `cos(E)` exactly once per iteration and reusing those values for both the error calculation and the derivative significantly reduces the overhead of expensive trigonometric calls.
+**Action:** Implement "warm-start" logic for iterative solvers in 60fps loops. Always structure loops to compute expensive transcendental functions once and reuse the results across the iteration step.
