@@ -23,6 +23,7 @@ for (const key in ASPECT_TYPES) {
 }
 const HELIOCENTRIC_PLANETS = ['mercury', 'venus', 'earth', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune'];
 export const GEOCENTRIC_PLANETS = ['sun', 'moon', 'mercury', 'venus', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune'];
+export const GEOCENTRIC_PLANET_SET = new Set(GEOCENTRIC_PLANETS);
 const ALL_BODIES = ['sun', 'moon', 'mercury', 'venus', 'earth', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune'];
 
 // Pre-calculate minutes padding for formatDegree (00-59)

@@ -96,7 +96,7 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { t } from '../utils/i18n'
-import { AstrologyService, ELEMENTS, GEOCENTRIC_PLANETS } from '../utils/AstrologyService.js'
+import { AstrologyService, ELEMENTS, GEOCENTRIC_PLANETS, GEOCENTRIC_PLANET_SET } from '../utils/AstrologyService.js'
 
 const props = defineProps({
   visible: Boolean,
@@ -125,6 +125,8 @@ const zodiacNames = computed(() => t('zodiac_names'))
  * translation lookups and string concatenations in the template's render path.
  */
 const translatedPlanets = computed(() => {
+  if (!props.visible || !showDetails.value) return []
+
   const names = zodiacNames.value
   const result = []
 
@@ -146,7 +148,8 @@ const translatedPlanets = computed(() => {
 
   // Handle any extra bodies not in the geocentric list
   for (const id in props.chart) {
-    if (!GEOCENTRIC_PLANETS.includes(id)) {
+    // Optimization: Use O(1) Set lookup
+    if (!GEOCENTRIC_PLANET_SET.has(id)) {
       const data = props.chart[id]
       result.push({
         id,
@@ -168,6 +171,8 @@ const translatedPlanets = computed(() => {
  * inside the template loop.
  */
 const translatedAspects = computed(() => {
+  if (!props.visible || !showDetails.value) return []
+
   return props.aspects.map((item, idx) => ({
     id: `${item.p1}-${item.p2}-${idx}`,
     names: `${t('planet.' + item.p1)} & ${t('planet.' + item.p2)}`,
@@ -178,28 +183,31 @@ const translatedAspects = computed(() => {
 })
 
 const archetypeKey = computed(() => {
-    if (!props.chart?.sun || !props.dominantElement || props.dominantElement === 'none') return null;
+    if (!props.visible || !props.chart?.sun || !props.dominantElement || props.dominantElement === 'none') return null;
     return AstrologyService.getArchetype(props.chart.sun.signId, props.dominantElement);
 })
 
 const majorAspect = computed(() => {
+    if (!props.visible) return null;
     return AstrologyService.getMajorAspect(props.aspects);
 })
 
 const sunGuidance = computed(() => {
+    if (!props.visible) return '';
     const sun = props.chart?.sun
     if (!sun?.signId) return '';
     return t(`guidance.sun.${sun.signId}`);
 })
 
 const moonGuidance = computed(() => {
+    if (!props.visible) return '';
     const moon = props.chart?.moon
     if (!moon?.signId) return '';
     return t(`guidance.moon_deep.${moon.signId}`);
 })
 
 const strategyGuidance = computed(() => {
-    if (!props.chart?.sun || !props.chart?.moon) return '';
+    if (!props.visible || !props.chart?.sun || !props.chart?.moon) return '';
     const keys = AstrologyService.getCosmicGuidance(props.chart, majorAspect.value);
     if (!keys?.strategyKey) return t('report.no_aspect');
     
