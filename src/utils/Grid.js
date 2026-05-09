@@ -23,7 +23,16 @@ export function createLatLonGrid(radius) {
   // Optimization: If radius is 1.0 (standard for all planets in this app),
   // return a clone of the cached unit grid. This avoids regenerating the same 8k points 9+ times.
   if (radius === 1.0 && unitGridCache) {
-    return unitGridCache.clone();
+    const cloned = unitGridCache.clone();
+    // Optimization: Three.js .clone() does not copy function overrides like .raycast.
+    // We must re-disable raycasting on all decorative children of the cloned group
+    // to preserve the performance benefits of pruning the raycast traversal tree.
+    cloned.traverse(child => {
+      if (child.isLineSegments || child.isSprite || child.isLine) {
+        child.raycast = () => {};
+      }
+    });
+    return cloned;
   }
 
   const group = new THREE.Group();
@@ -131,7 +140,14 @@ export function createLatLonGrid(radius) {
   // Cache if unit radius
   if (radius === 1.0) {
     unitGridCache = group;
-    return group.clone();
+    const cloned = group.clone();
+    // Re-disable raycasting for the first clone
+    cloned.traverse(child => {
+      if (child.isLineSegments || child.isSprite || child.isLine) {
+        child.raycast = () => {};
+      }
+    });
+    return cloned;
   }
 
   return group;
