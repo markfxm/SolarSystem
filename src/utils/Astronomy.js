@@ -155,7 +155,7 @@ const _elResult = {
     a: 1, e: 0, i: 0, N: 0, w: 0, M: 0, sqrtEE: 1, aSqrtEE: 1,
     Px: 1, Qx: 0, Py: 0, Qy: 1, Pz: 0, Qz: 0,
     PxA: 1, PyA: 0, PzA: 0, QxAS: 0, QyAS: 1, QzAS: 0,
-    lastD: -999999, lastPlanet: ''
+    lastD: -999999, lastPlanet: '', lastE: 0, lastM: 0
 };
 
 /**
@@ -255,37 +255,30 @@ export function computePosition(elements, scale = 10, target = null) {
   const M = elements.M;
 
   // Solve Kepler's equation with early exit for low eccentricity
-  // Optimized: Use better initial guess for higher eccentricity to reduce iterations
-  let E = (e > 0.05) ? M + e * Math.sin(M) : M;
-  let sinE, cosE, denom;
-  let converged = false;
-
-  // Performance Optimization: Fast-path for zero-eccentricity orbits (like circular Earth approx)
+  // Optimized: Use "warm-start" guess (previous E + delta M) for 60fps stability.
+  // This typically reduces iterations to 1 for most bodies in real-time or moderate speeds.
+  let E, sinE, cosE;
   if (e < 1e-6) {
-    sinE = Math.sin(M);
-    cosE = Math.cos(M);
-    denom = 1;
-    converged = true;
+    E = M;
+    sinE = Math.sin(E);
+    cosE = Math.cos(E);
   } else {
+    const deltaM = M - elements.lastM;
+    // Only use warm start if the time step is reasonably small (< 0.1 radians)
+    E = (Math.abs(deltaM) < 0.1) ? elements.lastE + deltaM : (e > 0.05 ? M + e * Math.sin(M) : M);
+
     for (let iter = 0; iter < 6; iter++) {
       sinE = Math.sin(E);
       cosE = Math.cos(E);
-      denom = 1 - e * cosE;
       const error = E - e * sinE - M;
-      if (Math.abs(error) < 1e-6) {
-        converged = true;
-        break;
-      }
-      E -= error / denom;
+      if (Math.abs(error) < 1e-6) break;
+      E -= error / (1 - e * cosE);
     }
   }
 
-  // Ensure sinE/cosE match the final E if loop didn't break early
-  if (!converged) {
-    sinE = Math.sin(E);
-    cosE = Math.cos(E);
-    denom = 1 - e * cosE;
-  }
+  // Cache for next frame "warm-start"
+  elements.lastE = E;
+  elements.lastM = M;
 
   // Transform directly to Ecliptic plane using pre-calculated combined coefficients
   // Optimized: Use direct property access and factored formula pos = PxA * (cosE - e) + QxAS * sinE
@@ -298,7 +291,7 @@ export function computePosition(elements, scale = 10, target = null) {
   res.x = x * scale;
   res.y = z * scale;
   res.z = -y * scale;
-  res.r = elements.a * denom * scale;
+  res.r = elements.a * (1 - e * cosE) * scale;
   return res;
 }
 
@@ -394,7 +387,7 @@ const _moonElements = {
     a: 1, e: 0, i: 0, N: 0, w: 0, M: 0, sqrtEE: 1, aSqrtEE: 1,
     Px: 1, Qx: 0, Py: 0, Qy: 1, Pz: 0, Qz: 0,
     PxA: 1, PyA: 0, PzA: 0, QxAS: 0, QyAS: 1, QzAS: 0,
-    lastD: -999999, lastPlanet: 'moon'
+    lastD: -999999, lastPlanet: 'moon', lastE: 0, lastM: 0
 };
 
 export function computeMoonPosition(d, target = null) {
