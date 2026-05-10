@@ -14,6 +14,18 @@ const sharedLineMaterial = new THREE.LineBasicMaterial({
 });
 
 /**
+ * Disables raycasting for decorative elements within a group.
+ * Optimization: Pruning these from the traversal tree significantly improves raycast performance.
+ */
+function disableDecorativeRaycast(group) {
+  group.traverse(child => {
+    if (child.isLineSegments || child.isSprite || child.isLine) {
+      child.raycast = () => {};
+    }
+  });
+}
+
+/**
  * Creates a longitude and latitude grid for a planet.
  * Optimized: Uses shared unit geometries, pre-calculated trig, and caches radius=1.0 result.
  * @param {number} radius - The radius of the planet (use 1.0 for unit-scaled planets).
@@ -23,7 +35,11 @@ export function createLatLonGrid(radius) {
   // Optimization: If radius is 1.0 (standard for all planets in this app),
   // return a clone of the cached unit grid. This avoids regenerating the same 8k points 9+ times.
   if (radius === 1.0 && unitGridCache) {
-    return unitGridCache.clone();
+    const cloned = unitGridCache.clone();
+    // Optimization: Three.js .clone() does not copy function overrides like .raycast.
+    // We must re-disable raycasting on all decorative children of the cloned group.
+    disableDecorativeRaycast(cloned);
+    return cloned;
   }
 
   const group = new THREE.Group();
@@ -131,7 +147,10 @@ export function createLatLonGrid(radius) {
   // Cache if unit radius
   if (radius === 1.0) {
     unitGridCache = group;
-    return group.clone();
+    const cloned = group.clone();
+    // Re-disable raycasting for the first clone
+    disableDecorativeRaycast(cloned);
+    return cloned;
   }
 
   return group;
