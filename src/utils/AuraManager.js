@@ -62,6 +62,8 @@ export class AuraManager {
             const mesh = planetObjects[name];
             const aura = this.createAura(mesh);
 
+            // Optimization: All planets use the shared unitSphereGeometry.
+            // Ensure bounding sphere is available for scale calculations.
             if (!mesh.geometry.boundingSphere) mesh.geometry.computeBoundingSphere();
             const radius = mesh.geometry.boundingSphere.radius;
 

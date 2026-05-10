@@ -148,10 +148,6 @@ export async function createSolarSystem(scene, zodiacNames = [], onProgress = ()
 
   const planets = Object.values(planetObjects);
 
-  planets.forEach(mesh => {
-    if (mesh.geometry) mesh.geometry.computeBoundingSphere();
-  });
-
   // Initial positions & orientations
   const startD = computeD(new Date());
   Object.keys(planetObjects).forEach(name => {
