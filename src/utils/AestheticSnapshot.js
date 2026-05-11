@@ -160,8 +160,8 @@ export class AestheticSnapshotManager {
                 rotation: mesh.rotation.clone()
             })
 
-            const elements = computeElements(name, d)
-            const posData = computePosition(elements, 1)
+            const elements = computeElements(name, d, null, 1)
+            const posData = computePosition(elements)
 
             const uniformR = this.getUniformRadius(name)
             // Flatten to XY plane (z=0)

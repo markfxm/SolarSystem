@@ -10,7 +10,7 @@ export interface OrbitalElements {
   i: number // inclination
   N: number // longitude of ascending node
   w: number // argument of perihelion
-  // Pre-calculated Gaussian constants from Astronomy.js
+  // Pre-calculated Gaussian constants from Astronomy.js (already pre-multiplied by scale)
   PxA: number
   PyA: number
   PzA: number
@@ -22,12 +22,11 @@ export interface OrbitalElements {
 /**
  * Creates a perfect elliptical orbit line.
  * Optimized: Sweeps Eccentric Anomaly (E) directly instead of Mean Anomaly (M)
- * to eliminate the iterative Kepler solver. Uses Gaussian constants for
+ * to eliminate the iterative Kepler solver. Uses pre-scaled Gaussian constants for
  * coordinate transformation, matching the high-performance logic in Astronomy.js.
  */
 export function createEllipticalOrbit(
   elements: OrbitalElements,
-  scale: number,
   segments: number = 512,
   color: number = 0xd4aaff,
   opacity: number = 0.88
@@ -48,6 +47,7 @@ export function createEllipticalOrbit(
 
     // Transform directly to Ecliptic plane using pre-calculated combined coefficients
     // Optimized: Factored formula pos = PxA * (cosE - e) + QxAS * sinE
+    // Gaussian constants (PxA, QxAS, etc.) are already pre-multiplied by scale in computeElements.
     const cosEmE = cosE - e
     const x = PxA * cosEmE + QxAS * sinE
     const y = PyA * cosEmE + QyAS * sinE
@@ -55,9 +55,9 @@ export function createEllipticalOrbit(
 
     // Transform Ecliptic (XY-plane, Z-up) to World (XZ-plane, Y-up)
     const idx = k * 3
-    points[idx] = x * scale
-    points[idx + 1] = z * scale
-    points[idx + 2] = -y * scale
+    points[idx] = x
+    points[idx + 1] = z
+    points[idx + 2] = -y
   }
 
   const geometry = new LineGeometry()

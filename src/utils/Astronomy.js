@@ -152,24 +152,25 @@ export function computeD(date) {
 const _qResult = new THREE.Quaternion();
 const _posResult = { x: 0, y: 0, z: 0, r: 0 };
 const _elResult = {
-    a: 1, e: 0, i: 0, N: 0, w: 0, M: 0, sqrtEE: 1, aSqrtEE: 1,
+    a: 1, aScaled: 10, e: 0, i: 0, N: 0, w: 0, M: 0, sqrtEE: 1, aSqrtEE: 1,
     Px: 1, Qx: 0, Py: 0, Qy: 1, Pz: 0, Qz: 0,
     PxA: 1, PyA: 0, PzA: 0, QxAS: 0, QyAS: 1, QzAS: 0,
-    lastD: -999999, lastPlanet: '', lastE: 0, lastM: 0
+    lastD: -999999, lastPlanet: '', lastE: 0, lastM: 0, lastScale: -1
 };
 
 /**
  * Returns orbital elements.
  * Optimized: Threshold-based caching for slow-moving elements (Gaussian constants).
- * Reduces ~6 trig calls and 12+ multiplications per body per frame during real-time.
+ * Pre-multiplies Gaussian constants by scale to reduce per-frame multiplications.
+ * Reduces ~6 trig calls and 16+ multiplications per body per frame during real-time.
  */
-export function computeElements(planetNameOrData, d, target = null) {
+export function computeElements(planetNameOrData, d, target = null, scale = 10) {
   const data = typeof planetNameOrData === 'string' ? planetsData[planetNameOrData] : planetNameOrData;
   const res = target || _elResult;
   if (!data || data.e0 === undefined) {
-    res.a = 1; res.e = 0; res.i = 0; res.N = 0; res.w = 0; res.M = 0; res.sqrtEE = 1; res.aSqrtEE = 1;
+    res.a = 1; res.aScaled = scale; res.e = 0; res.i = 0; res.N = 0; res.w = 0; res.M = 0; res.sqrtEE = 1; res.aSqrtEE = 1;
     res.Px = 1; res.Qx = 0; res.Py = 0; res.Qy = 1; res.Pz = 0; res.Qz = 0;
-    res.PxA = 1; res.PyA = 0; res.PzA = 0; res.QxAS = 0; res.QyAS = 1; res.QzAS = 0;
+    res.PxA = scale; res.PyA = 0; res.PzA = 0; res.QxAS = 0; res.QyAS = scale; res.QzAS = 0;
     return res;
   }
 
@@ -179,13 +180,14 @@ export function computeElements(planetNameOrData, d, target = null) {
   res.M = M - Math.floor(M * INV_TWO_PI + 0.5) * TWO_PI;
 
   // Caching: Slow elements (a, e, i, N, w) change by negligible amounts in 0.01 days (~14 min)
-  // Skip recalculation of P/Q vectors if we are within threshold and same planet
-  if (res.lastPlanet === data && Math.abs(d - res.lastD) < 0.01) {
+  // Skip recalculation of P/Q vectors if we are within threshold and same planet/scale
+  if (res.lastPlanet === data && res.lastScale === scale && Math.abs(d - res.lastD) < 0.01) {
     return res;
   }
 
   res.lastD = d;
   res.lastPlanet = data;
+  res.lastScale = scale;
 
   res.a = data.a;
   // Optimized: Direct flattened property access eliminates array indexing
@@ -230,26 +232,26 @@ export function computeElements(planetNameOrData, d, target = null) {
     res.Qz = cosW * sinI;
   }
 
-  // Pre-calculate combined constants to save multiplications in computePosition
-  const a = res.a;
-  const e = res.e;
-  const aSqrtEE = res.aSqrtEE;
+  // Pre-calculate combined constants pre-multiplied by scale to save multiplications in computePosition
+  const aScaled = res.a * scale;
+  res.aScaled = aScaled;
+  const aSqrtEEScaled = res.aSqrtEE * scale;
 
-  res.PxA = res.Px * a;
-  res.PyA = res.Py * a;
-  res.PzA = res.Pz * a;
-  res.QxAS = res.Qx * aSqrtEE;
-  res.QyAS = res.Qy * aSqrtEE;
-  res.QzAS = res.Qz * aSqrtEE;
+  res.PxA = res.Px * aScaled;
+  res.PyA = res.Py * aScaled;
+  res.PzA = res.Pz * aScaled;
+  res.QxAS = res.Qx * aSqrtEEScaled;
+  res.QyAS = res.Qy * aSqrtEEScaled;
+  res.QzAS = res.Qz * aSqrtEEScaled;
 
   return res;
 }
 
 /**
  * Computes world-space position from orbital elements.
- * Optimized: Input elements are now in radians. Reuses sin/cos from Kepler solver and pre-calculated matrix coefficients.
+ * Optimized: Input elements are now in radians. Reuses sin/cos from Kepler solver and pre-calculated pre-scaled matrix coefficients.
  */
-export function computePosition(elements, scale = 10, target = null) {
+export function computePosition(elements, target = null) {
   const res = target || _posResult;
   const e = elements.e;
   const M = elements.M;
@@ -282,16 +284,17 @@ export function computePosition(elements, scale = 10, target = null) {
 
   // Transform directly to Ecliptic plane using pre-calculated combined coefficients
   // Optimized: Use direct property access and factored formula pos = PxA * (cosE - e) + QxAS * sinE
+  // Gaussian constants (PxA, QxAS, etc.) are already pre-multiplied by scale in computeElements.
   const cosEmE = cosE - e;
   const x = elements.PxA * cosEmE + elements.QxAS * sinE;
   const y = elements.PyA * cosEmE + elements.QyAS * sinE;
   const z = elements.PzA * cosEmE + elements.QzAS * sinE;
 
   // Ecliptic to World transform (Standard mapping: Ecliptic XY -> World XZ, Ecliptic Z -> World Y)
-  res.x = x * scale;
-  res.y = z * scale;
-  res.z = -y * scale;
-  res.r = elements.a * (1 - e * cosE) * scale;
+  res.x = x;
+  res.y = z;
+  res.z = -y;
+  res.r = elements.aScaled * (1 - e * cosE);
   return res;
 }
 
@@ -384,16 +387,16 @@ export function computePlanetQuaternion(planetName, d, rotationCache = null) {
 
 // Dedicated Moon scratch objects to avoid interfering with planetary element caching
 const _moonElements = {
-    a: 1, e: 0, i: 0, N: 0, w: 0, M: 0, sqrtEE: 1, aSqrtEE: 1,
+    a: 1, aScaled: 1, e: 0, i: 0, N: 0, w: 0, M: 0, sqrtEE: 1, aSqrtEE: 1,
     Px: 1, Qx: 0, Py: 0, Qy: 1, Pz: 0, Qz: 0,
     PxA: 1, PyA: 0, PzA: 0, QxAS: 0, QyAS: 1, QzAS: 0,
-    lastD: -999999, lastPlanet: 'moon', lastE: 0, lastM: 0
+    lastD: -999999, lastPlanet: 'moon', lastE: 0, lastM: 0, lastScale: -1
 };
 
-export function computeMoonPosition(d, target = null) {
+export function computeMoonPosition(d, scale = 1, target = null) {
   // Use accurate Keplerian elements for the Moon relative to Earth
   // Optimized: el.a is already 1.0 in planetsData, and computeElements
   // handles all P/Q pre-calculations correctly.
-  const el = computeElements('moon', d, _moonElements);
-  return computePosition(el, 1, target);
+  const el = computeElements('moon', d, _moonElements, scale);
+  return computePosition(el, target);
 }

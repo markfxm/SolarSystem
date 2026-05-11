@@ -25,7 +25,7 @@ async function runTest() {
 
     // Test a known planet: Mars
     const d = 0; // J2000
-    const elements = computeElements('mars', d);
+    const elements = computeElements('mars', d, null, 1);
 
     console.log("Mars Elements at J2000:", {
         a: elements.a,
@@ -34,7 +34,7 @@ async function runTest() {
         M: elements.M
     });
 
-    const pos = computePosition(elements, 1);
+    const pos = computePosition(elements);
     console.log("Mars Position at J2000:", pos);
 
     // Verify if Y uses QyAS (correct) instead of QxAS (previous bug)
@@ -71,8 +71,8 @@ async function runTest() {
     }
 
     // Test Moon (Special scaling check)
-    const moonEl = computeElements('moon', d);
-    const moonPos = computePosition(moonEl, 1);
+    const moonEl = computeElements('moon', d, null, 1);
+    const moonPos = computePosition(moonEl);
     const moonR = Math.sqrt(moonPos.x**2 + moonPos.y**2 + moonPos.z**2);
     console.log("Moon Position at J2000:", moonPos);
     console.log("Moon calculated R:", moonR);
