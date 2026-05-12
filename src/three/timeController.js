@@ -21,10 +21,10 @@ export function createTimeController(planetObjects, orbitScale, extraRotating = 
         // Performance Optimization: store per-planet scratch objects directly on the planet entry
         // to eliminate Map-like lookups in the hot path.
         scratch: {
-          a: 1, e: 0, i: 0, N: 0, w: 0, M: 0, sqrtEE: 1, aSqrtEE: 1,
+          a: 1, aScaled: 1, e: 0, i: 0, N: 0, w: 0, M: 0, sqrtEE: 1, aSqrtEE: 1,
           Px: 1, Qx: 0, Py: 0, Qy: 1, Pz: 0, Qz: 0,
           PxA: 1, PyA: 0, PzA: 0, QxAS: 0, QyAS: 1, QzAS: 0,
-          lastD: -999999, lastPlanet: data, lastE: 0, lastM: 0
+          lastD: -999999, lastPlanet: data, lastE: 0, lastM: 0, lastScale: -1
         }
       });
     }
@@ -78,8 +78,8 @@ export function createTimeController(planetObjects, orbitScale, extraRotating = 
 
       // Optimized: Use pre-linked data object and per-planet scratch
       // This eliminates string hashing/lookups and array indexing in the hot path.
-      const el = computeElements(p.data, d, p.scratch);
-      const pos = computePosition(el, orbitScale, _scratchPos);
+      const el = computeElements(p.data, d, p.scratch, orbitScale);
+      const pos = computePosition(el, _scratchPos);
       mesh.position.set(pos.x, pos.y, pos.z);
 
       // Performance Optimization: Check for quaternion change before applying rotation.
@@ -98,14 +98,12 @@ export function createTimeController(planetObjects, orbitScale, extraRotating = 
 
     // Update Moon Position (Geocentric orbit)
     if (moon && hasEarth) {
-      const moonLocal = computeMoonPosition(d, _scratchPos);
-      // Apply visual scale for distance
-      const r = moonOrbitRadius;
+      const moonLocal = computeMoonPosition(d, moonOrbitRadius, _scratchPos);
 
       moon.position.set(
-        _earthPos.x + moonLocal.x * r,
-        _earthPos.y + moonLocal.y * r,
-        _earthPos.z + moonLocal.z * r
+        _earthPos.x + moonLocal.x,
+        _earthPos.y + moonLocal.y,
+        _earthPos.z + moonLocal.z
       );
 
       // Update Moon Orbit Line Position (moves with Earth)

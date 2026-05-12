@@ -99,8 +99,8 @@ export class AstrologyService {
 
         for (let i = 0; i < HELIOCENTRIC_PLANETS.length; i++) {
             const name = HELIOCENTRIC_PLANETS[i];
-            const elements = computeElements(name, d, _pElements);
-            const pos = computePosition(elements, 1, _pPos);
+            const elements = computeElements(name, d, _pElements, 1);
+            const pos = computePosition(elements, _pPos);
             const longitudeRad = Math.atan2(pos.y, pos.x);
             let longitudeDeg = longitudeRad * RAD2DEG;
             results[name] = this.getSignAndDegree(longitudeDeg);
@@ -126,8 +126,8 @@ export class AstrologyService {
             earthX = earth.position.x;
             earthY = -earth.position.z;
         } else {
-            const earthElements = computeElements('earth', d, _earthElements);
-            const earthPos = computePosition(earthElements, 1, _earthPos);
+            const earthElements = computeElements('earth', d, _earthElements, 1);
+            const earthPos = computePosition(earthElements, _earthPos);
             earthX = earthPos.x;
             earthY = earthPos.y;
         }
@@ -147,8 +147,8 @@ export class AstrologyService {
                 relX = moon.position.x - earth.position.x;
                 relY = -(moon.position.z - earth.position.z);
             } else if (name === 'moon') {
-                const elements = computeElements('moon', d, _pElements);
-                const pPos = computePosition(elements, 1, _pPos);
+                const elements = computeElements('moon', d, _pElements, 1);
+                const pPos = computePosition(elements, _pPos);
                 relX = pPos.x;
                 relY = pPos.y;
             } else if (planetObjects && planetObjects[name]) {
@@ -156,8 +156,8 @@ export class AstrologyService {
                 relX = p.position.x - earthX;
                 relY = -(p.position.z - earthY);
             } else {
-                const elements = computeElements(name, d, _pElements);
-                const pPos = computePosition(elements, 1, _pPos);
+                const elements = computeElements(name, d, _pElements, 1);
+                const pPos = computePosition(elements, _pPos);
                 relX = pPos.x - earthX;
                 relY = pPos.y - earthY;
             }

@@ -110,8 +110,8 @@ export async function createSolarSystem(scene, zodiacNames = [], onProgress = ()
     planetObjects[name] = mesh;
 
     if (name !== 'sun' && name !== 'moon') {
-      const elements = computeElements(name, 0);
-      const orbit = createEllipticalOrbit(elements, orbitScale, 512, 0xd4aaff, 0.92);
+      const elements = computeElements(name, 0, null, orbitScale);
+      const orbit = createEllipticalOrbit(elements, 512, 0xd4aaff, 0.92);
       orbit.userData.isOrbit = true;
       scene.add(orbit);
     }
@@ -140,9 +140,8 @@ export async function createSolarSystem(scene, zodiacNames = [], onProgress = ()
   planetObjects.moon = moon;
 
   const currentD = computeD(new Date());
-  const moonEl = computeElements('moon', currentD);
-  const visualMoonEl = { ...moonEl, a: 1 };
-  const moonOrbit = createEllipticalOrbit(visualMoonEl, MOON_ORBIT_RADIUS, 128, 0x888888, 0.5);
+  const moonEl = computeElements('moon', currentD, null, MOON_ORBIT_RADIUS);
+  const moonOrbit = createEllipticalOrbit(moonEl, 128, 0x888888, 0.5);
   moonOrbit.userData.isOrbit = true;
   scene.add(moonOrbit);
 
@@ -158,8 +157,8 @@ export async function createSolarSystem(scene, zodiacNames = [], onProgress = ()
       return;
     }
 
-    const el = computeElements(name, startD)
-    const pos = computePosition(el, orbitScale)
+    const el = computeElements(name, startD, null, orbitScale)
+    const pos = computePosition(el)
     planetObjects[name].position.set(pos.x, pos.y, pos.z)
     planetObjects[name].setRotationFromQuaternion(computePlanetQuaternion(name, startD));
   })
