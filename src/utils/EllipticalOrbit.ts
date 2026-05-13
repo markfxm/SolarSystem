@@ -45,19 +45,15 @@ export function createEllipticalOrbit(
     const cosE = Math.cos(E)
     const sinE = Math.sin(E)
 
-    // Transform directly to Ecliptic plane using pre-calculated combined coefficients
-    // Optimized: Factored formula pos = PxA * (cosE - e) + QxAS * sinE
-    // Gaussian constants (PxA, QxAS, etc.) are already pre-multiplied by scale in computeElements.
+    // Transform directly to World space using pre-calculated combined coefficients
+    // Optimized: Factored formula pos = PxA * (cosE - e) + QxAS * sinE.
+    // Gaussian constants (PxA, QxAS, etc.) are already pre-multiplied by scale AND
+    // pre-swapped into World space (X_world = X_ecl, Y_world = Z_ecl, Z_world = -Y_ecl) in Astronomy.js.
     const cosEmE = cosE - e
-    const x = PxA * cosEmE + QxAS * sinE
-    const y = PyA * cosEmE + QyAS * sinE
-    const z = PzA * cosEmE + QzAS * sinE
-
-    // Transform Ecliptic (XY-plane, Z-up) to World (XZ-plane, Y-up)
     const idx = k * 3
-    points[idx] = x
-    points[idx + 1] = z
-    points[idx + 2] = -y
+    points[idx] = PxA * cosEmE + QxAS * sinE
+    points[idx + 1] = PyA * cosEmE + QyAS * sinE
+    points[idx + 2] = PzA * cosEmE + QzAS * sinE
   }
 
   const geometry = new LineGeometry()

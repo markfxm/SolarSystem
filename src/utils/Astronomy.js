@@ -154,7 +154,8 @@ const _posResult = { x: 0, y: 0, z: 0, r: 0 };
 const _elResult = {
     a: 1, aScaled: 10, e: 0, i: 0, N: 0, w: 0, M: 0, sqrtEE: 1, aSqrtEE: 1,
     Px: 1, Qx: 0, Py: 0, Qy: 1, Pz: 0, Qz: 0,
-    PxA: 1, PyA: 0, PzA: 0, QxAS: 0, QyAS: 1, QzAS: 0,
+    // Initial values baked for World space (X_world = X_ecl, Y_world = Z_ecl, Z_world = -Y_ecl)
+    PxA: 1, PyA: 0, PzA: 0, QxAS: 0, QyAS: 0, QzAS: -1,
     lastD: -999999, lastPlanet: '', lastE: 0, lastM: 0, lastScale: -1
 };
 
@@ -170,7 +171,8 @@ export function computeElements(planetNameOrData, d, target = null, scale = 10) 
   if (!data || data.e0 === undefined) {
     res.a = 1; res.aScaled = scale; res.e = 0; res.i = 0; res.N = 0; res.w = 0; res.M = 0; res.sqrtEE = 1; res.aSqrtEE = 1;
     res.Px = 1; res.Qx = 0; res.Py = 0; res.Qy = 1; res.Pz = 0; res.Qz = 0;
-    res.PxA = scale; res.PyA = 0; res.PzA = 0; res.QxAS = 0; res.QyAS = scale; res.QzAS = 0;
+    // Baked World swap for fallback: P=(1,0,0) -> (1,0,0), Q=(0,1,0) -> (0,0,-1)
+    res.PxA = scale; res.PyA = 0; res.PzA = 0; res.QxAS = 0; res.QyAS = 0; res.QzAS = -scale;
     return res;
   }
 
@@ -232,17 +234,18 @@ export function computeElements(planetNameOrData, d, target = null, scale = 10) 
     res.Qz = cosW * sinI;
   }
 
-  // Pre-calculate combined constants pre-multiplied by scale to save multiplications in computePosition
+  // Performance Optimization: Bake the Ecliptic-to-World swap into the Gaussian constants
+  // (X_world = X_ecl, Y_world = Z_ecl, Z_world = -Y_ecl) to eliminate property swaps in computePosition.
   const aScaled = res.a * scale;
   res.aScaled = aScaled;
   const aSqrtEEScaled = res.aSqrtEE * scale;
 
   res.PxA = res.Px * aScaled;
-  res.PyA = res.Py * aScaled;
-  res.PzA = res.Pz * aScaled;
+  res.PyA = res.Pz * aScaled;
+  res.PzA = -res.Py * aScaled;
   res.QxAS = res.Qx * aSqrtEEScaled;
-  res.QyAS = res.Qy * aSqrtEEScaled;
-  res.QzAS = res.Qz * aSqrtEEScaled;
+  res.QyAS = res.Qz * aSqrtEEScaled;
+  res.QzAS = -res.Qy * aSqrtEEScaled;
 
   return res;
 }
@@ -259,11 +262,12 @@ export function computePosition(elements, target = null) {
   // Solve Kepler's equation with early exit for low eccentricity
   // Optimized: Use "warm-start" guess (previous E + delta M) for 60fps stability.
   // This typically reduces iterations to 1 for most bodies in real-time or moderate speeds.
-  let E, sinE, cosE;
+  let E, sinE, cosE, den;
   if (e < 1e-6) {
     E = M;
     sinE = Math.sin(E);
     cosE = Math.cos(E);
+    den = 1 - e * cosE;
   } else {
     const deltaM = M - elements.lastM;
     // Only use warm start if the time step is reasonably small (< 0.1 radians)
@@ -272,9 +276,10 @@ export function computePosition(elements, target = null) {
     for (let iter = 0; iter < 6; iter++) {
       sinE = Math.sin(E);
       cosE = Math.cos(E);
+      den = 1 - e * cosE;
       const error = E - e * sinE - M;
       if (Math.abs(error) < 1e-6) break;
-      E -= error / (1 - e * cosE);
+      E -= error / den;
     }
   }
 
@@ -282,19 +287,18 @@ export function computePosition(elements, target = null) {
   elements.lastE = E;
   elements.lastM = M;
 
-  // Transform directly to Ecliptic plane using pre-calculated combined coefficients
-  // Optimized: Use direct property access and factored formula pos = PxA * (cosE - e) + QxAS * sinE
-  // Gaussian constants (PxA, QxAS, etc.) are already pre-multiplied by scale in computeElements.
+  // Transform directly to World space using pre-calculated combined coefficients
+  // Optimized: Use direct property access and factored formula pos = PxA * (cosE - e) + QxAS * sinE.
+  // Gaussian constants (PxA, QxAS, etc.) are already pre-multiplied by scale AND
+  // pre-swapped into World space (X_world = X_ecl, Y_world = Z_ecl, Z_world = -Y_ecl) in computeElements.
   const cosEmE = cosE - e;
-  const x = elements.PxA * cosEmE + elements.QxAS * sinE;
-  const y = elements.PyA * cosEmE + elements.QyAS * sinE;
-  const z = elements.PzA * cosEmE + elements.QzAS * sinE;
+  res.x = elements.PxA * cosEmE + elements.QxAS * sinE;
+  res.y = elements.PyA * cosEmE + elements.QyAS * sinE;
+  res.z = elements.PzA * cosEmE + elements.QzAS * sinE;
 
-  // Ecliptic to World transform (Standard mapping: Ecliptic XY -> World XZ, Ecliptic Z -> World Y)
-  res.x = x;
-  res.y = z;
-  res.z = -y;
-  res.r = elements.aScaled * (1 - e * cosE);
+  // Performance Optimization: Reuse the Newton-Raphson denominator (1 - e * cosE)
+  // to calculate the distance property, saving one multiplication and one subtraction.
+  res.r = elements.aScaled * den;
   return res;
 }
 
@@ -389,14 +393,17 @@ export function computePlanetQuaternion(planetName, d, rotationCache = null) {
 const _moonElements = {
     a: 1, aScaled: 1, e: 0, i: 0, N: 0, w: 0, M: 0, sqrtEE: 1, aSqrtEE: 1,
     Px: 1, Qx: 0, Py: 0, Qy: 1, Pz: 0, Qz: 0,
-    PxA: 1, PyA: 0, PzA: 0, QxAS: 0, QyAS: 1, QzAS: 0,
+    // Initial values baked for World space (X_world = X_ecl, Y_world = Z_ecl, Z_world = -Y_ecl)
+    PxA: 1, PyA: 0, PzA: 0, QxAS: 0, QyAS: 0, QzAS: -1,
     lastD: -999999, lastPlanet: 'moon', lastE: 0, lastM: 0, lastScale: -1
 };
 
+const moonData = planetsData.moon;
 export function computeMoonPosition(d, scale = 1, target = null) {
   // Use accurate Keplerian elements for the Moon relative to Earth
   // Optimized: el.a is already 1.0 in planetsData, and computeElements
   // handles all P/Q pre-calculations correctly.
-  const el = computeElements('moon', d, _moonElements, scale);
+  // Performance Boost: Use pre-linked moonData to avoid per-frame string lookup.
+  const el = computeElements(moonData, d, _moonElements, scale);
   return computePosition(el, target);
 }
