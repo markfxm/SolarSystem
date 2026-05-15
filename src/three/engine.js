@@ -21,7 +21,9 @@ export function createEngine(container) {
   // Renderer
   const renderer = new THREE.WebGLRenderer({ antialias: true })
   renderer.setSize(window.innerWidth, window.innerHeight)
-  renderer.shadowMap.enabled = true
+  // Optimization: Disable shadow map by default for the main Solar System scene.
+  // We dynamically enable it only for sub-scenes (like Mars Surface) that require it.
+  renderer.shadowMap.enabled = false
   renderer.shadowMap.type = THREE.PCFSoftShadowMap
   // Limit pixel ratio to 1.25 for better performance on average office laptops and high-DPI screens
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.25))
@@ -84,6 +86,12 @@ export function createEngine(container) {
     setActiveScene: (s, c) => {
       activeScene = s || scene
       activeCamera = c || camera
+
+      // Performance Optimization: Only enable shadow maps for sub-scenes (like Mars Surface)
+      // that actually use them. The main Solar System scene does not use shadow casting,
+      // so disabling it here saves significant GPU/CPU overhead in the primary view.
+      renderer.shadowMap.enabled = !!s;
+
       // Update aspect ratio for the new camera
       activeCamera.aspect = window.innerWidth / window.innerHeight
       activeCamera.updateProjectionMatrix()
