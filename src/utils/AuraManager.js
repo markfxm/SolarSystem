@@ -118,7 +118,8 @@ export class AuraManager {
             const elementIdx = info.index % 4; // Ensure index is in [0,3] range
 
             const aura = item.aura;
-            aura.visible = true;
+            // Optimization: Avoid redundant visibility updates
+            if (!aura.visible) aura.visible = true;
 
             // Assign pre-created material based on element index (O(1) array access)
             const targetMat = this.materialsByElementIndex[elementIdx] || this.defaultMaterial;
@@ -130,9 +131,13 @@ export class AuraManager {
             const isDominant = elementIdx === dominantIdx;
             const pulseBase = isDominant ? 1.4 : 1.25;
             const scale = pulseBase + (isDominant ? pulseDominant : pulseNormal);
+            const targetScale = item.baseScale * scale;
 
-            // Optimization: Use pre-calculated baseScale (radius * 3.5)
-            aura.scale.setScalar(item.baseScale * scale);
+            // Optimization: Skip Three.js property updates and matrix recalculations
+            // if the target scale is already reached or the change is negligible.
+            if (Math.abs(aura.scale.x - targetScale) > 0.001) {
+                aura.scale.setScalar(targetScale);
+            }
         }
     }
 
