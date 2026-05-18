@@ -43,6 +43,26 @@ export function createInteractions({
   const _tempVec3 = new THREE.Vector3()
   const _tempLookAt = new THREE.Vector3()
   const _poiCandidates = [] // Scratch array to avoid per-event allocations
+
+  // Performance Optimization: Pre-calculate POI collections to avoid redundant
+  // scene graph traversal in the 30fps mouse move loop.
+  const allPOIGroups = []
+  const planetPOIInfo = planets.map(p => {
+    if (p.userData.pois) {
+      const meshes = []
+      const groups = p.userData.pois.children
+      for (let i = 0; i < groups.length; i++) {
+        const group = groups[i]
+        allPOIGroups.push(group)
+        for (let j = 0; j < group.children.length; j++) {
+          meshes.push(group.children[j])
+        }
+      }
+      return { group: p.userData.pois, meshes }
+    }
+    return null
+  }).filter(Boolean)
+
   let lastMouseMoveTime = 0
 
   // Fly / tracking state
@@ -210,19 +230,20 @@ export function createInteractions({
     // Check for POIs first (they are smaller and "on top")
     let hitPOI = null
     _poiCandidates.length = 0 // Clear scratch array without reallocation
-    for (let i = 0; i < planets.length; i++) {
-      const p = planets[i]
-      if (p.userData.pois && p.userData.pois.visible) {
-        const poiGroups = p.userData.pois.children
-        for (let j = 0; j < poiGroups.length; j++) {
-          const poiGroup = poiGroups[j]
-          const children = poiGroup.children
-          // Raycast against both dot and label for better hit area
-          for (let k = 0; k < children.length; k++) {
-            _poiCandidates.push(children[k])
-          }
-          // Reset hover state
-          poiGroup.userData.isHovered = false
+
+    // Performance Optimization: Use pre-calculated POI collections.
+    // Reset all hover states in a flat loop.
+    for (let i = 0; i < allPOIGroups.length; i++) {
+      allPOIGroups[i].userData.isHovered = false
+    }
+
+    // Only collect candidates from planets with visible POI groups.
+    for (let i = 0; i < planetPOIInfo.length; i++) {
+      const info = planetPOIInfo[i]
+      if (info.group.visible) {
+        const meshes = info.meshes
+        for (let j = 0; j < meshes.length; j++) {
+          _poiCandidates.push(meshes[j])
         }
       }
     }
