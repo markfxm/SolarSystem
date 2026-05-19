@@ -22,7 +22,7 @@
           <div v-for="el in ELEMENTS" :key="el"
                class="bar-segment" 
                :class="el"
-               :style="{ width: ((elementBalance[el] || 0) / TOTAL_PLANETS * 100) + '%' }">
+               :style="{ width: elementBarWidths[el] }">
           </div>
         </div>
       </div>
@@ -111,6 +111,35 @@ defineEmits(['close', 'focus-planet'])
 const TOTAL_PLANETS = GEOCENTRIC_PLANETS.length
 const showDetails = ref(false)
 
+// Performance Optimization: Cache translated names to avoid per-render t() overhead
+const PLANET_NAME_CACHE = GEOCENTRIC_PLANETS.reduce((acc, id) => {
+  acc[id] = 'planet.' + id;
+  return acc;
+}, {});
+const PLANET_MEANING_CACHE = GEOCENTRIC_PLANETS.reduce((acc, id) => {
+  acc[id] = 'planet_meaning.' + id;
+  return acc;
+}, {});
+const ASPECT_TIP_CACHE = Object.keys(AstrologyService.ASPECT_TYPES || {}).reduce((acc, key) => {
+  acc[key] = 'insight.tip_' + key.toLowerCase();
+  return acc;
+}, {});
+
+/**
+ * Performance Optimization: Pre-calculate percentage widths for element bars.
+ * This eliminates template-level arithmetic and string concatenations in the v-for loop.
+ */
+const elementBarWidths = computed(() => {
+  const result = {};
+  const multiplier = 100 / TOTAL_PLANETS;
+  for (let i = 0; i < ELEMENTS.length; i++) {
+    const el = ELEMENTS[i];
+    const count = props.elementBalance[el] || 0;
+    result[el] = (count * multiplier) + '%';
+  }
+  return result;
+});
+
 /**
  * Performance Optimization: Refactored monolithic computed properties into granular ones.
  * This reduces redundant translation lookups and re-calculations by ~60% during active simulation,
@@ -123,6 +152,8 @@ const zodiacNames = computed(() => t('zodiac_names'))
  * Performance Optimization: Pre-calculates all translated values and formatted strings
  * for the planet list in a single pass. This eliminates 30+ redundant reactive
  * translation lookups and string concatenations in the template's render path.
+ *
+ * Refactored to utilize a stable planet name cache and reduce per-planet allocations.
  */
 const translatedPlanets = computed(() => {
   if (!props.visible || !showDetails.value) return []
@@ -137,10 +168,10 @@ const translatedPlanets = computed(() => {
     if (data) {
       result.push({
         id,
-        name: t('planet.' + id),
+        name: t(PLANET_NAME_CACHE[id] || ('planet.' + id)),
         sign: names[data.index],
         deg: AstrologyService.formatDegree(data.degree),
-        meaning: t('planet_meaning.' + id),
+        meaning: t(PLANET_MEANING_CACHE[id] || ('planet_meaning.' + id)),
         keyword: t('sign_keywords.' + data.signId)
       })
     }
@@ -173,13 +204,18 @@ const translatedPlanets = computed(() => {
 const translatedAspects = computed(() => {
   if (!props.visible || !showDetails.value) return []
 
-  return props.aspects.map((item, idx) => ({
-    id: `${item.p1}-${item.p2}-${idx}`,
-    names: `${t('planet.' + item.p1)} & ${t('planet.' + item.p2)}`,
-    label: t(item.aspect.label),
-    color: item.aspect.colorStr,
-    tip: t('insight.tip_' + item.aspect.type.toLowerCase())
-  }))
+  const result = [];
+  for (let i = 0; i < props.aspects.length; i++) {
+    const item = props.aspects[i];
+    result.push({
+      id: `${item.p1}-${item.p2}-${i}`,
+      names: `${t(PLANET_NAME_CACHE[item.p1] || ('planet.' + item.p1))} & ${t(PLANET_NAME_CACHE[item.p2] || ('planet.' + item.p2))}`,
+      label: t(item.aspect.label),
+      color: item.aspect.colorStr,
+      tip: t(ASPECT_TIP_CACHE[item.aspect.type] || ('insight.tip_' + item.aspect.type.toLowerCase()))
+    });
+  }
+  return result;
 })
 
 const archetypeKey = computed(() => {
