@@ -141,3 +141,7 @@
 ## 2025-05-18 - [Contextual Shadow Map Toggling]
 **Learning:** In Three.js, `renderer.shadowMap.enabled = true` is a global setting that incurs significant rendering overhead even in scenes where no objects cast or receive shadows, as it forces the renderer to evaluate shadow-casting lights every frame. In a multi-scene application (e.g., Solar System vs. Planet Surface), keeping shadows globally enabled is wasteful.
 **Action:** Disable shadow maps by default. Implement a contextual toggle in the scene management logic (e.g., `setActiveScene`) to enable `renderer.shadowMap.enabled` only when a sub-scene that explicitly requires shadows is active, and disable it immediately when returning to the primary scene.
+
+## 2025-05-18 - [Vue Template & Translation Optimization]
+**Learning:** Performing arithmetic, string concatenations, and repeated i18n lookups (t()) inside a Vue template v-for loop creates significant overhead in high-frequency components. Caching translation path fragments (e.g., 'planet.' + id) and moving style/data logic to computed properties leverages Vue's memoization to reduce re-render costs and GC pressure.
+**Action:** Always move complex template logic to computed properties. Cache dynamic translation keys in constants or module-level objects when used inside loops that update frequently.
