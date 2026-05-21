@@ -142,7 +142,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, shallowRef, onMounted, onUnmounted, computed, watch } from 'vue'
+import { ref, reactive, shallowRef, onMounted, onUnmounted, computed, watch, triggerRef } from 'vue'
 
 import PlanetNavigationPanel from './PlanetNavigationPanel.vue'
 import SystemConsole from './SystemConsole.vue'
@@ -868,16 +868,20 @@ onMounted(async () => {
       // Performance Optimization: Decouple heavy calculations from visual updates.
       // Calculations run at ~12fps to save CPU, while visuals run at 60fps for smoothness.
       if (frameCount % 5 === 0 && hasTimeMoved) {
+        // Performance Optimization: Update simulation state in-place to avoid GC pressure.
+        // We use persistent references and manually trigger Vue reactivity.
         const chart = AstrologyService.calculateGeocentricChart(d, solar.planetObjects, currentChart.value)
         const aspects = AstrologyService.calculateAspects(chart)
         const vibe = AstrologyService.calculateElementBalance(chart, elementBalance.value)
 
         dominantElement.value = vibe.dominant
 
-        // Update values used by both UI and 3D visual managers
-        currentChart.value = { ...chart }
-        elementBalance.value = { ...vibe.balance }
-        activeAspects.value = aspects
+        // Optimization: Trigger reactivity manually for objects updated in-place.
+        // This eliminates the creation of ~180 temporary objects/arrays per minute.
+        if (activeAspects.value !== aspects) activeAspects.value = aspects
+        triggerRef(currentChart)
+        triggerRef(elementBalance)
+        triggerRef(activeAspects)
       }
 
       // Visual updates (aura pulsing and line synchronization) run every frame (60fps)

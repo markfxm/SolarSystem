@@ -212,9 +212,11 @@ export class AstrologyService {
     // Additional pool for aspect WRAPPERS {p1, p2, aspect}
     static _wrapperPool = Array.from({ length: 100 }, () => ({ p1: '', p2: '', aspect: null }));
     static _wrapperPoolIdx = 0;
+    static _aspectsResult = [];
 
     static calculateAspects(chart) {
-        const aspects = [];
+        const aspects = this._aspectsResult;
+        aspects.length = 0;
         this._aspectPoolIdx = 0;
         this._wrapperPoolIdx = 0;
         const bodies = ALL_BODIES;
