@@ -62,6 +62,11 @@ const loadTexture = (path) =>
   })
 
 export async function createSolarSystem(scene, zodiacNames = [], onProgress = () => {}) {
+  // Performance Optimization: Track orbits and resolution-dependent objects in dedicated arrays
+  // to avoid expensive O(N) scene traversals during resizing or mode toggling.
+  const orbits = [];
+  const resDependent = [];
+
   // 1. Initial Load: Load all low-res textures
   const keys = Object.keys(lowResMaps);
   const totalSteps = keys.length;
@@ -113,6 +118,10 @@ export async function createSolarSystem(scene, zodiacNames = [], onProgress = ()
       const elements = computeElements(name, 0, null, orbitScale);
       const orbit = createEllipticalOrbit(elements, 512, 0xd4aaff, 0.92);
       orbit.userData.isOrbit = true;
+      orbits.push(orbit);
+      if (orbit.material && orbit.material.resolution) {
+        resDependent.push(orbit);
+      }
       scene.add(orbit);
     }
     return mesh;
@@ -143,6 +152,10 @@ export async function createSolarSystem(scene, zodiacNames = [], onProgress = ()
   const moonEl = computeElements('moon', currentD, null, MOON_ORBIT_RADIUS);
   const moonOrbit = createEllipticalOrbit(moonEl, 128, 0x888888, 0.5);
   moonOrbit.userData.isOrbit = true;
+  orbits.push(moonOrbit);
+  if (moonOrbit.material && moonOrbit.material.resolution) {
+    resDependent.push(moonOrbit);
+  }
   scene.add(moonOrbit);
 
   const planets = Object.values(planetObjects);
@@ -191,6 +204,15 @@ export async function createSolarSystem(scene, zodiacNames = [], onProgress = ()
 
   const zodiacRing = createZodiacRing(ZODIAC_RADIUS, zodiacNames);
   zodiacRing.visible = false;
+  // Collect resolution-dependent children from the ring (Line2, LineSegments2, etc)
+  if (zodiacRing.children) {
+    for (let i = 0; i < zodiacRing.children.length; i++) {
+      const child = zodiacRing.children[i];
+      if (child.material && child.material.resolution) {
+        resDependent.push(child);
+      }
+    }
+  }
   scene.add(zodiacRing);
 
   const aspectsManager = new AspectLinesManager(scene, planetObjects);
@@ -226,6 +248,8 @@ export async function createSolarSystem(scene, zodiacNames = [], onProgress = ()
     moonOrbit,
     MOON_ORBIT_RADIUS,
     orbitScale,
+    orbits,
+    resDependent,
     zodiacRing,
     aspectsManager,
     auraManager,
@@ -244,8 +268,10 @@ export async function createSolarSystem(scene, zodiacNames = [], onProgress = ()
       });
 
       // 2. Toggle Orbits
-      scene.traverse(obj => {
-        if (obj.userData.isOrbit && obj.material) {
+      // Optimized: Iterate over pre-collected orbits array instead of full scene traversal.
+      for (let i = 0; i < orbits.length; i++) {
+        const obj = orbits[i];
+        if (obj.material) {
           if (enabled) {
             if (!obj.userData.originalColor) {
               obj.userData.originalColor = obj.material.color.clone();
@@ -255,7 +281,7 @@ export async function createSolarSystem(scene, zodiacNames = [], onProgress = ()
             obj.material.color.copy(obj.userData.originalColor);
           }
         }
-      });
+      }
 
       // 3. Environment Adjustments
       // Removed: Keep natural environment visible in holographic mode for better contrast
