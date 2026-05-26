@@ -271,7 +271,7 @@ export function computePosition(elements, target = null) {
   } else {
     const deltaM = M - elements.lastM;
     // Only use warm start if the time step is reasonably small (< 0.1 radians)
-    E = (Math.abs(deltaM) < 0.1) ? elements.lastE + deltaM : (e > 0.05 ? M + e * Math.sin(M) : M);
+    E = (Math.abs(deltaM) < 0.1) ? elements.lastE + deltaM : (e > 0.01 ? M + e * Math.sin(M) : M);
 
     for (let iter = 0; iter < 6; iter++) {
       sinE = Math.sin(E);

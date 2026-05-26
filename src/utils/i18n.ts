@@ -511,36 +511,34 @@ export function t(path: string, vars: Record<string, string | number> | null = n
   // as a reactive dependency. This is critical for template and computed updates.
   const _lang = currentLang.value;
 
-  // 1. Fast path: check cache for static translations
-  if (!vars) {
-    const cached = translationCache.get(path);
-    if (cached !== undefined) return cached;
-  }
+  // 1. Fast path: check cache
+  let cur = translationCache.get(path);
 
-  // 2. Optimized path splitting
-  let parts = pathCache.get(path);
-  if (!parts) {
-    parts = path.split('.');
-    pathCache.set(path, parts);
-  }
-
-  // 3. Dictionary traversal
-  let cur: any = dict[_lang] || dict.en;
-  for (let i = 0; i < parts.length; i++) {
-    cur = cur?.[parts[i]];
-    if (cur === undefined) return path;
-  }
-
-  // 4. Variable replacement or Caching
-  if (vars && typeof cur === 'string') {
-    // Use replaceAll for a clean and efficient replacement of all occurrences
-    for (const key in vars) {
-      cur = cur.replaceAll(`{${key}}`, String(vars[key]));
+  if (cur === undefined) {
+    // 2. Optimized path splitting
+    let parts = pathCache.get(path);
+    if (!parts) {
+      parts = path.split('.');
+      pathCache.set(path, parts);
     }
-    return cur;
-  } else {
-    // Cache resolved value (string or array)
+
+    // 3. Dictionary traversal
+    cur = dict[_lang] || dict.en;
+    for (let i = 0; i < parts.length; i++) {
+      cur = cur?.[parts[i]];
+      if (cur === undefined) return path;
+    }
+    // Cache the resolved template/value (string or array)
     translationCache.set(path, cur);
+  }
+
+  // 4. Variable replacement
+  if (vars && typeof cur === 'string') {
+    let result = cur;
+    for (const key in vars) {
+      result = result.replaceAll(`{${key}}`, String(vars[key]));
+    }
+    return result;
   }
 
   return cur;
