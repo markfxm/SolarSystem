@@ -28,6 +28,8 @@ const ALL_BODIES = ['sun', 'moon', 'mercury', 'venus', 'earth', 'mars', 'jupiter
 
 // Pre-calculate minutes padding for formatDegree (00-59)
 const MINUTES_CACHE = Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, '0'));
+// Pre-calculate degree strings for formatDegree (0-359)
+const DEGREE_STR_CACHE = Array.from({ length: 360 }, (_, i) => i + '°');
 
 export const BODY_TO_ID = {
     sun: 0,
@@ -174,8 +176,9 @@ export class AstrologyService {
     static formatDegree(degree) {
         const d = Math.floor(degree);
         const m = Math.floor((degree - d) * 60);
-        // Optimization: Use pre-calculated padding for minutes
-        return `${d}°${MINUTES_CACHE[m] || '00'}'`;
+        // Optimization: Use pre-calculated padding for degrees and minutes
+        // This avoids template literal interpolation and string allocations in the hot path.
+        return (DEGREE_STR_CACHE[d] || (d + '°')) + (MINUTES_CACHE[m] || '00') + "'";
     }
 
     /**
