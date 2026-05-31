@@ -130,12 +130,13 @@ const ASPECT_TIP_CACHE = Object.keys(AstrologyService.ASPECT_TYPES || {}).reduce
  * This eliminates template-level arithmetic and string concatenations in the v-for loop.
  */
 const elementBarWidths = computed(() => {
+  if (!props.visible) return {};
   const result = {};
   const multiplier = 100 / TOTAL_PLANETS;
   for (let i = 0; i < ELEMENTS.length; i++) {
     const el = ELEMENTS[i];
     const count = props.elementBalance[el] || 0;
-    result[el] = (count * multiplier) + '%';
+    result[el] = (count * multiplier).toFixed(1) + '%';
   }
   return result;
 });

@@ -46,14 +46,12 @@ export function createInteractions({
 
   // Performance Optimization: Pre-calculate POI collections to avoid redundant
   // scene graph traversal in the 30fps mouse move loop.
-  const allPOIGroups = []
   const planetPOIInfo = planets.map(p => {
     if (p.userData.pois) {
       const meshes = []
       const groups = p.userData.pois.children
       for (let i = 0; i < groups.length; i++) {
         const group = groups[i]
-        allPOIGroups.push(group)
         for (let j = 0; j < group.children.length; j++) {
           meshes.push(group.children[j])
         }
@@ -231,13 +229,7 @@ export function createInteractions({
     let hitPOI = null
     _poiCandidates.length = 0 // Clear scratch array without reallocation
 
-    // Performance Optimization: Use pre-calculated POI collections.
-    // Reset all hover states in a flat loop.
-    for (let i = 0; i < allPOIGroups.length; i++) {
-      allPOIGroups[i].userData.isHovered = false
-    }
-
-    // Only collect candidates from planets with visible POI groups.
+    // Performance Optimization: Only collect candidates from planets with visible POI groups.
     for (let i = 0; i < planetPOIInfo.length; i++) {
       const info = planetPOIInfo[i]
       if (info.group.visible) {
@@ -257,10 +249,13 @@ export function createInteractions({
     if (poiHits.length > 0) {
       // Find the parent POI group
       hitPOI = poiHits[0].object.parent
-      hitPOI.userData.isHovered = true
 
       if (hoveredPOI !== hitPOI) {
+        // Optimization: Targeted reset of previous hover state
+        if (hoveredPOI) hoveredPOI.userData.isHovered = false;
+
         hoveredPOI = hitPOI
+        hoveredPOI.userData.isHovered = true
         renderer.domElement.style.cursor = 'pointer'
       }
       // If hovering a POI, we don't want to hover the planet behind it
@@ -270,6 +265,7 @@ export function createInteractions({
       }
     } else {
       if (hoveredPOI !== null) {
+        hoveredPOI.userData.isHovered = false
         hoveredPOI = null
         renderer.domElement.style.cursor = 'default'
       }
