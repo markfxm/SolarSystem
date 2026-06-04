@@ -78,6 +78,8 @@ const ZODIAC_SYMBOLS = ['♈', '♉', '♊', '♋', '♌', '♍', '♎', '♏', 
 export function createZodiacRing(radius = 10000, initialNames = []) {
     const group = new THREE.Group();
     group.name = 'ZodiacRing';
+    // Optimization: Zodiac ring is static, disable per-frame matrix updates.
+    group.matrixAutoUpdate = false;
 
     // 1. The main ring line
     const ringSegments = 128;
@@ -108,6 +110,8 @@ export function createZodiacRing(radius = 10000, initialNames = []) {
     const ringLine = new Line2(ringGeo, ringMat);
     // Optimization: Zodiac ring is not interactive, disable raycasting to save CPU
     ringLine.raycast = () => {};
+    ringLine.matrixAutoUpdate = false;
+    ringLine.updateMatrix();
     ringLine.renderOrder = 5; // Draw early
     ringLine.computeLineDistances();
     group.add(ringLine);
@@ -150,6 +154,8 @@ export function createZodiacRing(radius = 10000, initialNames = []) {
     const tickSegments = new LineSegments2(tickGeo, tickMat);
     // Optimization: Zodiac ticks are not interactive, disable raycasting to save CPU
     tickSegments.raycast = () => {};
+    tickSegments.matrixAutoUpdate = false;
+    tickSegments.updateMatrix();
     tickSegments.renderOrder = 5;
     tickSegments.computeLineDistances();
     group.add(tickSegments);
@@ -189,9 +195,14 @@ export function createZodiacRing(radius = 10000, initialNames = []) {
         sprite.renderOrder = 10; // Draw on top
         // ScaleX is now 2x to maintain 8:1 ratio (radius*0.3 vs radius*0.0375)
         sprite.scale.set(radius * 0.3, radius * 0.0375, 1);
+        // Optimization: Labels are static relative to the ring group
+        sprite.matrixAutoUpdate = false;
+        sprite.updateMatrix();
         group.add(sprite);
         sprites.push(sprite);
     }
+
+    group.updateMatrix();
 
     // Function to update labels
     group.updateLabels = (names) => {

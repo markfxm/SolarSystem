@@ -24,6 +24,9 @@ export class Earth extends BasePlanet {
     atmos.scale.setScalar(1.05);
     // Optimization: Atmosphere is decorative, disable raycasting to save CPU
     atmos.raycast = () => {};
+    // Optimization: Atmosphere is static relative to Earth, disable per-frame matrix updates.
+    atmos.matrixAutoUpdate = false;
+    atmos.updateMatrix();
     mesh.add(atmos);
 
     return mesh;

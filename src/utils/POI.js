@@ -53,10 +53,15 @@ export function createPOIMarkers(planetName, radius) {
     isPOIGroup: true,
     planetName: planetName
   };
+  // Optimization: POI container is static relative to the planet
+  group.matrixAutoUpdate = false;
+  group.updateMatrix();
 
   pois.forEach(poi => {
     const poiGroup = new THREE.Group();
     poiGroup.name = `POI_${poi.id}`;
+    // Optimization: Individual POI anchor is static relative to the planet
+    poiGroup.matrixAutoUpdate = false;
 
     const latRad = THREE.MathUtils.degToRad(poi.lat);
     const lonRad = THREE.MathUtils.degToRad(-poi.lon);
@@ -104,6 +109,7 @@ export function createPOIMarkers(planetName, radius) {
       label: labelMesh
     };
 
+    poiGroup.updateMatrix();
     group.add(poiGroup);
   });
 

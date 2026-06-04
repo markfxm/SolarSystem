@@ -45,6 +45,8 @@ export function createLatLonGrid(radius) {
   const group = new THREE.Group();
   group.name = 'LatLonGrid';
   group.userData.isGrid = true;
+  // Optimization: Grid is static relative to the planet, disable per-frame matrix updates.
+  group.matrixAutoUpdate = false;
 
   // Offset slightly to avoid Z-fighting with the planet surface
   const gridRadius = radius * 1.02;
@@ -74,6 +76,8 @@ export function createLatLonGrid(radius) {
       const labelText = lat === 90 ? '90°N' : '90°S';
       const sprite = createTextSprite(labelText, labelScale);
       sprite.position.set(0, y, 0);
+      sprite.matrixAutoUpdate = false;
+      sprite.updateMatrix();
       group.add(sprite);
       continue;
     }
@@ -95,6 +99,8 @@ export function createLatLonGrid(radius) {
     const sprite = createTextSprite(labelText, labelScale);
     const labelRadius = r * 1.005;
     sprite.position.set(labelRadius, y * 1.005, 0);
+    sprite.matrixAutoUpdate = false;
+    sprite.updateMatrix();
     group.add(sprite);
   }
 
@@ -131,6 +137,8 @@ export function createLatLonGrid(radius) {
       const sprite = createTextSprite(`${lon}°`, labelScale);
       const labelR = gridRadius * 1.005;
       sprite.position.set(labelR * cosTheta, 0, labelR * sinTheta);
+      sprite.matrixAutoUpdate = false;
+      sprite.updateMatrix();
       group.add(sprite);
     }
   }
@@ -140,9 +148,12 @@ export function createLatLonGrid(radius) {
   const segmentsMesh = new THREE.LineSegments(geometry, sharedLineMaterial);
   // Optimization: Grid lines are not interactive, disable raycasting to save CPU during mouse movement
   segmentsMesh.raycast = () => {};
+  segmentsMesh.matrixAutoUpdate = false;
+  segmentsMesh.updateMatrix();
   group.add(segmentsMesh);
 
   group.visible = false;
+  group.updateMatrix();
 
   // Cache if unit radius
   if (radius === 1.0) {

@@ -47,6 +47,9 @@ export class Saturn extends BasePlanet {
       const ringMesh = new THREE.Mesh(ringGeo, ringMat);
       ringMesh.rotation.x = -Math.PI / 2;
       ringMesh.userData.isRing = true; // For identification
+      // Optimization: Rings are static relative to Saturn, disable per-frame matrix updates.
+      ringMesh.matrixAutoUpdate = false;
+      ringMesh.updateMatrix();
 
       if (this.isHolographic) {
         if (!this.holographicMaterial) {

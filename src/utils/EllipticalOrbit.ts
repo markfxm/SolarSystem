@@ -76,6 +76,9 @@ export function createEllipticalOrbit(
   const orbitLine = new Line2(geometry, material)
   // Optimization: Orbit lines are not interactive, disable raycasting to save CPU during mouse movement
   orbitLine.raycast = () => {}
+  // Optimization: Orbit lines are static relative to the solar system, disable per-frame matrix updates.
+  orbitLine.matrixAutoUpdate = false
+  orbitLine.updateMatrix()
   orbitLine.computeLineDistances()
   orbitLine.userData.isOrbit = true
 
