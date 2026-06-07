@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { PlanetClasses } from '../planets/registry.js'
 import { createNebula } from '../utils/Nebula.js'
+import { createStarfield } from '../utils/Starfield'
 import { computeElements, computePosition, computeD, computePlanetQuaternion } from '../utils/Astronomy.js'
 import { createEllipticalOrbit } from '../utils/EllipticalOrbit'
 import { createZodiacRing } from '../utils/ZodiacRing.js';
@@ -177,24 +178,29 @@ export async function createSolarSystem(scene, zodiacNames = [], onProgress = ()
   })
 
   // Environment
-  const starGeo = new THREE.BufferGeometry()
-  const starCount = 15000;
-  const starVertices = new Float32Array(starCount * 3);
-  for (let i = 0; i < starCount * 3; i++) {
-    starVertices[i] = Math.random() * 200000 - 100000;
+  const starsGeometry = new THREE.BufferGeometry()
+  const starsCount = 10000
+  const positions = new Float32Array(starsCount * 3)
+
+  for (let i = 0; i < starsCount; i++) {
+    positions[i * 3] = (Math.random() - 0.5) * 1000000
+    positions[i * 3 + 1] = (Math.random() - 0.5) * 1000000
+    positions[i * 3 + 2] = (Math.random() - 0.5) * 1000000
   }
-  starGeo.setAttribute('position', new THREE.BufferAttribute(starVertices, 3))
-  const starPoints = new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 2 }))
-  // Optimization: Starfield is not interactive, disable raycasting to save CPU
-  starPoints.raycast = () => {}
-  starPoints.userData.isStarfield = true
 
-  // Performance Optimization: The starfield is static and surrounds the camera.
-  // Disabling matrixAutoUpdate and frustumCulled reduces per-frame scene graph overhead.
-  starPoints.matrixAutoUpdate = false
-  starPoints.updateMatrix()
-  starPoints.frustumCulled = false
+  starsGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
+  const starsMaterial = new THREE.PointsMaterial({
+    color: 0xffffff,
+    size: 2,
+    sizeAttenuation: false
+  })
 
+  const starPoints = new THREE.Points(starsGeometry, starsMaterial)
+  // Optimization: Disable expensive features for decorative starfield
+  starPoints.raycast = () => {};
+  starPoints.matrixAutoUpdate = false;
+  starPoints.frustumCulled = false;
+  starPoints.updateMatrix();
   scene.add(starPoints)
 
   const nebula = createNebula(new THREE.Vector3(0, 0, -1500))

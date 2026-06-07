@@ -2,14 +2,13 @@ import * as THREE from 'three';
 
 /**
  * Creates a nebula effect using a point cloud.
- * Optimized: Merged loops and reused trigonometric results for better performance.
+ * Optimized: Merged loops, reused trigonometric results, and removed unused attributes.
  */
 export function createNebula(position) {
   const numParticles = 12000;
   const geometry = new THREE.BufferGeometry();
   const nebulaPositions = new Float32Array(numParticles * 3);
   const nebulaColors = new Float32Array(numParticles * 3);
-  const nebulaSizes = new Float32Array(numParticles);
 
   // Pre-allocated color object to avoid 12,000 allocations
   const tempColor = new THREE.Color();
@@ -29,25 +28,25 @@ export function createNebula(position) {
     nebulaPositions[idx3 + 1] = rSinPhi * Math.sin(theta);
     nebulaPositions[idx3 + 2] = radius * cosPhi;
 
-    // 2. Color and Size calculation (Merged from second loop)
+    // 2. Color calculation (Merged from second loop)
     tempColor.setHSL(0.75 + Math.random() * 0.1, 0.8, 0.5);
     nebulaColors[idx3] = tempColor.r;
     nebulaColors[idx3 + 1] = tempColor.g;
     nebulaColors[idx3 + 2] = tempColor.b;
-
-    nebulaSizes[i] = 400 + Math.random() * 800;
   }
 
   geometry.setAttribute('position', new THREE.BufferAttribute(nebulaPositions, 3));
   geometry.setAttribute('color', new THREE.BufferAttribute(nebulaColors, 3));
-  geometry.setAttribute('size', new THREE.BufferAttribute(nebulaSizes, 1));
 
+  // Performance Optimization: Removed unused 'size' attribute. Standard PointsMaterial
+  // uses its own 'size' uniform, saving memory and redundant loop math.
   const material = new THREE.PointsMaterial({
     vertexColors: true,
     sizeAttenuation: true,
     blending: THREE.AdditiveBlending,
     transparent: true,
-    opacity: 0.5
+    opacity: 0.5,
+    size: 600 // Base size for nebula particles
   });
 
   const nebula = new THREE.Points(geometry, material);
