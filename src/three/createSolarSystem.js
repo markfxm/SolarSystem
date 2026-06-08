@@ -1,7 +1,6 @@
 import * as THREE from 'three'
 import { PlanetClasses } from '../planets/registry.js'
 import { createNebula } from '../utils/Nebula.js'
-import { createStarfield } from '../utils/Starfield'
 import { computeElements, computePosition, computeD, computePlanetQuaternion } from '../utils/Astronomy.js'
 import { createEllipticalOrbit } from '../utils/EllipticalOrbit'
 import { createZodiacRing } from '../utils/ZodiacRing.js';
