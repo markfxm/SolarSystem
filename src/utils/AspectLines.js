@@ -9,7 +9,6 @@ const _v1 = new THREE.Vector3();
 const _v2 = new THREE.Vector3();
 const _posArray = new Float32Array(6);
 const _resolution = new THREE.Vector2();
-const _planetsToUpdate = new Set();
 const _activeKeys = new Set();
 
 export class AspectLinesManager {
@@ -18,9 +17,15 @@ export class AspectLinesManager {
         this.planetObjects = planetObjects; // Map of planetId -> { mesh, etc. }
         this.group = new THREE.Group();
         this.group.name = 'AspectLines';
+
+        // Optimization: Aspect lines group is static relative to the scene origin.
+        // Disabling matrixAutoUpdate skips redundant matrix recalculations every frame.
+        this.group.matrixAutoUpdate = false;
+        this.group.updateMatrix();
+
         this.scene.add(this.group);
 
-        this.lines = new Map(); // Key: "p1-p2", Value: { line, aspectType }
+        this.lines = new Map(); // Key: bit-shifted ID, Value: { line, aspectType }
         this.lastResolution = new THREE.Vector2(-1, -1);
     }
 
@@ -81,6 +86,13 @@ export class AspectLinesManager {
                 line.raycast = () => {};
                 line.renderOrder = 6; // Draw above ring but below labels
 
+                // Optimization: Line positions are in world space.
+                // Disabling matrixAutoUpdate and frustum culling (for these long lines)
+                // reduces per-frame CPU overhead in the render loop.
+                line.matrixAutoUpdate = false;
+                line.updateMatrix();
+                line.frustumCulled = false;
+
                 // Add metadata for animation
                 line.userData = {
                     targetOpacity: 0.6,
@@ -92,9 +104,16 @@ export class AspectLinesManager {
             } else {
                 // Update position of existing line
                 const data = this.lines.get(key);
-                _posArray[0] = _v1.x; _posArray[1] = _v1.y; _posArray[2] = _v1.z;
-                _posArray[3] = _v2.x; _posArray[4] = _v2.y; _posArray[5] = _v2.z;
-                data.line.geometry.setPositions(_posArray);
+                const attr = data.line.geometry.attributes.instanceStart;
+                const array = attr.data.array;
+
+                // Performance Optimization: Direct buffer update avoids new object allocations.
+                // LineGeometry.setPositions() creates a new InstancedInterleavedBuffer and
+                // new InterleavedBufferAttribute on every call, which causes significant GC
+                // pressure (~180 objects/sec for 10 aspects).
+                array[0] = _v1.x; array[1] = _v1.y; array[2] = _v1.z;
+                array[3] = _v2.x; array[4] = _v2.y; array[5] = _v2.z;
+                attr.data.needsUpdate = true;
 
                 // LineMaterial requires resolution update to correctly handle window resizing.
                 // Optimized to only copy if resolution changed for this instance.
