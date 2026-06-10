@@ -496,6 +496,7 @@ const dict: { [key: string]: TranslationDict } = {
 // Performance Caches
 const pathCache = new Map<string, string[]>();
 const translationCache = new Map<string, any>();
+const RE_VAR = /\{(\w+)\}/g;
 
 // Clear translation cache on language change immediately
 watch(currentLang, () => {
@@ -533,12 +534,13 @@ export function t(path: string, vars: Record<string, string | number> | null = n
   }
 
   // 4. Variable replacement
-  if (vars && typeof cur === 'string') {
-    let result = cur;
-    for (const key in vars) {
-      result = result.replaceAll(`{${key}}`, String(vars[key]));
-    }
-    return result;
+  // Optimization: Use a single-pass regex replacement with a callback to avoid
+  // O(N) string allocations from multiple replaceAll() calls.
+  if (vars && typeof cur === 'string' && cur.includes('{')) {
+    return cur.replace(RE_VAR, (match, key) => {
+      const val = vars[key];
+      return val !== undefined ? String(val) : match;
+    });
   }
 
   return cur;
