@@ -71,6 +71,20 @@ const _earthElements = {
     Px: 1, Qx: 0, Py: 0, Qy: 1, Pz: 0, Qz: 0,
     PxA: 1, PyA: 0, PzA: 0, QxAS: 0, QyAS: 1, QzAS: 0
 };
+
+// Performance Optimization: Per-planet scratch objects for geocentric astrology loop.
+// This enables the "warm-start" Kepler solver optimization in Astronomy.js,
+// reducing typical NR iterations from 3-4 down to 1 per planet.
+const _geoScratch = ALL_BODIES.reduce((acc, name) => {
+    acc[name] = {
+        a: 1, e: 0, i: 0, N: 0, w: 0, M: 0, sqrtEE: 1, aSqrtEE: 1,
+        Px: 1, Qx: 0, Py: 0, Qy: 1, Pz: 0, Qz: 0,
+        PxA: 1, PyA: 0, PzA: 0, QxAS: 0, QyAS: 1, QzAS: 0,
+        lastD: -999999, lastPlanet: null, lastE: 0, lastM: 0, lastScale: -1
+    };
+    return acc;
+}, {});
+
 const _earthPos = { x: 0, y: 0, z: 0, r: 0 };
 const _pElements = {
     a: 1, e: 0, i: 0, N: 0, w: 0, M: 0, sqrtEE: 1, aSqrtEE: 1,
@@ -149,7 +163,7 @@ export class AstrologyService {
                 relX = moon.position.x - earth.position.x;
                 relY = -(moon.position.z - earth.position.z);
             } else if (name === 'moon') {
-                const elements = computeElements('moon', d, _pElements, 1);
+                const elements = computeElements('moon', d, _geoScratch.moon, 1);
                 const pPos = computePosition(elements, _pPos);
                 relX = pPos.x;
                 relY = pPos.y;
@@ -158,7 +172,7 @@ export class AstrologyService {
                 relX = p.position.x - earthX;
                 relY = -(p.position.z - earthY);
             } else {
-                const elements = computeElements(name, d, _pElements, 1);
+                const elements = computeElements(name, d, _geoScratch[name], 1);
                 const pPos = computePosition(elements, _pPos);
                 relX = pPos.x - earthX;
                 relY = pPos.y - earthY;
