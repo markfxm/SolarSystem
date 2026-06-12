@@ -188,6 +188,7 @@ const showHolo = ref(false)
 const currentChart = shallowRef({})
 const activeAspects = shallowRef([])
 const elementBalance = shallowRef({ fire: 0, earth: 0, air: 0, water: 0 })
+const _vibeResult = { balance: elementBalance.value, dominant: 'none' }
 const dominantElement = ref('none')
 const showGrid = ref(false)
 const selectedPOI = ref(null)
@@ -883,7 +884,7 @@ onMounted(async () => {
         // We use persistent references and manually trigger Vue reactivity.
         const chart = AstrologyService.calculateGeocentricChart(d, solar.planetObjects, currentChart.value)
         const aspects = AstrologyService.calculateAspects(chart)
-        const vibe = AstrologyService.calculateElementBalance(chart, elementBalance.value)
+        const vibe = AstrologyService.calculateElementBalance(chart, elementBalance.value, _vibeResult)
 
         dominantElement.value = vibe.dominant
 
