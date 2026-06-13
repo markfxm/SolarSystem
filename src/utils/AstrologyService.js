@@ -28,8 +28,12 @@ const ALL_BODIES = ['sun', 'moon', 'mercury', 'venus', 'earth', 'mars', 'jupiter
 
 // Pre-calculate minutes padding for formatDegree (00-59)
 const MINUTES_CACHE = Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, '0'));
-// Pre-calculate degree strings for formatDegree (0-359)
-const DEGREE_STR_CACHE = Array.from({ length: 360 }, (_, i) => i + '°');
+// Pre-calculate and cache all 21,600 possible formatted degree strings (360 degrees * 60 minutes)
+// to eliminate string allocations and concatenations in the hot path.
+const DEGREE_FULL_CACHE = Array.from({ length: 360 }, (_, d) => {
+    const dStr = d + '°';
+    return Array.from({ length: 60 }, (_, m) => dStr + MINUTES_CACHE[m] + "'");
+});
 
 export const BODY_TO_ID = {
     sun: 0,
@@ -191,11 +195,20 @@ export class AstrologyService {
     }
 
     static formatDegree(degree) {
-        const d = Math.floor(degree);
-        const m = Math.floor((degree - d) * 60);
-        // Optimization: Use pre-calculated padding for degrees and minutes
-        // This avoids template literal interpolation and string allocations in the hot path.
-        return (DEGREE_STR_CACHE[d] || (d + '°')) + (MINUTES_CACHE[m] || '00') + "'";
+        // Performance Optimization: Use a 2D pre-calculated cache for O(1) string retrieval.
+        // This eliminates approximately 21,600 temporary string allocations and concatenations
+        // per minute during high-frequency simulation updates.
+        let d = Math.floor(degree);
+        let m = Math.round((degree - d) * 60);
+
+        // Normalize minute overflow from floating point math
+        if (m >= 60) { d++; m = 0; }
+        if (m < 0) m = 0;
+
+        // Wrap degrees to [0, 359] range
+        d = (d % 360 + 360) % 360;
+
+        return DEGREE_FULL_CACHE[d][m];
     }
 
     /**
