@@ -49,6 +49,8 @@ export function createPOIMarkers(planetName, radius) {
 
   const group = new THREE.Group();
   group.name = `POIs_${planetName}`;
+  // Optimization: Set to Layer 1 to prune from standard recursive raycast passes (Layer 0).
+  group.layers.set(1);
   group.userData = {
     isPOIGroup: true,
     planetName: planetName
@@ -60,6 +62,8 @@ export function createPOIMarkers(planetName, radius) {
   pois.forEach(poi => {
     const poiGroup = new THREE.Group();
     poiGroup.name = `POI_${poi.id}`;
+    // Optimization: Set to Layer 1 to prune from standard recursive raycast passes (Layer 0).
+    poiGroup.layers.set(1);
     // Optimization: Individual POI anchor is static relative to the planet
     poiGroup.matrixAutoUpdate = false;
 

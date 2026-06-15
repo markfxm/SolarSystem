@@ -144,6 +144,9 @@ export function createMarsSurface(renderer, options = {}) {
   scene.fog = new THREE.FogExp2(0x8a4b38, 0.01)
 
   const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 5000)
+  // Optimization: Enable Layer 1 so decorative/interactive elements (POIs, etc.) remain visible
+  // if they are moved to Layer 1 for raycast pruning.
+  camera.layers.enable(1)
 
   // Start location: use provided coordinates or randomize
   let spawnX = options.spawnX !== undefined ? options.spawnX : (Math.random() - 0.5) * 5000;

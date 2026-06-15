@@ -63,8 +63,7 @@ export class AuraManager {
             const aura = this.createAura(mesh);
 
             // Optimization: All planets use the shared unitSphereGeometry.
-            // Ensure bounding sphere is available for scale calculations.
-            if (!mesh.geometry.boundingSphere) mesh.geometry.computeBoundingSphere();
+            // Its bounding sphere is pre-calculated at module load in geometries.js.
             const radius = mesh.geometry.boundingSphere.radius;
 
             this.activeAuras.push({
@@ -144,6 +143,9 @@ export class AuraManager {
     createAura(mesh) {
         // Material will be set in update()
         const sprite = new THREE.Sprite(this.materials.get('default'));
+
+        // Optimization: Set to Layer 1 to prune from standard recursive raycast passes (Layer 0).
+        sprite.layers.set(1);
 
         // Optimization: Aura sprites are not interactive, disable raycasting to save CPU during mouse movement
         sprite.raycast = () => {};
