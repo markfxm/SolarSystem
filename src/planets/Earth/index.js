@@ -22,6 +22,8 @@ export class Earth extends BasePlanet {
       })
     );
     atmos.scale.setScalar(1.05);
+    // Optimization: Set to Layer 1 to prune from standard recursive raycast passes (Layer 0).
+    atmos.layers.set(1);
     // Optimization: Atmosphere is decorative, disable raycasting to save CPU
     atmos.raycast = () => {};
     // Optimization: Atmosphere is static relative to Earth, disable per-frame matrix updates.

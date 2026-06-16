@@ -44,6 +44,8 @@ export function createLatLonGrid(radius) {
 
   const group = new THREE.Group();
   group.name = 'LatLonGrid';
+  // Optimization: Set to Layer 1 to prune from standard recursive raycast passes (Layer 0).
+  group.layers.set(1);
   group.userData.isGrid = true;
   // Optimization: Grid is static relative to the planet, disable per-frame matrix updates.
   group.matrixAutoUpdate = false;
