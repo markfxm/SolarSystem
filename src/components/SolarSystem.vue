@@ -829,7 +829,9 @@ onMounted(async () => {
       }
 
       // Update POIs visibility and labels
-      if (planetsWithPOIs.length > 0) {
+      // Performance Optimization: Throttle POI distance calculations to run only every 10 frames.
+      // This reduces CPU overhead in the 60fps loop with no discernible visual impact.
+      if (frameCount % 10 === 0 && planetsWithPOIs.length > 0) {
         for (let i = 0; i < planetsWithPOIs.length; i++) {
           const p = planetsWithPOIs[i];
           updatePOIs(p.mesh.userData.pois, engine.camera, p.mesh.position, p.name);

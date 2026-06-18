@@ -8,12 +8,13 @@ export function createTimeController(planetObjects, orbitScale, extraRotating = 
 
   // Pre-filter and optimize planet list to avoid Object.entries() and redundant if-checks in the update loop
   const activePlanets = [];
+  let earthEntry = null;
 
   for (const name in planetObjects) {
     // Sun stays at origin, and Moon is handled separately in its geocentric loop
     if (name !== 'sun' && name !== 'moon') {
       const data = PLANETS_DATA[name];
-      activePlanets.push({
+      const entry = {
         name,
         data, // Performance Boost: Pre-linked data object for O(1) access in computeElements
         mesh: planetObjects[name],
@@ -26,7 +27,9 @@ export function createTimeController(planetObjects, orbitScale, extraRotating = 
           PxA: 1, PyA: 0, PzA: 0, QxAS: 0, QyAS: 1, QzAS: 0,
           lastD: -999999, lastPlanet: data, lastE: 0, lastM: 0, lastScale: -1
         }
-      });
+      };
+      activePlanets.push(entry);
+      if (name === 'earth') earthEntry = entry;
     }
   }
 
@@ -46,7 +49,6 @@ export function createTimeController(planetObjects, orbitScale, extraRotating = 
   }
 
   // Scratch variables to avoid per-frame GC
-  const _earthPos = new THREE.Vector3();
   const _scratchPos = { x: 0, y: 0, z: 0, r: 0 };
 
   function setRealTime() {
@@ -68,57 +70,51 @@ export function createTimeController(planetObjects, orbitScale, extraRotating = 
   }
 
   function updatePositions(d, deltaSeconds = 0) {
-    let hasEarth = false;
-
     // Use pre-filtered activePlanets to eliminate string comparisons and property lookups in the hot path
     for (let i = 0; i < activePlanets.length; i++) {
-      const p = activePlanets[i];
-      const name = p.name;
-      const mesh = p.mesh;
+      const { name, data, mesh, rotCache, scratch } = activePlanets[i];
 
       // Optimized: Use pre-linked data object and per-planet scratch
       // This eliminates string hashing/lookups and array indexing in the hot path.
-      const el = computeElements(p.data, d, p.scratch, orbitScale);
+      const el = computeElements(data, d, scratch, orbitScale);
       const pos = computePosition(el, _scratchPos);
       mesh.position.set(pos.x, pos.y, pos.z);
 
       // Performance Optimization: Check for quaternion change before applying rotation.
       // This skips redundant Three.js matrix updates and _onChangeCallback triggers
       // when the orientation is retrieved from the Astronomy.js threshold cache.
-      const quat = computePlanetQuaternion(name, d, p.rotCache);
+      const quat = computePlanetQuaternion(name, d, rotCache);
       if (!mesh.quaternion.equals(quat)) {
         mesh.setRotationFromQuaternion(quat);
-      }
-
-      if (name === 'earth') {
-        _earthPos.copy(mesh.position);
-        hasEarth = true;
       }
     }
 
     // Update Moon Position (Geocentric orbit)
-    if (moon && hasEarth) {
+    // Performance Optimization: Access Earth mesh position directly from earthEntry
+    // instead of copying it to a scratch variable in the loop.
+    if (moon && earthEntry) {
+      const earthPos = earthEntry.mesh.position;
       const moonLocal = computeMoonPosition(d, moonOrbitRadius, _scratchPos);
 
       moon.position.set(
-        _earthPos.x + moonLocal.x,
-        _earthPos.y + moonLocal.y,
-        _earthPos.z + moonLocal.z
+        earthPos.x + moonLocal.x,
+        earthPos.y + moonLocal.y,
+        earthPos.z + moonLocal.z
       );
 
       // Update Moon Orbit Line Position (moves with Earth)
       if (moonOrbit) {
-        moonOrbit.position.copy(_earthPos);
+        moonOrbit.position.copy(earthPos);
       }
     }
 
     // rotate any extra objects (e.g. the Sun, Moon) using optimized list
     for (let i = 0; i < optimizedRotating.length; i++) {
-      const p = optimizedRotating[i];
+      const { name, mesh, rotCache } = optimizedRotating[i];
       // Performance Optimization: Skip redundant rotation updates
-      const quat = computePlanetQuaternion(p.name, d, p.rotCache);
-      if (!p.mesh.quaternion.equals(quat)) {
-        p.mesh.setRotationFromQuaternion(quat);
+      const quat = computePlanetQuaternion(name, d, rotCache);
+      if (!mesh.quaternion.equals(quat)) {
+        mesh.setRotationFromQuaternion(quat);
       }
     }
   }
