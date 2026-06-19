@@ -145,3 +145,7 @@
 ## 2025-05-18 - [Vue Template & Translation Optimization]
 **Learning:** Performing arithmetic, string concatenations, and repeated i18n lookups (t()) inside a Vue template v-for loop creates significant overhead in high-frequency components. Caching translation path fragments (e.g., 'planet.' + id) and moving style/data logic to computed properties leverages Vue's memoization to reduce re-render costs and GC pressure.
 **Action:** Always move complex template logic to computed properties. Cache dynamic translation keys in constants or module-level objects when used inside loops that update frequently.
+
+## 2025-05-18 - [Particle System Attribute and Scene-Graph Overhead]
+**Learning:** `PointsMaterial` in Three.js uses a uniform for `size` unless `sizeAttenuation` is false and a custom attribute is provided. Storing a per-vertex `size` attribute for static particles is redundant and wastes ~4 bytes per vertex. Furthermore, decorative backgrounds like starfields and nebulae add significant overhead to raycasting and matrix update passes if not explicitly pruned.
+**Action:** Removed redundant `size` attributes from `Starfield.ts`, `Nebula.js`, and `createSolarSystem.js`, saving ~68KB of GPU memory. Implemented scene-graph pruning for these objects by setting `.raycast = () => {}`, `.matrixAutoUpdate = false`, and `.frustumCulled = false`.
