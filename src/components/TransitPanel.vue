@@ -96,7 +96,7 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { t } from '../utils/i18n'
-import { AstrologyService, ELEMENTS, GEOCENTRIC_PLANETS, GEOCENTRIC_PLANET_SET } from '../utils/AstrologyService.js'
+import { AstrologyService, ELEMENTS, GEOCENTRIC_PLANETS, GEOCENTRIC_PLANET_SET, ZODIAC_SIGNS } from '../utils/AstrologyService.js'
 
 const props = defineProps({
   visible: Boolean,
@@ -111,7 +111,7 @@ defineEmits(['close', 'focus-planet'])
 const TOTAL_PLANETS = GEOCENTRIC_PLANETS.length
 const showDetails = ref(false)
 
-// Performance Optimization: Cache translated names to avoid per-render t() overhead
+// Performance Optimization: Cache translated names and paths to avoid per-render overhead
 const PLANET_NAME_CACHE = GEOCENTRIC_PLANETS.reduce((acc, id) => {
   acc[id] = 'planet.' + id;
   return acc;
@@ -120,23 +120,29 @@ const PLANET_MEANING_CACHE = GEOCENTRIC_PLANETS.reduce((acc, id) => {
   acc[id] = 'planet_meaning.' + id;
   return acc;
 }, {});
+const SIGN_KEYWORD_CACHE = ZODIAC_SIGNS.reduce((acc, id) => {
+  acc[id] = 'sign_keywords.' + id;
+  return acc;
+}, {});
 const ASPECT_TIP_CACHE = Object.keys(AstrologyService.ASPECT_TYPES || {}).reduce((acc, key) => {
   acc[key] = 'insight.tip_' + key.toLowerCase();
   return acc;
 }, {});
 
+// Pre-calculate percentage widths for 0 to TOTAL_PLANETS
+// This eliminates toFixed() and string concatenations in the computed property.
+const WIDTH_CACHE = Array.from({ length: TOTAL_PLANETS + 1 }, (_, i) => (i * (100 / TOTAL_PLANETS)).toFixed(1) + '%');
+
 /**
- * Performance Optimization: Pre-calculate percentage widths for element bars.
- * This eliminates template-level arithmetic and string concatenations in the v-for loop.
+ * Performance Optimization: Uses pre-calculated percentage widths.
  */
 const elementBarWidths = computed(() => {
   if (!props.visible) return {};
   const result = {};
-  const multiplier = 100 / TOTAL_PLANETS;
   for (let i = 0; i < ELEMENTS.length; i++) {
     const el = ELEMENTS[i];
     const count = props.elementBalance[el] || 0;
-    result[el] = (count * multiplier).toFixed(1) + '%';
+    result[el] = WIDTH_CACHE[count] || '0.0%';
   }
   return result;
 });
@@ -173,7 +179,7 @@ const translatedPlanets = computed(() => {
         sign: names[data.index],
         deg: AstrologyService.formatDegree(data.degree),
         meaning: t(PLANET_MEANING_CACHE[id] || ('planet_meaning.' + id)),
-        keyword: t('sign_keywords.' + data.signId)
+        keyword: t(SIGN_KEYWORD_CACHE[data.signId] || ('sign_keywords.' + data.signId))
       })
     }
   }
@@ -185,11 +191,11 @@ const translatedPlanets = computed(() => {
       const data = props.chart[id]
       result.push({
         id,
-        name: t('planet.' + id),
+        name: t(PLANET_NAME_CACHE[id] || ('planet.' + id)),
         sign: names[data.index],
         deg: AstrologyService.formatDegree(data.degree),
-        meaning: t('planet_meaning.' + id),
-        keyword: t('sign_keywords.' + data.signId)
+        meaning: t(PLANET_MEANING_CACHE[id] || ('planet_meaning.' + id)),
+        keyword: t(SIGN_KEYWORD_CACHE[data.signId] || ('sign_keywords.' + data.signId))
       })
     }
   }

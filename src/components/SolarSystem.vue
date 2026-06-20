@@ -864,7 +864,7 @@ onMounted(async () => {
     const hasTimeMoved = Math.abs(d - lastSimD) > 1e-8
     lastSimD = d
 
-    if (frameCount % 30 === 0 && timeController) {
+    if (frameCount % 30 === 0 && timeController && isSimulating.value) {
       try {
         const simDate = timeController.getSimulationDate()
         const newSimTime = simDate.toLocaleString()
