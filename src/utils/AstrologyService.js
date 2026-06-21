@@ -111,16 +111,19 @@ export class AstrologyService {
         target.index = signIndex;
         target.signId = ZODIAC_SIGNS[signIndex];
         target.degree = degreeWithinSign;
+        // Optimization: Store calibrated longitude to avoid re-calculation in calculateAspects
+        target.longitude = normalized;
         return target;
     }
 
     static calculateHeliocentricChart(d, target = null) {
         const results = target || {};
+        const days = computeD(d);
 
         for (let i = 0; i < HELIOCENTRIC_PLANETS.length; i++) {
             const name = HELIOCENTRIC_PLANETS[i];
             // Performance Optimization: Use per-planet scratch to enable warm-start NR solver
-            const elements = computeElements(name, d, _geoScratch[name], 1);
+            const elements = computeElements(name, days, _geoScratch[name], 1);
             const pos = computePosition(elements, _pPos);
             // Math Fix: In world space, x_ecl = x, y_ecl = -z.
             // Previous code used world-y (ecliptic-z) which is wrong for longitude.
@@ -139,6 +142,7 @@ export class AstrologyService {
      */
     static calculateGeocentricChart(d, planetObjects = null, target = null) {
         const results = target || {};
+        const days = computeD(d);
 
         let earthX = 0, earthYecl = 0;
 
@@ -149,7 +153,7 @@ export class AstrologyService {
             earthX = earth.position.x;
             earthYecl = -earth.position.z;
         } else {
-            const earthElements = computeElements('earth', d, _earthElements, 1);
+            const earthElements = computeElements('earth', days, _earthElements, 1);
             const earthPos = computePosition(earthElements, _earthPos);
             earthX = earthPos.x;
             earthYecl = -earthPos.z; // x_ecl = x, y_ecl = -z
@@ -170,7 +174,7 @@ export class AstrologyService {
                 relX = moon.position.x - earth.position.x;
                 relY = -(moon.position.z - earth.position.z);
             } else if (name === 'moon') {
-                const elements = computeElements('moon', d, _geoScratch.moon, 1);
+                const elements = computeElements('moon', days, _geoScratch.moon, 1);
                 const pPos = computePosition(elements, _pPos);
                 relX = pPos.x;
                 relY = -pPos.z; // world x=x_ecl, world z=-y_ecl
@@ -179,7 +183,7 @@ export class AstrologyService {
                 relX = p.position.x - earthX;
                 relY = -p.position.z - earthYecl;
             } else {
-                const elements = computeElements(name, d, _geoScratch[name], 1);
+                const elements = computeElements(name, days, _geoScratch[name], 1);
                 const pPos = computePosition(elements, _pPos);
                 relX = pPos.x - earthX;
                 relY = -pPos.z - earthYecl;
@@ -261,7 +265,8 @@ export class AstrologyService {
             const c = chart[name];
             if (c) {
                 const id = BODY_TO_ID[name];
-                _longitudes[id] = c.index * 30 + c.degree;
+                // Performance Optimization: Use pre-calculated calibrated longitude
+                _longitudes[id] = c.longitude;
             }
         }
 

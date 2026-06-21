@@ -144,6 +144,7 @@ export const INV_SEC_PER_DAY = 1.0 / 86400;
 })();
 
 export function computeD(date) {
+  if (typeof date === 'number') return date;
   // Optimized: Single subtraction and multiplication using pre-calculated J2000 epoch
   return (date.getTime() - J2000_EPOCH) * INV_MS_PER_DAY;
 }
