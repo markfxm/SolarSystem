@@ -31,62 +31,65 @@ class Noise {
     for (let i = 0; i < 256; i++) this.p[i] = this.p[i + 256] = this.permutation[i];
   }
 
-  // Performance Optimization: Use O(1) lookup table for the fade function.
-  // This eliminates 5 multiplications and 2 additions per call.
-  fade(t) { return FADE_LUT[(t * (LUT_SIZE - 1)) | 0]; }
-  lerp(t, a, b) { return a + t * (b - a); }
-  grad(hash, x, y, z) {
-    const h = hash & 15;
-    const u = h < 8 ? x : y;
-    const v = h < 4 ? y : h === 12 || h === 14 ? x : z;
-    return ((h & 1) === 0 ? u : -u) + ((h & 2) === 0 ? v : -v);
-  }
-
-  noise(x, y, z = 0) {
-    const fx = Math.floor(x);
-    const fy = Math.floor(y);
-    const fz = Math.floor(z);
-    const X = fx & 255;
-    const Y = fy & 255;
-    const Z = fz & 255;
-    x -= fx;
-    y -= fy;
-    z -= fz;
-    const u = this.fade(x);
-    const v = this.fade(y);
-    const w = this.fade(z);
-    const A = this.p[X] + Y, AA = this.p[A] + Z, AB = this.p[A + 1] + Z;
-    const B = this.p[X + 1] + Y, BA = this.p[B] + Z, BB = this.p[B + 1] + Z;
-
-    return this.lerp(w, this.lerp(v, this.lerp(u, this.grad(this.p[AA], x, y, z),
-      this.grad(this.p[BA], x - 1, y, z)),
-      this.lerp(u, this.grad(this.p[AB], x, y - 1, z),
-        this.grad(this.p[BB], x - 1, y - 1, z))),
-      this.lerp(v, this.lerp(u, this.grad(this.p[AA + 1], x, y, z - 1),
-        this.grad(this.p[BA + 1], x - 1, y, z - 1)),
-        this.lerp(u, this.grad(this.p[AB + 1], x, y - 1, z - 1),
-          this.grad(this.p[BB + 1], x - 1, y - 1, z - 1))));
-  }
-
   /**
    * Specialized 2D noise for heightmaps to avoid redundant 3D calculations.
+   * Performance Optimization: Inlined fade, lerp, and grad operations to eliminate
+   * function call overhead in the terrain generation hot path.
    */
   noise2D(x, y) {
     const fx = Math.floor(x);
     const fy = Math.floor(y);
     const X = fx & 255;
     const Y = fy & 255;
-    x -= fx;
-    y -= fy;
-    const u = this.fade(x);
-    const v = this.fade(y);
+    const x_rel = x - fx;
+    const y_rel = y - fy;
+
+    // Inlined fade: Use pre-calculated lookup table for O(1) polynomial calculation.
+    const u = FADE_LUT[(x_rel * (LUT_SIZE - 1)) | 0];
+    const v = FADE_LUT[(y_rel * (LUT_SIZE - 1)) | 0];
+
     const A = this.p[X] + Y, AA = this.p[A], AB = this.p[A + 1];
     const B = this.p[X + 1] + Y, BA = this.p[B], BB = this.p[B + 1];
 
-    return this.lerp(v, this.lerp(u, this.grad(this.p[AA], x, y, 0),
-      this.grad(this.p[BA], x - 1, y, 0)),
-      this.lerp(u, this.grad(this.p[AB], x, y - 1, 0),
-        this.grad(this.p[BB], x - 1, y - 1, 0)));
+    // Inlined grad and lerp
+    const x0 = x_rel, x1 = x_rel - 1;
+    const y0 = y_rel, y1 = y_rel - 1;
+
+    // Helper for gradient dot product: (h&1 ? u : -u) + (h&2 ? v : -v)
+    // where u = h<8 ? x : y, v = h<4 ? y : h==12||14 ? x : 0
+
+    // Gradient AA
+    const hAA = this.p[AA] & 15;
+    const uAA = hAA < 8 ? x0 : y0;
+    const vAA = hAA < 4 ? y0 : (hAA === 12 || hAA === 14 ? x0 : 0);
+    const resAA = ((hAA & 1) === 0 ? uAA : -uAA) + ((hAA & 2) === 0 ? vAA : -vAA);
+
+    // Gradient BA
+    const hBA = this.p[BA] & 15;
+    const uBA = hBA < 8 ? x1 : y0;
+    const vBA = hBA < 4 ? y0 : (hBA === 12 || hBA === 14 ? x1 : 0);
+    const resBA = ((hBA & 1) === 0 ? uBA : -uBA) + ((hBA & 2) === 0 ? vBA : -vBA);
+
+    // First lerp
+    const lerpA = resAA + u * (resBA - resAA);
+
+    // Gradient AB
+    const hAB = this.p[AB] & 15;
+    const uAB = hAB < 8 ? x0 : y1;
+    const vAB = hAB < 4 ? y1 : (hAB === 12 || hAB === 14 ? x0 : 0);
+    const resAB = ((hAB & 1) === 0 ? uAB : -uAB) + ((hAB & 2) === 0 ? vAB : -vAB);
+
+    // Gradient BB
+    const hBB = this.p[BB] & 15;
+    const uBB = hBB < 8 ? x1 : y1;
+    const vBB = hBB < 4 ? y1 : (hBB === 12 || hBB === 14 ? x1 : 0);
+    const resBB = ((hBB & 1) === 0 ? uBB : -uBB) + ((hBB & 2) === 0 ? vBB : -vBB);
+
+    // Second lerp
+    const lerpB = resAB + u * (resBB - resAB);
+
+    // Final lerp
+    return lerpA + v * (lerpB - lerpA);
   }
 }
 
