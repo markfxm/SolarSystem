@@ -78,7 +78,14 @@ export function createTimeController(planetObjects, orbitScale, extraRotating = 
       // This eliminates string hashing/lookups and array indexing in the hot path.
       const el = computeElements(data, d, scratch, orbitScale);
       const pos = computePosition(el, _scratchPos);
-      mesh.position.set(pos.x, pos.y, pos.z);
+
+      // Performance Optimization: Only update position if movement exceeds 1e-5 units.
+      // This avoids redundant Three.js matrix recalculations and world matrix dirty flags
+      // during real-time or slow simulation speeds, as planets move negligibly per frame.
+      const curPos = mesh.position;
+      if (Math.abs(pos.x - curPos.x) > 1e-5 || Math.abs(pos.y - curPos.y) > 1e-5 || Math.abs(pos.z - curPos.z) > 1e-5) {
+        mesh.position.set(pos.x, pos.y, pos.z);
+      }
 
       // Performance Optimization: Check for quaternion change before applying rotation.
       // This skips redundant Three.js matrix updates and _onChangeCallback triggers
@@ -96,14 +103,19 @@ export function createTimeController(planetObjects, orbitScale, extraRotating = 
       const earthPos = earthEntry.mesh.position;
       const moonLocal = computeMoonPosition(d, moonOrbitRadius, _scratchPos);
 
-      moon.position.set(
-        earthPos.x + moonLocal.x,
-        earthPos.y + moonLocal.y,
-        earthPos.z + moonLocal.z
-      );
+      const tx = earthPos.x + moonLocal.x;
+      const ty = earthPos.y + moonLocal.y;
+      const tz = earthPos.z + moonLocal.z;
+
+      // Performance Optimization: Apply same 1e-5 threshold for geocentric Moon updates.
+      const curMoonPos = moon.position;
+      if (Math.abs(tx - curMoonPos.x) > 1e-5 || Math.abs(ty - curMoonPos.y) > 1e-5 || Math.abs(tz - curMoonPos.z) > 1e-5) {
+        moon.position.set(tx, ty, tz);
+      }
 
       // Update Moon Orbit Line Position (moves with Earth)
-      if (moonOrbit) {
+      // Performance Optimization: Skip redundant copy if Earth hasn't moved significantly.
+      if (moonOrbit && !moonOrbit.position.equals(earthPos)) {
         moonOrbit.position.copy(earthPos);
       }
     }
