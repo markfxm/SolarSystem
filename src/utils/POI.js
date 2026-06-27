@@ -88,6 +88,9 @@ export function createPOIMarkers(planetName, radius) {
     dot.lookAt(_vLook);
     // Optimization: Draw dots above planet but below labels
     dot.renderOrder = 7;
+    // Optimization: POI dots are static once placed, disable per-frame matrix updates.
+    dot.matrixAutoUpdate = false;
+    dot.updateMatrix();
     poiGroup.add(dot);
 
     // 2. Text Label
@@ -102,6 +105,9 @@ export function createPOIMarkers(planetName, radius) {
     labelMesh.lookAt(_vLook);
     // Optimization: Draw labels on top of dots
     labelMesh.renderOrder = 8;
+    // Optimization: POI labels are static once placed, disable per-frame matrix updates.
+    labelMesh.matrixAutoUpdate = false;
+    labelMesh.updateMatrix();
     poiGroup.add(labelMesh);
 
     poiGroup.userData = {
@@ -147,10 +153,16 @@ export function updatePOIs(group, camera, planetPosition) {
         _tempScale.setScalar(targetScale);
         dot.scale.lerp(_tempScale, 0.1);
         label.scale.lerp(_tempScale, 0.1);
+        // Manual update required as matrixAutoUpdate = false
+        dot.updateMatrix();
+        label.updateMatrix();
       } else if (dot.scale.x !== targetScale) {
         // Snap to target if very close to avoid persistent sub-pixel updates
         dot.scale.setScalar(targetScale);
         label.scale.setScalar(targetScale);
+        // Manual update required as matrixAutoUpdate = false
+        dot.updateMatrix();
+        label.updateMatrix();
       }
     }
   }
