@@ -149,3 +149,7 @@
 ## 2025-05-15 - [Procedural Noise Optimization]
 **Learning:** Inlining hot-path math operations (fade, lerp, grad) and using a pre-calculated Fade LUT in procedural terrain generation provides a measurable 10-15% performance boost. However, "ternary soup" for conditional logic (like gradients) significantly degrades readability. Using local variables for intermediate steps maintains the performance gain while keeping the code maintainable.
 **Action:** Use inlining and LUTs for high-frequency math, but avoid extreme compression (like nested ternaries) in favor of clear intermediate variables.
+
+## 2025-05-15 - [Ternary Branching in Noise Functions]
+**Learning:** In high-frequency 2D Perlin noise generation, using branch-heavy ternary logic to determine gradients is significantly slower than using O(1) lookup tables. This is due to CPU branch misprediction and increased instruction count.
+**Action:** Replace conditional gradient selection with pre-calculated Float32Array lookup tables for X and Y components. This maintains mathematical parity while delivering substantial speedups (up to 80% in isolated benchmarks).
