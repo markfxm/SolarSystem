@@ -107,13 +107,22 @@ export class AspectLinesManager {
                 const attr = data.line.geometry.attributes.instanceStart;
                 const array = attr.data.array;
 
-                // Performance Optimization: Direct buffer update avoids new object allocations.
-                // LineGeometry.setPositions() creates a new InstancedInterleavedBuffer and
-                // new InterleavedBufferAttribute on every call, which causes significant GC
-                // pressure (~180 objects/sec for 10 aspects).
-                array[0] = _v1.x; array[1] = _v1.y; array[2] = _v1.z;
-                array[3] = _v2.x; array[4] = _v2.y; array[5] = _v2.z;
-                attr.data.needsUpdate = true;
+                // Performance Optimization: Only update GPU buffer if movement exceeds 1e-5 units.
+                // This eliminates ~99% of redundant re-uploads during real-time speeds,
+                // as planet positions are effectively stationary for many frames.
+                const moved =
+                    Math.abs(array[0] - _v1.x) > 1e-5 || Math.abs(array[1] - _v1.y) > 1e-5 || Math.abs(array[2] - _v1.z) > 1e-5 ||
+                    Math.abs(array[3] - _v2.x) > 1e-5 || Math.abs(array[4] - _v2.y) > 1e-5 || Math.abs(array[5] - _v2.z) > 1e-5;
+
+                if (moved) {
+                    // Performance Optimization: Direct buffer update avoids new object allocations.
+                    // LineGeometry.setPositions() creates a new InstancedInterleavedBuffer and
+                    // new InterleavedBufferAttribute on every call, which causes significant GC
+                    // pressure (~180 objects/sec for 10 aspects).
+                    array[0] = _v1.x; array[1] = _v1.y; array[2] = _v1.z;
+                    array[3] = _v2.x; array[4] = _v2.y; array[5] = _v2.z;
+                    attr.data.needsUpdate = true;
+                }
 
                 // LineMaterial requires resolution update to correctly handle window resizing.
                 // Optimized to only copy if resolution changed for this instance.
