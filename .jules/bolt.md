@@ -153,3 +153,7 @@
 ## 2025-05-15 - [Ternary Branching in Noise Functions]
 **Learning:** In high-frequency 2D Perlin noise generation, using branch-heavy ternary logic to determine gradients is significantly slower than using O(1) lookup tables. This is due to CPU branch misprediction and increased instruction count.
 **Action:** Replace conditional gradient selection with pre-calculated Float32Array lookup tables for X and Y components. This maintains mathematical parity while delivering substantial speedups (up to 80% in isolated benchmarks).
+
+## 2025-05-20 - [GPU Buffer Upload Optimization]
+**Learning:** In Three.js, setting `needsUpdate = true` on a buffer attribute triggers a full data re-upload to the GPU. In high-frequency 60fps loops where data changes are often sub-threshold (e.g., planetary movement in real-time), this creates massive redundant bus traffic. Comparing new values against existing buffer contents with a small threshold (e^{-5}$) prevents these unnecessary uploads.
+**Action:** Always implement "dirty checking" before flagging buffer attributes for update in high-frequency loops. Use a small tolerance (e^{-5}$) to filter out floating-point jitter and sub-pixel movement while maintaining visual fidelity.

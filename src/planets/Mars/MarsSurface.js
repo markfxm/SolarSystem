@@ -343,7 +343,17 @@ export function createMarsSurface(renderer, options = {}) {
   // Keep the points object at world origin so particles are in world space
   scene.add(dustParticles)
 
+  // Scratch variables for particle update optimization
+  const _lastPartCamPos = new THREE.Vector3(Infinity, Infinity, Infinity);
+
   function updateParticles(delta) {
+    // Performance Optimization: Skip full particle update if simulation is paused
+    // and camera hasn't moved. This eliminates redundant CPU loops and GPU uploads.
+    // We use a small threshold (1e-7) for camera movement to ignore jitter.
+    const camMoved = _lastPartCamPos.distanceToSquared(camera.position) > 1e-7;
+    if (delta <= 0 && !camMoved) return;
+    _lastPartCamPos.copy(camera.position);
+
     const positions = particleGeo.attributes.position.array
     const velocities = particleVelocities
     const camX = camera.position.x
@@ -357,6 +367,7 @@ export function createMarsSurface(renderer, options = {}) {
     const minY = camY - range, maxY = camY + range
     const minZ = camZ - range, maxZ = camZ + range
 
+    let anyMoved = false;
     for (let i = 0; i < particleCount; i++) {
       const i3 = i * 3
       const i31 = i3 + 1
@@ -378,11 +389,20 @@ export function createMarsSurface(renderer, options = {}) {
       if (pz > maxZ) pz -= doubleRange
       else if (pz < minZ) pz += doubleRange
 
+      // Performance Optimization: Track if any particle actually moved significantly
+      // to avoid redundant GPU re-uploads.
+      if (!anyMoved && (positions[i3] !== px || positions[i31] !== py || positions[i32] !== pz)) {
+        anyMoved = true;
+      }
+
       positions[i3] = px
       positions[i31] = py
       positions[i32] = pz
     }
-    particleGeo.attributes.position.needsUpdate = true
+
+    if (anyMoved) {
+      particleGeo.attributes.position.needsUpdate = true
+    }
   }
 
   function createChunk(cx, cz) {
