@@ -240,11 +240,8 @@ export function createInteractions({
       }
     }
 
-    // Optimization passing: Check for POIs on Layer 1.
-    // This allows us to prune them from the expensive recursive pass on Layer 0.
-    raycaster.layers.set(1)
-
-    // Optimization: Skip intersection tests if there are no candidates
+    // Optimization: Skip intersection tests if there are no candidates.
+    // POIs are on Layer 1, Planets on Layer 0. The raycaster inherits both from the camera.
     const poiHits = (_poiCandidates.length > 0) ? raycaster.intersectObjects(_poiCandidates, false) : [];
     if (poiHits.length > 0) {
       // Find the parent POI group
@@ -271,10 +268,7 @@ export function createInteractions({
       }
     }
 
-    if (hitPOI) {
-      raycaster.layers.set(0)
-      return
-    }
+    if (hitPOI) return
 
     // Performance Optimization: Use non-recursive raycasting for planets.
     // Since all planets are direct Mesh objects, skipping child traversal

@@ -719,7 +719,7 @@ onMounted(async () => {
 
   interactions = createInteractions({
     engine,
-    planets: [...solar.planets, solar.moon],
+    planets: solar.planets,
     planetNames,
     timeController,
     onHoverNameChange: name => {
