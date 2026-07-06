@@ -100,9 +100,9 @@ export class AuraManager {
 
         const time = performance.now() * 0.001;
 
-        // Pre-calculate pulse values to save thousands of Math.sin calls in aggregate
-        const pulseNormal = Math.sin(time * 1.5) * 0.1;
-        const pulseDominant = Math.sin(time * 3.0) * 0.1;
+        // Pre-calculate pulse scales to save hundreds of additions and branches in the loop
+        const scaleNormal = 1.25 + Math.sin(time * 1.5) * 0.1;
+        const scaleDominant = 1.4 + Math.sin(time * 3.0) * 0.1;
 
         // Optimization: Pre-resolve dominant element index for fast comparison
         const dominantIdx = this.elementToIndex[dominantElement] ?? -1;
@@ -127,10 +127,7 @@ export class AuraManager {
             }
 
             // Dynamic pulse based on if it's the dominant element (O(1) numeric comparison)
-            const isDominant = elementIdx === dominantIdx;
-            const pulseBase = isDominant ? 1.4 : 1.25;
-            const scale = pulseBase + (isDominant ? pulseDominant : pulseNormal);
-            const targetScale = item.baseScale * scale;
+            const targetScale = item.baseScale * (elementIdx === dominantIdx ? scaleDominant : scaleNormal);
 
             // Optimization: Skip Three.js property updates and matrix recalculations
             // if the target scale is already reached or the change is negligible.

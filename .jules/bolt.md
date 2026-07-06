@@ -138,6 +138,10 @@
 **Learning:** Newton-Raphson iteration for Kepler's equation is a major CPU consumer in high-frequency astronomical simulations. By using a "warm-start" initial guess (previous $ + delta $) when time steps are small (< 0.1 radians), the number of iterations can be typically reduced to 1. Additionally, calculating `sin(E)` and `cos(E)` exactly once per iteration and reusing those values for both the error calculation and the derivative significantly reduces the overhead of expensive trigonometric calls.
 **Action:** Implement "warm-start" logic for iterative solvers in 60fps loops. Always structure loops to compute expensive transcendental functions once and reuse the results across the iteration step.
 
+## 2025-05-21 - [Hot-Path Hoisting in Effect Managers]
+**Learning:** In high-frequency effect managers (like `AuraManager.js`) that apply time-varying transformations (pulses) to multiple bodies, calculating the combined state (pulse + base scale) inside the per-body loop is redundant. Since the pulse value is frame-invariant, hoisting the combined "normal" and "dominant" scales outside the loop reduces the inner loop to a single selection and multiplication.
+**Action:** Always hoist frame-invariant arithmetic and combinations outside of per-object iteration loops in 60fps managers.
+
 ## 2025-05-18 - [Contextual Shadow Map Toggling]
 **Learning:** In Three.js, `renderer.shadowMap.enabled = true` is a global setting that incurs significant rendering overhead even in scenes where no objects cast or receive shadows, as it forces the renderer to evaluate shadow-casting lights every frame. In a multi-scene application (e.g., Solar System vs. Planet Surface), keeping shadows globally enabled is wasteful.
 **Action:** Disable shadow maps by default. Implement a contextual toggle in the scene management logic (e.g., `setActiveScene`) to enable `renderer.shadowMap.enabled` only when a sub-scene that explicitly requires shadows is active, and disable it immediately when returning to the primary scene.
