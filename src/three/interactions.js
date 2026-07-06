@@ -19,6 +19,9 @@ export function createInteractions({
   } = engine
 
   const raycaster = new THREE.Raycaster()
+  // Ensure raycaster can hit both planets (Layer 0) and POIs (Layer 1)
+  raycaster.layers.enable(1)
+
   const mouse = new THREE.Vector2()
   const lastMousePos = new THREE.Vector2(-999, -999)
 
@@ -241,7 +244,7 @@ export function createInteractions({
     }
 
     // Optimization: Skip intersection tests if there are no candidates.
-    // POIs are on Layer 1, Planets on Layer 0. The raycaster inherits both from the camera.
+    // POIs are on Layer 1, Planets on Layer 0. Raycaster was initialized with both layers enabled.
     const poiHits = (_poiCandidates.length > 0) ? raycaster.intersectObjects(_poiCandidates, false) : [];
     if (poiHits.length > 0) {
       // Find the parent POI group
