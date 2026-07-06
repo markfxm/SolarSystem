@@ -9,6 +9,32 @@
       <div class="modal-body">
         <template v-if="!capturedImage">
           <p class="desc">{{ t('stellar.desc') || 'Choose a significant date to see the planets align.' }}</p>
+
+          <div class="control-group">
+            <label>{{ t('stellar.titleLabel') || 'Poster Title' }}</label>
+            <input
+              class="title-input"
+              type="text"
+              v-model="posterTitle"
+              :placeholder="t('stellar.defaultPosterTitle') || 'My Stellar Moment'"
+              maxlength="48"
+            />
+          </div>
+
+          <div class="control-group">
+            <label>{{ t('stellar.occasionLabel') || 'Occasion' }}</label>
+            <div class="occasion-list">
+              <button
+                v-for="option in occasionOptions"
+                :key="option.id"
+                class="occasion-btn"
+                :class="{ active: occasionType === option.id }"
+                @click="occasionType = option.id"
+              >
+                {{ option.label }}
+              </button>
+            </div>
+          </div>
           
           <div class="control-group">
             <label>{{ t('stellar.dateLabel') }}</label>
@@ -52,6 +78,7 @@
                 class="date-part-input day-input"
               />
             </div>
+            <p v-if="dateError" class="error-text">{{ dateError }}</p>
           </div>
 
           <div class="actions">
@@ -62,11 +89,11 @@
           </div>
 
           <div class="tips">
-            <p v-if="currentChart" class="astrology-preview">
-              ☀️ {{ t('planet.sun') }}: 
-              <strong>{{ t(`zodiac_names`)[currentChart.sun.index] }}</strong> 
-              {{ AstrologyService.formatDegree(currentChart.sun.degree) }}
-            </p>
+            <div v-if="posterMeta" class="astrology-preview">
+              <div class="meta-title">{{ posterMeta.title }}</div>
+              <div class="meta-line">{{ posterMeta.summaryLine }}</div>
+              <div class="meta-line">{{ posterMeta.aspectSummary }}</div>
+            </div>
             <p>💡 {{ t('stellar.tip') }}</p>
           </div>
         </template>
@@ -193,13 +220,17 @@
                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
               </button>
 
-              <button class="download-btn-confirm" @click="$emit('download', displayImage)" :title="t('stellar.save')">
+              <button class="download-btn-confirm" @click="$emit('download', { image: displayImage, filename: downloadFilename })" :title="t('stellar.save')">
                 <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              </button>
+              <button class="pro-btn" @click="showProPlaceholder" :title="t('stellar.proExport')">
+                HD
               </button>
               <button class="discard-btn" @click="$emit('discard')" :title="t('stellar.discard')">
                 <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
             </div>
+            <p v-if="proMessage" class="pro-message">{{ proMessage }}</p>
           </div>
         </template>
       </div>
@@ -240,7 +271,7 @@
 import { ref, onMounted, computed, watch } from 'vue'
 import { t } from '../utils/i18n'
 import { createPoster } from '../utils/PosterEngine.js'
-import { AstrologyService } from '../utils/AstrologyService.js'
+import { buildStellarPosterMeta, OCCASION_TYPES } from '../utils/StellarPosterMeta.js'
 
 const props = defineProps({
   currentDate: {
@@ -259,10 +290,14 @@ const props = defineProps({
 
 const emit = defineEmits(['close', 'preview', 'capture', 'download', 'discard'])
 
-const year = ref(2026)
-const month = ref(1)
-const day = ref(1)
+const year = ref('2026')
+const month = ref('1')
+const day = ref('1')
 const showFull = ref(false)
+const posterTitle = ref('')
+const occasionType = ref('custom')
+const dateError = ref('')
+const proMessage = ref('')
 
 // Poster Style Logic
 const posterStyle = ref('raw') // 'raw' | 'poster'
@@ -273,14 +308,33 @@ const processedImage = ref('')
 const isProcessing = ref(false)
 const chartData = ref(null)
 
-const currentChart = computed(() => {
-  if (!year.value || !month.value || !day.value) return null
-  try {
-    const d = new Date(parseInt(year.value), parseInt(month.value) - 1, parseInt(day.value))
-    return AstrologyService.calculateGeocentricChart(d)
-  } catch (e) {
-    return null
-  }
+const posterMeta = computed(() => {
+  const dateObj = getValidatedDate()
+  if (!dateObj) return null
+  return buildStellarPosterMeta({
+    date: dateObj,
+    title: posterTitle.value,
+    occasionType: occasionType.value,
+    t
+  })
+})
+
+const occasionOptions = computed(() => {
+  return OCCASION_TYPES.map(type => ({
+    id: type,
+    label: t(`stellar.occasion_${type}`)
+  }))
+})
+
+const downloadFilename = computed(() => {
+  const dateObj = getValidatedDate() || new Date()
+  const title = (posterMeta.value?.title || t('stellar.defaultPosterTitle') || 'stellar-moment')
+    .toString()
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9\u4e00-\u9fff]+/gi, '-')
+    .replace(/^-+|-+$/g, '')
+  return `${title || 'stellar-moment'}-${dateObj.toISOString().slice(0, 10)}.png`
 })
 
 const yearInput = ref(null)
@@ -375,9 +429,15 @@ async function setFormat(fmt) {
 }
 
 async function generatePoster() {
+  const dateObj = getValidatedDate()
+  if (!dateObj || !posterMeta.value) {
+    dateError.value = t('stellar.invalidDate') || 'Enter a valid date.'
+    return
+  }
+
   showFormatSelector.value = false 
   posterStyle.value = 'poster'
-  const cacheKey = `${posterFormat.value}_${posterTheme.value}`
+  const cacheKey = `${posterFormat.value}_${posterTheme.value}_${posterMeta.value.title}_${posterMeta.value.occasionType}_${dateObj.toISOString()}`
   
   if (processedCache.value[cacheKey]) {
     processedImage.value = processedCache.value[cacheKey]
@@ -386,8 +446,13 @@ async function generatePoster() {
 
   isProcessing.value = true
   try {
-    const dateObj = new Date(year.value, month.value - 1, day.value)
-    const result = await createPoster(props.capturedImage, dateObj, posterFormat.value, posterTheme.value)
+    const result = await createPoster(props.capturedImage, {
+      date: dateObj,
+      format: posterFormat.value,
+      theme: posterTheme.value,
+      posterMeta: posterMeta.value,
+      watermark: 'Stellar Web'
+    })
     processedImage.value = result
     processedCache.value[cacheKey] = result
   } catch (e) {
@@ -405,9 +470,9 @@ function focusDay() { dayInput.value?.focus() }
 
 function syncFromDate(date) {
   const d = new Date(date)
-  year.value = d.getFullYear()
-  month.value = d.getMonth() + 1
-  day.value = d.getDate()
+  year.value = String(d.getFullYear())
+  month.value = String(d.getMonth() + 1)
+  day.value = String(d.getDate())
 }
 
 onMounted(() => {
@@ -425,6 +490,7 @@ function handleInput(field) {
   if (field === 'day') day.value = day.value.replace(/\D/g, '')
 
   onManualDateChange()
+  dateError.value = ''
 }
 
 function handleArrow(field, dir, e) {
@@ -442,19 +508,32 @@ function handleArrow(field, dir, e) {
 }
 
 function onCapture() {
+  const dateObj = getValidatedDate()
+  if (!dateObj) {
+    dateError.value = t('stellar.invalidDate') || 'Enter a valid date.'
+    return
+  }
+
+  emit('capture', dateObj)
+}
+
+function getValidatedDate() {
   const y = parseInt(year.value)
   const m = parseInt(month.value)
   const d = parseInt(day.value)
 
-  if (isNaN(y) || isNaN(m) || isNaN(d)) return
-  
+  if (isNaN(y) || isNaN(m) || isNaN(d)) return null
+
   const dateObj = new Date(y, m - 1, d, 12, 0, 0)
-  // Check valid date (e.g. avoid Feb 31)
-  if (dateObj.getFullYear() === y && dateObj.getMonth() === m - 1 && dateObj.getDate() === d) {
-    emit('capture', dateObj)
-  } else {
-    emit('capture', dateObj)
+  if (dateObj.getFullYear() !== y || dateObj.getMonth() !== m - 1 || dateObj.getDate() !== d) {
+    return null
   }
+
+  return dateObj
+}
+
+function showProPlaceholder() {
+  proMessage.value = t('stellar.proSoon') || 'HD no-watermark export is coming soon.'
 }
 </script>
 
@@ -555,6 +634,54 @@ function onCapture() {
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 8px;
   padding: 4px 12px;
+}
+
+.title-input {
+  width: 100%;
+  box-sizing: border-box;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  color: #fff;
+  font-family: inherit;
+  font-size: 15px;
+  outline: none;
+  padding: 11px 12px;
+}
+
+.title-input:focus {
+  border-color: #88ccff;
+}
+
+.occasion-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.occasion-btn {
+  min-height: 36px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.72);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  transition: all 0.2s ease;
+}
+
+.occasion-btn.active,
+.occasion-btn:hover {
+  border-color: rgba(136, 204, 255, 0.7);
+  background: rgba(136, 204, 255, 0.14);
+  color: #fff;
+}
+
+.error-text {
+  margin: 4px 0 0;
+  color: #ff8a8a;
+  font-size: 12px;
 }
 
 .date-part-input {
@@ -967,38 +1094,68 @@ input::-webkit-inner-spin-button {
 .preview-actions {
   display: flex;
   width: 100%;
-  gap: 16px;
-  margin-top: 10px;
+  gap: 12px;
+  margin-top: 8px;
   justify-content: center;
+  align-items: center;
 }
 
 
-.download-btn-confirm {
-  width: 80px;
-  height: 42px;
+.download-btn-confirm,
+.discard-btn,
+.style-btn,
+.pro-btn {
+  width: 72px;
+  min-width: 72px;
+  height: 40px;
+  box-sizing: border-box;
   border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.preview-actions svg {
+  width: 20px;
+  height: 20px;
+  display: block;
+}
+
+.download-btn-confirm {
   border: 1px solid rgba(136, 204, 255, 0.4);
   background: rgba(136, 204, 255, 0.15);
   color: #88ccff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s ease;
+}
+
+.pro-btn {
+  border: 1px solid rgba(212, 175, 55, 0.5);
+  background: rgba(212, 175, 55, 0.14);
+  color: #f9d71c;
+  font-weight: 700;
+  font-size: 18px;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.pro-btn:hover {
+  transform: translateY(-2px);
+  background: rgba(212, 175, 55, 0.24);
+  color: #fff;
+}
+
+.pro-message {
+  margin: -6px 0 0;
+  color: rgba(249, 215, 28, 0.86);
+  font-size: 12px;
+  text-align: center;
 }
 
 .discard-btn {
-  width: 80px;
-  height: 42px;
-  border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.15);
   background: rgba(255, 255, 255, 0.05);
   color: rgba(255, 255, 255, 0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s ease;
 }
 
 .download-btn-confirm:hover {
@@ -1016,17 +1173,10 @@ input::-webkit-inner-spin-button {
 }
 
 .style-btn {
-  width: 50px;
-  height: 42px;
-  border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.2);
   background: rgba(255, 255, 255, 0.05);
   color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s ease;
+  padding: 0;
 }
 
 .style-btn:hover {
@@ -1110,8 +1260,15 @@ input::-webkit-inner-spin-button {
   font-size: 14px;
 }
 
-.astrology-preview strong {
+.meta-title {
   color: #fff;
-  margin: 0 4px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.meta-line {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 12px;
+  line-height: 1.45;
 }
 </style>

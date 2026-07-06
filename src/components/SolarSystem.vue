@@ -594,13 +594,15 @@ async function onStellarCapture(date) {
 }
 
 function onStellarDownload(imgData) {
-  const targetImage = (typeof imgData === 'string' && imgData.startsWith('data:')) ? imgData : capturedImage.value
+  const targetImage = typeof imgData === 'object'
+    ? imgData?.image
+    : (typeof imgData === 'string' && imgData.startsWith('data:')) ? imgData : capturedImage.value
   
   if (targetImage) {
-    // If it's the raw capture, used date-based name. If it's processed, maybe add suffix? 
-    // For now simple keep same name or add 'poster' if different?
-    // Let's keep it simple.
-    downloadImage(targetImage, `stellar-moment-${captureDate.value.toISOString().slice(0,10)}.png`)
+    const filename = typeof imgData === 'object' && imgData?.filename
+      ? imgData.filename
+      : `stellar-moment-${captureDate.value.toISOString().slice(0,10)}.png`
+    downloadImage(targetImage, filename)
   }
 }
 

@@ -34,7 +34,9 @@ export class AestheticSnapshotManager {
             orbitThickness: 2.8, // Slightly thicker
             orbitColor: 0x00eeff, // Brighter cyan
             orbitOpacity: 0.9,   // More solid
-            targetVisualSize: 25 // Target radius in world units
+            targetVisualSize: 25, // Target radius in world units
+            moonOrbitRadius: 80,
+            moonVisualSize: 16
         }
 
         // Base radii from createSolarSystem.js to normalize scaling
@@ -46,7 +48,8 @@ export class AestheticSnapshotManager {
             jupiter: 34.75,
             saturn: 29.30,
             uranus: 12.43,
-            neptune: 12.03
+            neptune: 12.03,
+            moon: 0.84
         }
 
         // Performance Optimization: Instance-level material reuse
@@ -149,9 +152,11 @@ export class AestheticSnapshotManager {
 
         // Performance Optimization: Pre-calculate planet entries to avoid repeated object lookups
         const planetEntries = Object.entries(this.planetObjects)
+        const schematicPositions = new Map()
         for (let i = 0; i < planetEntries.length; i++) {
             const [name, mesh] = planetEntries[i]
             if (name === 'sun') continue; // Skip sun in planetary loop
+            if (name === 'moon') continue; // Moon is positioned as an Earth companion below.
 
             // Save state
             this.originalStates.set(mesh, {
@@ -168,6 +173,7 @@ export class AestheticSnapshotManager {
             const unitPos = new THREE.Vector2(posData.x, posData.y).normalize()
 
             mesh.position.set(unitPos.x * uniformR, unitPos.y * uniformR, 0)
+            schematicPositions.set(name, mesh.position.clone())
 
             // Adjust scale to reach target visual size
             const baseSize = this.baseSizes[name] || 1
@@ -178,6 +184,34 @@ export class AestheticSnapshotManager {
             const orbit = this.createSchematicOrbit(uniformR)
             this.scene.add(orbit)
             this.tempOrbits.push(orbit)
+        }
+
+        const earthPos = schematicPositions.get('earth')
+        const moon = this.planetObjects.moon
+        if (earthPos && moon) {
+            this.originalStates.set(moon, {
+                position: moon.position.clone(),
+                scale: moon.scale.clone(),
+                rotation: moon.rotation.clone()
+            })
+
+            const moonElements = computeElements('moon', d, null, 1)
+            const moonPos = computePosition(moonElements)
+            const moonDir = new THREE.Vector2(moonPos.x, moonPos.y).normalize()
+            moon.position.set(
+                earthPos.x + moonDir.x * this.config.moonOrbitRadius,
+                earthPos.y + moonDir.y * this.config.moonOrbitRadius,
+                0
+            )
+
+            const baseSize = this.baseSizes.moon || 1
+            const moonScale = this.config.moonVisualSize / baseSize
+            moon.scale.set(moonScale, moonScale, moonScale)
+
+            const moonOrbit = this.createSchematicOrbit(this.config.moonOrbitRadius)
+            moonOrbit.position.copy(earthPos)
+            this.scene.add(moonOrbit)
+            this.tempOrbits.push(moonOrbit)
         }
 
         // Performance Optimization: Update material resolution to high-res for capture
