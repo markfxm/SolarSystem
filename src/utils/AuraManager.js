@@ -1,6 +1,12 @@
 import * as THREE from 'three';
 import { ELEMENT_BY_INDEX } from './AstrologyService.js';
 
+const BASE_SCALE_NORMAL = 1.25;
+const BASE_SCALE_DOMINANT = 1.4;
+const PULSE_FREQ_NORMAL = 1.5;
+const PULSE_FREQ_DOMINANT = 3.0;
+const PULSE_AMP = 0.1;
+
 /**
  * Manages glowing "Auras" around planets based on their astrological elements.
  */
@@ -100,9 +106,9 @@ export class AuraManager {
 
         const time = performance.now() * 0.001;
 
-        // Pre-calculate pulse values to save thousands of Math.sin calls in aggregate
-        const pulseNormal = Math.sin(time * 1.5) * 0.1;
-        const pulseDominant = Math.sin(time * 3.0) * 0.1;
+        // Pre-calculate pulse scales to save hundreds of additions and branches in the loop
+        const scaleNormal = BASE_SCALE_NORMAL + Math.sin(time * PULSE_FREQ_NORMAL) * PULSE_AMP;
+        const scaleDominant = BASE_SCALE_DOMINANT + Math.sin(time * PULSE_FREQ_DOMINANT) * PULSE_AMP;
 
         // Optimization: Pre-resolve dominant element index for fast comparison
         const dominantIdx = this.elementToIndex[dominantElement] ?? -1;
@@ -127,10 +133,7 @@ export class AuraManager {
             }
 
             // Dynamic pulse based on if it's the dominant element (O(1) numeric comparison)
-            const isDominant = elementIdx === dominantIdx;
-            const pulseBase = isDominant ? 1.4 : 1.25;
-            const scale = pulseBase + (isDominant ? pulseDominant : pulseNormal);
-            const targetScale = item.baseScale * scale;
+            const targetScale = item.baseScale * (elementIdx === dominantIdx ? scaleDominant : scaleNormal);
 
             // Optimization: Skip Three.js property updates and matrix recalculations
             // if the target scale is already reached or the change is negligible.
