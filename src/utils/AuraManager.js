@@ -1,6 +1,12 @@
 import * as THREE from 'three';
 import { ELEMENT_BY_INDEX } from './AstrologyService.js';
 
+const BASE_SCALE_NORMAL = 1.25;
+const BASE_SCALE_DOMINANT = 1.4;
+const PULSE_FREQ_NORMAL = 1.5;
+const PULSE_FREQ_DOMINANT = 3.0;
+const PULSE_AMP = 0.1;
+
 /**
  * Manages glowing "Auras" around planets based on their astrological elements.
  */
@@ -101,8 +107,8 @@ export class AuraManager {
         const time = performance.now() * 0.001;
 
         // Pre-calculate pulse scales to save hundreds of additions and branches in the loop
-        const scaleNormal = 1.25 + Math.sin(time * 1.5) * 0.1;
-        const scaleDominant = 1.4 + Math.sin(time * 3.0) * 0.1;
+        const scaleNormal = BASE_SCALE_NORMAL + Math.sin(time * PULSE_FREQ_NORMAL) * PULSE_AMP;
+        const scaleDominant = BASE_SCALE_DOMINANT + Math.sin(time * PULSE_FREQ_DOMINANT) * PULSE_AMP;
 
         // Optimization: Pre-resolve dominant element index for fast comparison
         const dominantIdx = this.elementToIndex[dominantElement] ?? -1;
