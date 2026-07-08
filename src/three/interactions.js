@@ -403,9 +403,11 @@ export function createInteractions({
   // Called when OrbitControls emits 'start'
   function onControlsStart() {
     if (!isEnabled) return
-    // User started interacting manually -> stop automatic tracking so controls take over
-    if (isTracking) {
-      isTracking = false
+    // Keep the selected body locked to the center while allowing the user to
+    // change the camera's relative orbit/zoom around that moving target.
+    if (selectedObject) {
+      isTracking = true
+      trackingLastPosition = selectedObject.position.clone()
     }
     // Ensure controls are enabled for manual interaction
     controls.enabled = true
@@ -414,8 +416,9 @@ export function createInteractions({
   // Additional DOM-level detection for manual interaction (covers pointer/touch)
   function onUserInteractionStart() {
     if (!isEnabled) return
-    if (isTracking) {
-      isTracking = false
+    if (selectedObject) {
+      isTracking = true
+      trackingLastPosition = selectedObject.position.clone()
     }
     controls.enabled = true
   }

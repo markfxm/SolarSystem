@@ -91,14 +91,14 @@ const wrap = ref(null)
 const knob = ref(null)
 
 const MIN = 1
-const MAX = 1000000
+const MAX = 500000
 
 const presets = [
   { val: 1, norm: 0, label: 'x1' },
+  { val: 125000, norm: (125000 - MIN) / (MAX - MIN), label: '125K' },
   { val: 250000, norm: (250000 - MIN) / (MAX - MIN), label: '250K' },
-  { val: 500000, norm: (500000 - MIN) / (MAX - MIN), label: '500K' },
-  { val: 750000, norm: (750000 - MIN) / (MAX - MIN), label: '750K' },
-  { val: 1000000, norm: 1, label: 'MAX' }
+  { val: 375000, norm: (375000 - MIN) / (MAX - MIN), label: '375K' },
+  { val: 500000, norm: 1, label: 'MAX' }
 ]
 
 const multiplier = computed(() => Math.round(MIN + pos.value * (MAX - MIN)))
