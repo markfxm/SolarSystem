@@ -328,46 +328,14 @@ function drawWatermark(ctx, w, h, watermark, themeConfig) {
 }
 
 function drawChartOverlay(ctx, posterMeta, imageX, imageY, imageW, imageH, dateObj, themeConfig) {
-    const model = buildChartOverlayModel(posterMeta, imageX, imageY, imageW, imageH)
-    if (!model) return
-
     ctx.save()
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
 
+    // The captured snapshot already contains the schematic planets and orbits.
+    // Poster rendering should only add poster metadata, not redraw celestial bodies.
     drawMomentBadge(ctx, posterMeta, imageX, imageY, imageW, dateObj, themeConfig)
-    drawMoonOrbit(ctx, model)
 
-    if (model.aspect) {
-        ctx.save()
-        ctx.strokeStyle = 'rgba(249, 215, 28, 0.72)'
-        ctx.lineWidth = 3 * model.scale
-        ctx.shadowColor = 'rgba(249, 215, 28, 0.45)'
-        ctx.shadowBlur = 12 * model.scale
-        ctx.beginPath()
-        ctx.moveTo(model.aspect.p1.x, model.aspect.p1.y)
-        ctx.lineTo(model.aspect.p2.x, model.aspect.p2.y)
-        ctx.stroke()
-        ctx.restore()
-    }
-
-    for (const body of model.bodies) {
-        drawOverlayBody(ctx, body, model.scale)
-    }
-
-    ctx.restore()
-}
-
-function drawMoonOrbit(ctx, model) {
-    if (!model.moonOrbit) return
-
-    ctx.save()
-    ctx.strokeStyle = 'rgba(219, 231, 255, 0.34)'
-    ctx.lineWidth = Math.max(1, model.scale)
-    ctx.setLineDash([6 * model.scale, 8 * model.scale])
-    ctx.beginPath()
-    ctx.arc(model.moonOrbit.centerX, model.moonOrbit.centerY, model.moonOrbit.radius, 0, Math.PI * 2)
-    ctx.stroke()
     ctx.restore()
 }
 
@@ -403,38 +371,6 @@ function drawMomentBadge(ctx, posterMeta, imageX, imageY, imageW, dateObj, theme
     ctx.restore()
 }
 
-function drawOverlayBody(ctx, body, scale) {
-    const isSun = body.highlight === 'sun'
-    const isMoon = body.highlight === 'moon'
-    const dotRadius = (isSun ? 15 : isMoon ? 13 : 8) * scale
-    const fill = isSun ? '#f9d71c' : isMoon ? '#dbe7ff' : '#88ccff'
-    const stroke = isSun ? 'rgba(249, 215, 28, 0.92)' : isMoon ? 'rgba(219, 231, 255, 0.92)' : 'rgba(136, 204, 255, 0.82)'
-
-    ctx.save()
-    ctx.shadowColor = stroke
-    ctx.shadowBlur = (isSun || isMoon ? 18 : 8) * scale
-    ctx.fillStyle = fill
-    ctx.strokeStyle = stroke
-    ctx.lineWidth = (isSun || isMoon ? 3 : 2) * scale
-    ctx.beginPath()
-    ctx.arc(body.x, body.y, dotRadius, 0, Math.PI * 2)
-    ctx.fill()
-    ctx.stroke()
-    ctx.shadowBlur = 0
-
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.26)'
-    ctx.lineWidth = Math.max(1, scale)
-    ctx.beginPath()
-    ctx.moveTo(body.x, body.y)
-    ctx.lineTo(body.labelX, body.labelY)
-    ctx.stroke()
-
-    ctx.fillStyle = isSun || isMoon ? '#ffffff' : 'rgba(220, 240, 255, 0.82)'
-    ctx.font = isSun || isMoon ? `700 ${18 * scale}px "Inter", sans-serif` : `600 ${14 * scale}px "Inter", sans-serif`
-    ctx.fillText(body.label, body.labelX, body.labelY)
-    ctx.restore()
-}
-
 function roundRect(ctx, x, y, w, h, r) {
     const radius = Math.min(r, w / 2, h / 2)
     ctx.beginPath()
@@ -467,7 +403,7 @@ function drawGrid(ctx, w, h) {
     }
     for (let y = 0; y <= h; y += size) {
         ctx.moveTo(0, y)
-        ctx.lineTo(w, y)
+        ctx.lineTo(w, h)
     }
     ctx.stroke()
     ctx.restore()
