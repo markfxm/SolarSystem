@@ -403,7 +403,7 @@ function drawGrid(ctx, w, h) {
     }
     for (let y = 0; y <= h; y += size) {
         ctx.moveTo(0, y)
-        ctx.lineTo(w, h)
+        ctx.lineTo(w, y)
     }
     ctx.stroke()
     ctx.restore()
