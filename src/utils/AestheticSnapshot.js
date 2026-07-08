@@ -28,28 +28,24 @@ export class AestheticSnapshotManager {
         this.config = {
             baseRadius: 220,    // Mercury distance
             radiusStep: 140,    // Distance between subsequent orbits
-            sunScale: 1.8,      // Adjusted to 1.8 for optimal balance in snapshots
             cameraPos: new THREE.Vector3(0, 0, 4200), // Directly looking from +Z (Top-down)
             fov: 35,
             orbitThickness: 2.8, // Slightly thicker
             orbitColor: 0x00eeff, // Brighter cyan
             orbitOpacity: 0.9,   // More solid
-            targetVisualSize: 25, // Target radius in world units
             moonOrbitRadius: 80,
-            moonVisualSize: 16
-        }
-
-        // Base radii from createSolarSystem.js to normalize scaling
-        this.baseSizes = {
-            mercury: 1.19,
-            venus: 2.94,
-            earth: 3.1,
-            mars: 1.65,
-            jupiter: 34.75,
-            saturn: 29.30,
-            uranus: 12.43,
-            neptune: 12.03,
-            moon: 0.84
+            visualRadii: {
+                sun: 110,
+                mercury: 30,
+                venus: 34,
+                earth: 34,
+                mars: 34,
+                jupiter: 46,
+                saturn: 46,
+                uranus: 40,
+                neptune: 40,
+                moon: 24
+            }
         }
 
         // Performance Optimization: Instance-level material reuse
@@ -175,10 +171,8 @@ export class AestheticSnapshotManager {
             mesh.position.set(unitPos.x * uniformR, unitPos.y * uniformR, 0)
             schematicPositions.set(name, mesh.position.clone())
 
-            // Adjust scale to reach target visual size
-            const baseSize = this.baseSizes[name] || 1
-            const pScale = this.config.targetVisualSize / baseSize
-            mesh.scale.set(pScale, pScale, pScale)
+            const visualRadius = this.config.visualRadii[name] || 34
+            mesh.scale.setScalar(visualRadius)
 
             // Create and add schematic orbit
             const orbit = this.createSchematicOrbit(uniformR)
@@ -204,9 +198,7 @@ export class AestheticSnapshotManager {
                 0
             )
 
-            const baseSize = this.baseSizes.moon || 1
-            const moonScale = this.config.moonVisualSize / baseSize
-            moon.scale.set(moonScale, moonScale, moonScale)
+            moon.scale.setScalar(this.config.visualRadii.moon)
 
             const moonOrbit = this.createSchematicOrbit(this.config.moonOrbitRadius)
             moonOrbit.position.copy(earthPos)
@@ -234,8 +226,7 @@ export class AestheticSnapshotManager {
                     visible: sun.visible
                 })
             }
-            const sScale = this.config.sunScale
-            sun.scale.set(sScale, sScale, sScale)
+            sun.scale.setScalar(this.config.visualRadii.sun)
             sun.position.set(0, 0, 0)
         }
     }
