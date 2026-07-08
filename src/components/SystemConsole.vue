@@ -290,7 +290,7 @@ defineExpose({
   padding-top: 12px;
   position: relative;
   z-index: 2;
-  max-height: 420px;
+  max-height: 560px;
   overflow: hidden;
 }
 
@@ -369,7 +369,7 @@ defineExpose({
 }
 
 .speed-control-wrapper {
-  padding: 0 4px;
+  padding: 0 4px 10px;
 }
 
 /* Tron Slide Animation */

@@ -21,7 +21,13 @@
           <span class="value">{{ formattedMultiplier }}</span>
         </div>
 
-        <div class="slider-area" ref="wrap" @mousedown.prevent="startDrag($event)" @touchstart.prevent="startDrag($event)">
+        <div
+          class="slider-area"
+          :class="{ 'is-dragging': isDragging }"
+          ref="wrap"
+          @mousedown.prevent="startDrag($event)"
+          @touchstart.prevent="startDrag($event)"
+        >
           <!-- Ruler Ticks -->
           <div class="ruler-ticks">
             <div v-for="i in 21" :key="i" class="tick" :class="{ major: (i-1) % 5 === 0 }"></div>
@@ -79,6 +85,7 @@ const props = defineProps({
 const emit = defineEmits(['speed-change', 'reset'])
 
 const isOpen = ref(false)
+const isDragging = ref(false)
 const pos = ref(0)
 const wrap = ref(null)
 const knob = ref(null)
@@ -132,6 +139,7 @@ const initialCoord = ref(0)
 
 function startDrag(e) {
   dragging = true
+  isDragging.value = true
   addMoveListeners()
   if (props.vertical) {
     initialCoord.value = e.touches ? e.touches[0].clientY : e.clientY
@@ -167,6 +175,7 @@ function onMove(e) {
 function stopDrag() {
   if (!dragging) return
   dragging = false
+  isDragging.value = false
   snapToPreset()
   removeMoveListeners()
 }
@@ -327,16 +336,18 @@ defineExpose({ resetVisuals, setOpen })
   display: flex;
   align-items: center;
   height: 60px;
-  background: rgba(0, 0, 0, 0.4);
-  border: 1px solid rgba(var(--glow-rgb), 0.15);
-  border-radius: 2px;
+  background:
+    radial-gradient(circle at 50% 100%, rgba(var(--glow-rgb), 0.13), transparent 58%),
+    rgba(0, 0, 0, 0.34);
+  border: 1px solid rgba(var(--glow-rgb), 0.16);
+  border-radius: 6px;
   padding: 0 4px;
 }
 
 .is-vertical .tank-container {
   flex-direction: column;
   height: 180px;
-  padding: 8px 0;
+  padding: 10px 0;
 }
 
 .slider-area {
@@ -344,7 +355,12 @@ defineExpose({ resetVisuals, setOpen })
   width: 100%;
   height: 100%;
   position: relative;
-  cursor: crosshair;
+  cursor: grab;
+  touch-action: none;
+}
+
+.slider-area.is-dragging {
+  cursor: grabbing;
 }
 
 .preset-point {
@@ -353,23 +369,39 @@ defineExpose({ resetVisuals, setOpen })
   transform: translate(-50%, -50%);
   cursor: pointer;
   z-index: 10;
-  width: 4px;
-  height: 4px;
-  background: rgba(var(--glow-rgb), 0.25);
+  width: 9px;
+  height: 9px;
+  background:
+    radial-gradient(circle, #fff 0 16%, var(--glow-color) 17% 42%, rgba(var(--glow-rgb), 0.2) 43% 100%);
   border-radius: 50%;
+  box-shadow:
+    0 0 10px rgba(var(--glow-rgb), 0.45),
+    0 0 22px rgba(var(--glow-rgb), 0.16);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    opacity 0.2s ease;
+}
+
+.preset-point:hover {
+  transform: translate(-50%, -50%) scale(1.25);
+  box-shadow:
+    0 0 14px rgba(var(--glow-rgb), 0.7),
+    0 0 30px rgba(var(--glow-rgb), 0.24);
 }
 
 .node-label {
   position: absolute;
   top: 50%;
-  left: 14px;
+  left: 18px;
   transform: translateY(-50%);
   font-size: 10px;
-  color: rgba(var(--glow-rgb), 0.6);
+  color: rgba(var(--glow-rgb), 0.68);
   font-family: 'JetBrains Mono', monospace;
-  font-weight: 500;
+  font-weight: 600;
   white-space: nowrap;
   pointer-events: none;
+  text-shadow: 0 0 8px rgba(var(--glow-rgb), 0.18);
 }
 
 .indicator-knob {
@@ -386,27 +418,68 @@ defineExpose({ resetVisuals, setOpen })
 
 .is-vertical .track-wrapper {
   left: 50%; right: auto;
-  width: 3px;
+  width: 12px;
   transform: translateX(-50%);
-  background: rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  background:
+    linear-gradient(to right, transparent, rgba(var(--glow-rgb), 0.14), transparent),
+    rgba(255, 255, 255, 0.035);
+  box-shadow:
+    inset 0 0 8px rgba(0, 0, 0, 0.65),
+    0 0 16px rgba(var(--glow-rgb), 0.12);
 }
 
 .track-fill {
   position: absolute;
-  background: var(--glow-color);
-  box-shadow: 0 0 15px rgba(var(--glow-rgb), 0.5);
+  border-radius: 999px;
+  background:
+    linear-gradient(to top, var(--glow-color), var(--glow-secondary)),
+    var(--glow-color);
+  box-shadow:
+    0 0 16px rgba(var(--glow-rgb), 0.55),
+    0 0 34px rgba(var(--glow-rgb), 0.22);
+}
+
+.track-fill::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 3px;
+  height: 100%;
+  transform: translateX(-50%);
+  border-radius: inherit;
+  background: rgba(255, 255, 255, 0.45);
+  filter: blur(1px);
+  opacity: 0.8;
 }
 
 .knob-marker {
   position: absolute;
-  width: 14px;
-  height: 14px;
-  background: var(--glow-color);
-  border: 1px solid #fff;
+  width: 18px;
+  height: 18px;
+  background:
+    radial-gradient(circle at 48% 42%, #fff 0 13%, rgba(255, 255, 255, 0.78) 14% 22%, var(--glow-color) 23% 68%, rgba(var(--glow-rgb), 0.4) 69% 100%);
+  border: 1px solid rgba(255, 255, 255, 0.75);
   border-radius: 50%;
   transform: translate(-50%, -50%);
-  box-shadow: 0 0 12px rgba(var(--glow-rgb), 0.6);
+  box-shadow:
+    0 0 0 2px rgba(var(--glow-rgb), 0.12),
+    0 0 13px rgba(var(--glow-rgb), 0.68),
+    0 0 24px rgba(var(--glow-rgb), 0.22);
   left: 50%;
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.slider-area:hover .knob-marker,
+.slider-area.is-dragging .knob-marker {
+  transform: translate(-50%, -50%) scale(1.04);
+  box-shadow:
+    0 0 0 3px rgba(var(--glow-rgb), 0.15),
+    0 0 16px rgba(var(--glow-rgb), 0.78),
+    0 0 30px rgba(var(--glow-rgb), 0.28);
 }
 
 .scanner-brackets::before, .scanner-brackets::after {
@@ -428,14 +501,20 @@ defineExpose({ resetVisuals, setOpen })
   justify-content: space-between;
   align-items: center;
   pointer-events: none;
+  opacity: 0.58;
 }
 
 .is-vertical .ruler-ticks {
   flex-direction: column-reverse;
+  left: 50%;
+  right: auto;
+  width: 36px;
+  transform: translateX(-50%);
 }
 
 .tick {
-  background: rgba(var(--glow-rgb), 0.2);
+  background: rgba(var(--glow-rgb), 0.13);
+  border-radius: 999px;
 }
 
 .tick:not(.is-vertical) {
@@ -450,12 +529,13 @@ defineExpose({ resetVisuals, setOpen })
 
 .is-vertical .tick {
   height: 1px;
-  width: 6px;
+  width: 4px;
 }
 
 .is-vertical .tick.major {
-  width: 12px;
-  background: rgba(var(--glow-rgb), 0.6);
+  width: 10px;
+  background: rgba(var(--glow-rgb), 0.28);
+  box-shadow: 0 0 8px rgba(var(--glow-rgb), 0.16);
 }
 
 .panel-footer {
@@ -513,7 +593,7 @@ defineExpose({ resetVisuals, setOpen })
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
   border: 1px solid rgba(var(--glow-rgb), 0.4);
-  clip-path: polygon(0 0, 100% 0, 100% 70%, 85% 100%, 0 100%);
+  border-radius: 2px;
 }
 
 .tron-btn:hover {
