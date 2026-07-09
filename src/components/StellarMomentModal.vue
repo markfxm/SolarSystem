@@ -1,14 +1,15 @@
 <template>
   <div class="stellar-modal-overlay" @click.self="$emit('close')">
-    <div class="stellar-modal" @click.stop>
+    <div class="stellar-modal" :class="{ 'entry-modal': !showFormatSelector, 'selector-modal': showFormatSelector }" @click.stop>
       <div class="modal-header">
         <h2>{{ t('stellar.title') || 'My Stellar Moment' }}</h2>
         <button class="close-btn" @click="$emit('close')">×</button>
       </div>
 
-      <div class="modal-body">
+      <div class="modal-body" :class="{ 'entry-body': !capturedImage }">
         <template v-if="!capturedImage">
-          <p class="desc">{{ t('stellar.desc') || 'Choose a significant date to see the planets align.' }}</p>
+          <div class="snapshot-form-column">
+            <p class="desc">{{ t('stellar.desc') || 'Choose a significant date to see the planets align.' }}</p>
 
           <div class="control-group">
             <label>{{ t('stellar.titleLabel') || 'Poster Title' }}</label>
@@ -88,13 +89,15 @@
             </button>
           </div>
 
-          <div class="tips">
-            <div v-if="posterMeta" class="astrology-preview">
+          </div>
+
+          <div class="snapshot-preview-column">
+            <div class="preview-label">Live Poster Preview</div>
+            <div v-if="posterMeta" class="astrology-preview entry-preview-card">
               <div class="meta-title">{{ posterMeta.title }}</div>
               <div class="meta-line">{{ posterMeta.summaryLine }}</div>
               <div class="meta-line">{{ posterMeta.aspectSummary }}</div>
             </div>
-            <p>💡 {{ t('stellar.tip') }}</p>
           </div>
         </template>
 
@@ -175,8 +178,92 @@
             </div>
           </div>
 
-          <div v-else class="preview-container">
-            <h3>{{ t('stellar.review') }}</h3>
+          <div v-else class="review-workbench">
+            <div class="snapshot-form-column">
+              <p class="desc">{{ t('stellar.desc') || 'Choose a significant date to see the planets align.' }}</p>
+
+              <div class="control-group">
+                <label>{{ t('stellar.titleLabel') || 'Poster Title' }}</label>
+                <input
+                  class="title-input"
+                  type="text"
+                  v-model="posterTitle"
+                  :placeholder="t('stellar.defaultPosterTitle') || 'My Stellar Moment'"
+                  maxlength="48"
+                />
+              </div>
+
+              <div class="control-group">
+                <label>{{ t('stellar.occasionLabel') || 'Occasion' }}</label>
+                <div class="occasion-list">
+                  <button
+                    v-for="option in occasionOptions"
+                    :key="option.id"
+                    class="occasion-btn"
+                    :class="{ active: occasionType === option.id }"
+                    @click="occasionType = option.id"
+                  >
+                    {{ option.label }}
+                  </button>
+                </div>
+              </div>
+
+              <div class="control-group">
+                <label>{{ t('stellar.dateLabel') }}</label>
+                <div class="manual-date-input">
+                  <input
+                    ref="yearInput"
+                    type="text"
+                    inputmode="numeric"
+                    v-model="year"
+                    placeholder="YYYY"
+                    maxlength="4"
+                    @input="handleInput('year')"
+                    @keydown.right="handleArrow('year', 'right', $event)"
+                    @keydown.left="handleArrow('year', 'left', $event)"
+                    class="date-part-input year-input"
+                  />
+                  <span class="sep">-</span>
+                  <input
+                    ref="monthInput"
+                    type="text"
+                    inputmode="numeric"
+                    v-model="month"
+                    placeholder="MM"
+                    maxlength="2"
+                    @input="handleInput('month')"
+                    @keydown.right="handleArrow('month', 'right', $event)"
+                    @keydown.left="handleArrow('month', 'left', $event)"
+                    class="date-part-input month-input"
+                  />
+                  <span class="sep">-</span>
+                  <input
+                    ref="dayInput"
+                    type="text"
+                    inputmode="numeric"
+                    v-model="day"
+                    placeholder="DD"
+                    maxlength="2"
+                    @input="handleInput('day')"
+                    @keydown.right="handleArrow('day', 'right', $event)"
+                    @keydown.left="handleArrow('day', 'left', $event)"
+                    class="date-part-input day-input"
+                  />
+                </div>
+                <p v-if="dateError" class="error-text">{{ dateError }}</p>
+              </div>
+
+              <div class="actions">
+                <button class="capture-btn" @click="onCapture" :disabled="isCapturing">
+                  <span v-if="!isCapturing">✨ {{ t('stellar.capture') }}</span>
+                  <span v-else>{{ t('stellar.capturing') }}</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="snapshot-preview-column review-preview-column">
+              <div class="preview-container embedded-preview">
+                <h3>{{ t('stellar.review') }}</h3>
             <div class="image-wrapper" :style="{ aspectRatio: posterStyle === 'poster' ? (posterFormat.replace(':', '/')) : '16/9' }">
               <img :src="displayImage" class="preview-img" alt="Snapshot Preview" />
               
@@ -231,6 +318,8 @@
               </button>
             </div>
             <p v-if="proMessage" class="pro-message">{{ proMessage }}</p>
+          </div>
+          </div>
           </div>
         </template>
       </div>
@@ -566,6 +655,16 @@ function showProPlaceholder() {
   animation: slideUp 0.3s ease;
 }
 
+.stellar-modal.entry-modal {
+  max-width: 840px;
+  max-height: calc(100vh - 48px);
+}
+
+.stellar-modal.selector-modal {
+  max-width: 660px;
+  max-height: calc(100vh - 48px);
+}
+
 .modal-header {
   padding: 16px 20px;
   background: rgba(255, 255, 255, 0.05);
@@ -603,6 +702,84 @@ function showProPlaceholder() {
   display: flex;
   flex-direction: column;
   gap: 20px;
+  max-height: calc(100vh - 112px);
+  overflow-y: auto;
+}
+
+.modal-body.entry-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(280px, 0.95fr);
+  gap: 24px;
+  overflow-y: auto;
+}
+
+.snapshot-form-column {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.snapshot-preview-column {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid rgba(136, 204, 255, 0.18);
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(43, 88, 118, 0.22), rgba(52, 42, 78, 0.28));
+}
+
+.preview-label {
+  color: #88ccff;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.entry-preview-card {
+  margin-bottom: 0;
+  padding: 18px;
+  background: rgba(212, 170, 255, 0.12);
+}
+
+.review-workbench {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(300px, 0.95fr);
+  gap: 24px;
+}
+
+.review-preview-column {
+  justify-content: center;
+}
+
+.embedded-preview {
+  width: 100%;
+  gap: 18px;
+}
+
+.embedded-preview .image-wrapper {
+  width: min(100%, calc((100vh - 310px) * 16 / 9));
+  max-height: calc(100vh - 310px);
+}
+
+.embedded-preview .preview-actions {
+  width: 100%;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.embedded-preview .download-btn-confirm,
+.embedded-preview .discard-btn,
+.embedded-preview .style-btn,
+.embedded-preview .pro-btn {
+  width: 68px;
+  min-width: 68px;
 }
 
 .desc {
@@ -896,6 +1073,7 @@ input::-webkit-inner-spin-button {
 
 .selection-container {
   width: 100%;
+  overflow-x: hidden;
   animation: fadeIn 0.3s ease;
 }
 
@@ -928,9 +1106,11 @@ input::-webkit-inner-spin-button {
 }
 
 .theme-list {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   justify-content: center;
-  gap: 24px;
+  gap: 16px;
+  width: 100%;
 }
 
 .theme-btn {
@@ -943,7 +1123,7 @@ input::-webkit-inner-spin-button {
   cursor: pointer;
   padding: 0;
   transition: all 0.3s ease;
-  min-width: 80px; /* Ensure space for labels */
+  min-width: 0;
   outline: none; /* Remove focus ring */
 }
 
@@ -980,8 +1160,9 @@ input::-webkit-inner-spin-button {
   font-size: 13px;
   color: rgba(255, 255, 255, 0.7);
   font-weight: 500;
-  white-space: nowrap;
+  white-space: normal;
   text-align: center;
+  line-height: 1.2;
 }
 
 .theme-btn.active .theme-label {
@@ -1270,5 +1451,53 @@ input::-webkit-inner-spin-button {
   color: rgba(255, 255, 255, 0.72);
   font-size: 12px;
   line-height: 1.45;
+}
+
+@media (max-width: 720px) {
+  .stellar-modal.entry-modal {
+    width: 90%;
+    max-width: 400px;
+    max-height: calc(100vh - 24px);
+  }
+
+  .stellar-modal.selector-modal {
+    width: 90%;
+    max-width: 400px;
+    max-height: calc(100vh - 24px);
+  }
+
+  .modal-body.entry-body {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .review-workbench {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .snapshot-preview-column {
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    gap: 12px;
+  }
+
+  .preview-label {
+    display: none;
+  }
+
+  .entry-preview-card {
+    padding: 10px;
+    margin-bottom: 0;
+  }
+
+  .theme-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    row-gap: 18px;
+  }
 }
 </style>

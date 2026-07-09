@@ -311,7 +311,7 @@ const bodies = computed(() => [
   background: rgba(var(--glow-rgb), 0.08);
   border-color: rgba(var(--glow-rgb), 0.3);
   color: #fff;
-  transform: translateX(-4px);
+  box-shadow: inset 3px 0 0 rgba(var(--glow-rgb), 0.45);
 }
 
 .combined-planet-button.active {

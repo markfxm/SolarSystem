@@ -44,7 +44,7 @@ export class AestheticSnapshotManager {
                 saturn: 46,
                 uranus: 40,
                 neptune: 40,
-                moon: 24
+                moon: 16
             }
         }
 
