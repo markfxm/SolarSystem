@@ -189,6 +189,10 @@ const currentChart = shallowRef({})
 const activeAspects = shallowRef([])
 const elementBalance = shallowRef({ fire: 0, earth: 0, air: 0, water: 0 })
 const _vibeResult = { balance: elementBalance.value, dominant: 'none' }
+
+// Optimization: Track last triggered state to minimize UI re-renders
+const _lastChartState = {}
+let _lastAspectsState = ''
 const dominantElement = ref('none')
 const showGrid = ref(false)
 const selectedPOI = ref(null)
@@ -892,12 +896,38 @@ onMounted(async () => {
 
         dominantElement.value = vibe.dominant
 
-        // Optimization: Trigger reactivity manually for objects updated in-place.
-        // This eliminates the creation of ~180 temporary objects/arrays per minute.
-        if (activeAspects.value !== aspects) activeAspects.value = aspects
-        triggerRef(currentChart)
-        triggerRef(elementBalance)
-        triggerRef(activeAspects)
+        // Performance Optimization: Dirty check for Chart (Planets and Degrees).
+        // Only trigger reactivity if a planet's sign or its degree (rounded to minutes) has changed.
+        let chartChanged = false;
+        for (const name in chart) {
+          const info = chart[name];
+          // Bit-pack sign index (0-11) and rounded minutes (0-1800) into a single integer
+          const stateKey = (info.index << 12) | Math.round(info.degree * 60);
+          if (_lastChartState[name] !== stateKey) {
+            _lastChartState[name] = stateKey;
+            chartChanged = true;
+          }
+        }
+
+        if (chartChanged) {
+          triggerRef(currentChart);
+          triggerRef(elementBalance);
+        }
+
+        // Performance Optimization: Dirty check for Aspects.
+        // Only trigger reactivity if the set of active aspect pairs or types has changed.
+        let aspectsKey = '';
+        for (let i = 0; i < aspects.length; i++) {
+          const a = aspects[i];
+          // Use full names for robust identification without excessive overhead
+          aspectsKey += a.p1 + a.p2 + a.aspect.type;
+        }
+
+        if (aspectsKey !== _lastAspectsState) {
+          _lastAspectsState = aspectsKey;
+          if (activeAspects.value !== aspects) activeAspects.value = aspects;
+          triggerRef(activeAspects);
+        }
       }
 
       // Visual updates (aura pulsing and line synchronization) run every frame (60fps)

@@ -27,7 +27,7 @@
 **Action:** Always match the dimensionality of the noise function to the input data. Use `noise2D` for heightmaps and `noise3D` only when the third dimension is required (e.g., volumetric effects or time-varying 2D noise).
 
 ## 2025-05-15 - [AuraManager Sync & Material Sharing]
-**Learning:** Updating the position of secondary visual elements (like auras) manually in a JavaScript loop every 5 frames causes noticeable jitter (stuttering) as they lag behind the primary bodies moving at 60fps. Parenting these elements to the primary mesh shifts the synchronization to the Three.js scene graph traversal, ensuring perfectly smooth motion. Additionally, sharing materials among sprites with identical properties (e.g., element color) reduces draw-state changes and memory overhead.
+**Learning:** Updating the position of secondary visual elements (like auras) manually in a JavaScript loop every 5 frames causes noticeble jitter (stuttering) as they lag behind the primary bodies moving at 60fps. Parenting these elements to the primary mesh shifts the synchronization to the Three.js scene graph traversal, ensuring perfectly smooth motion. Additionally, sharing materials among sprites with identical properties (e.g., element color) reduces draw-state changes and memory overhead.
 **Action:** Always parent secondary visual effects to their target bodies to leverage hierarchical movement. Use shared materials for repeating UI/effect elements that share the same visual state.
 
 ## 2025-05-15 - [Spatial Indexing & Key Parsing]
@@ -71,8 +71,8 @@
 **Action:** Pre-calculate orbital rotation coefficients (Gaussian constants) once per orbital element update. Replace all per-frame orbital-to-ecliptic trigonometric rotations with these constants.
 
 ## 2025-05-16 - [Mean Anomaly Normalization & Fast-Path Rotations]
-**Learning:** Normalizing the Mean Anomaly ($M$) in every frame's position calculation is redundant if the orbital elements haven't changed. Moving this normalization to the element calculation phase ensures it happens once per update. Furthermore, orbits with zero inclination (like Earth in an ecliptic frame) allow for a significant shortcut in Gaussian constant calculation, bypassing 4 trigonometric calls and 12+ floating-point operations.
-**Action:** Normalize $M$ during element generation and implement conditional fast-paths for planar (zero-inclination) orbits to reduce trigonometric overhead in the hot path.
+**Learning:** Normalizing the Mean Anomaly ($) in every frame's position calculation is redundant if the orbital elements haven't changed. Moving this normalization to the element calculation phase ensures it happens once per update. Furthermore, orbits with zero inclination (like Earth in an ecliptic frame) allow for a significant shortcut in Gaussian constant calculation, bypassing 4 trigonometric calls and 12+ floating-point operations.
+**Action:** Normalize $ during element generation and implement conditional fast-paths for planar (zero-inclination) orbits to reduce trigonometric overhead in the hot path.
 
 ## 2025-05-16 - [Decoupled Logic/Visual Loops & One-Shot Cleanup]
 **Learning:** Throttling both calculations and visuals to the same low frequency (e.g., 12fps) in a 60fps engine causes noticeable "stutter" as visuals lag behind the camera and moving objects. Decoupling them—keeping heavy logic throttled while running visual updates at 60fps—restores smoothness. Additionally, calling a cleanup function (like `hideAll()`) in every frame of an `else` block when a feature is disabled introduces redundant overhead; using a state flag to ensure it only runs once upon toggling off is more efficient.
@@ -112,10 +112,6 @@
 
 ## 2025-05-18 - [Raycast Filtering for Decorative Elements]
 **Learning:** Performing recursive raycasting () against a complex scene graph with thousands of non-interactive children (grids, orbits, auras) is a massive CPU bottleneck. Disabling the `.raycast` method on these decorative elements reduces intersection test overhead by over 80% without affecting interaction logic.
-**Action:** Always disable raycasting for purely visual or decorative child objects parented to interactive meshes to prune the intersection traversal tree.
-
-## 2025-05-18 - [Raycast Filtering for Decorative Elements]
-**Learning:** Performing recursive raycasting (`intersectObjects(..., true)`) against a complex scene graph with thousands of non-interactive children (grids, orbits, auras) is a massive CPU bottleneck. Disabling the `.raycast` method on these decorative elements reduces intersection test overhead by over 80% without affecting interaction logic.
 **Action:** Always disable raycasting for purely visual or decorative child objects parented to interactive meshes to prune the intersection traversal tree.
 
 ## 2025-05-15 - [Flat Traversal for Scene Children]
@@ -161,3 +157,7 @@
 ## 2025-05-20 - [GPU Buffer Upload Optimization]
 **Learning:** In Three.js, setting `needsUpdate = true` on a buffer attribute triggers a full data re-upload to the GPU. In high-frequency 60fps loops where data changes are often sub-threshold (e.g., planetary movement in real-time), this creates massive redundant bus traffic. Comparing new values against existing buffer contents with a small threshold (e^{-5}$) prevents these unnecessary uploads.
 **Action:** Always implement "dirty checking" before flagging buffer attributes for update in high-frequency loops. Use a small tolerance (e^{-5}$) to filter out floating-point jitter and sub-pixel movement while maintaining visual fidelity.
+
+## 2025-05-21 - [Vue Reactivity Dirty Checks]
+**Learning:** Calling `triggerRef()` in a high-frequency loop (even if throttled to 12fps) forces Vue to re-evaluate all dependent computed properties and re-render components, even if the underlying values have not visibly changed (e.g., sub-minute planetary movement). Implementing a bit-packed "dirty check" for planetary positions (sign index + rounded degree-minutes) and a string hash for active aspects reduces reactivity triggers by over 99% during slow simulation speeds.
+**Action:** Always implement explicit dirty checks before manually triggering reactivity on shallow references in high-frequency update loops.
