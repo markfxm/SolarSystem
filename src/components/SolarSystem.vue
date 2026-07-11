@@ -899,8 +899,9 @@ onMounted(async () => {
         // Performance Optimization: Dirty check for Chart (Planets and Degrees).
         // Only trigger reactivity if a planet's sign or its degree (rounded to minutes) has changed.
         let chartChanged = false;
-        for (const name in chart) {
+        for (const name of Object.keys(chart)) {
           const info = chart[name];
+          if (!info) continue;
           // Bit-pack sign index (0-11) and rounded minutes (0-1800) into a single integer
           const stateKey = (info.index << 12) | Math.round(info.degree * 60);
           if (_lastChartState[name] !== stateKey) {
@@ -915,12 +916,12 @@ onMounted(async () => {
         }
 
         // Performance Optimization: Dirty check for Aspects.
-        // Only trigger reactivity if the set of active aspect pairs or types has changed.
+        // Only trigger reactivity if the set of active aspect pairs, types, or rounded orbs has changed.
         let aspectsKey = '';
         for (let i = 0; i < aspects.length; i++) {
           const a = aspects[i];
           // Use full names for robust identification without excessive overhead
-          aspectsKey += a.p1 + a.p2 + a.aspect.type;
+          aspectsKey += a.p1 + a.p2 + a.aspect.type + Math.round(a.aspect.orb * 60);
         }
 
         if (aspectsKey !== _lastAspectsState) {
