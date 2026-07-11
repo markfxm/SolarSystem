@@ -214,9 +214,12 @@ const translatedAspects = computed(() => {
   const result = [];
   for (let i = 0; i < props.aspects.length; i++) {
     const item = props.aspects[i];
+    const p1Name = t(PLANET_NAME_CACHE[item.p1] || ('planet.' + item.p1));
+    const p2Name = t(PLANET_NAME_CACHE[item.p2] || ('planet.' + item.p2));
+
     result.push({
       id: `${item.p1}-${item.p2}-${i}`,
-      names: `${t(PLANET_NAME_CACHE[item.p1] || ('planet.' + item.p1))} & ${t(PLANET_NAME_CACHE[item.p2] || ('planet.' + item.p2))}`,
+      names: `${p1Name} & ${p2Name}`,
       label: t(item.aspect.label),
       color: item.aspect.colorStr,
       tip: t(ASPECT_TIP_CACHE[item.aspect.type] || ('insight.tip_' + item.aspect.type.toLowerCase()))

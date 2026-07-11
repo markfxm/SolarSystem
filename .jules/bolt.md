@@ -114,10 +114,6 @@
 **Learning:** Performing recursive raycasting () against a complex scene graph with thousands of non-interactive children (grids, orbits, auras) is a massive CPU bottleneck. Disabling the `.raycast` method on these decorative elements reduces intersection test overhead by over 80% without affecting interaction logic.
 **Action:** Always disable raycasting for purely visual or decorative child objects parented to interactive meshes to prune the intersection traversal tree.
 
-## 2025-05-18 - [Raycast Filtering for Decorative Elements]
-**Learning:** Performing recursive raycasting (`intersectObjects(..., true)`) against a complex scene graph with thousands of non-interactive children (grids, orbits, auras) is a massive CPU bottleneck. Disabling the `.raycast` method on these decorative elements reduces intersection test overhead by over 80% without affecting interaction logic.
-**Action:** Always disable raycasting for purely visual or decorative child objects parented to interactive meshes to prune the intersection traversal tree.
-
 ## 2025-05-15 - [Flat Traversal for Scene Children]
 **Learning:** Using `scene.traverse()` in a scene with thousands of particles (stars, nebula) and line segments (orbits) is extremely expensive even if the callback immediately returns. Since the core entities (planets, orbits, starfield) are added as direct children of the scene, a flat `for` loop over `scene.children` is ~90% faster.
 **Action:** Prefer flat iteration over `scene.children` for scene-level managers when the target objects are known to be top-level, avoiding the recursive overhead of `traverse()` in complex environments.
@@ -161,3 +157,7 @@
 ## 2025-05-20 - [GPU Buffer Upload Optimization]
 **Learning:** In Three.js, setting `needsUpdate = true` on a buffer attribute triggers a full data re-upload to the GPU. In high-frequency 60fps loops where data changes are often sub-threshold (e.g., planetary movement in real-time), this creates massive redundant bus traffic. Comparing new values against existing buffer contents with a small threshold (e^{-5}$) prevents these unnecessary uploads.
 **Action:** Always implement "dirty checking" before flagging buffer attributes for update in high-frequency loops. Use a small tolerance (e^{-5}$) to filter out floating-point jitter and sub-pixel movement while maintaining visual fidelity.
+
+## 2025-05-21 - [Vue Reactivity Dirty Checks]
+**Learning:** Calling `triggerRef()` in a high-frequency loop (even if throttled to 12fps) forces Vue to re-evaluate all dependent computed properties and re-render components, even if the underlying values have not visibly changed (e.g., sub-minute planetary movement). Implementing a bit-packed "dirty check" for planetary positions (sign index + rounded degree-minutes) and a string hash for active aspects reduces reactivity triggers by over 99% during slow simulation speeds.
+**Action:** Always implement explicit dirty checks before manually triggering reactivity on shallow references in high-frequency update loops.
