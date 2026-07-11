@@ -165,7 +165,7 @@ import { createInteractions } from '../three/interactions.js'
 import { createMarsSurface } from '../planets/Mars/MarsSurface.js'
 import { updatePOIs, refreshPOILabels } from '../utils/POI.js'
 import { AestheticSnapshotManager } from '../utils/AestheticSnapshot.js'
-import { AstrologyService } from '../utils/AstrologyService.js'
+import { AstrologyService, GEOCENTRIC_PLANETS } from '../utils/AstrologyService.js'
 
 const container = shallowRef(null)
 const systemConsole = ref(null)
@@ -790,9 +790,6 @@ onMounted(async () => {
               _lastPoiY = y;
               poiUI.id = poi.poiId;
 
-              _tempV.copy(_planetWorldPos).project(engine.camera);
-              const px = (_tempV.x * 0.5 + 0.5) * window.innerWidth;
-
               // Side logic: panel is either to the left or right of the POI
               const side = poiUI.initialSide;
               const panelWidth = 280;
@@ -883,7 +880,7 @@ onMounted(async () => {
       }
     }
 
-    if (showZodiac.value && solar?.aspectsManager && timeController) {
+    if (viewMode.value === 'solar' && showZodiac.value && solar?.aspectsManager && timeController) {
       _isAuraVisible = true
       // Performance Optimization: Decouple heavy calculations from visual updates.
       // Calculations run at ~12fps to save CPU, while visuals run at 60fps for smoothness.
@@ -894,12 +891,15 @@ onMounted(async () => {
         const aspects = AstrologyService.calculateAspects(chart)
         const vibe = AstrologyService.calculateElementBalance(chart, elementBalance.value, _vibeResult)
 
-        dominantElement.value = vibe.dominant
+        if (dominantElement.value !== vibe.dominant) {
+          dominantElement.value = vibe.dominant
+        }
 
         // Performance Optimization: Dirty check for Chart (Planets and Degrees).
         // Only trigger reactivity if a planet's sign or its degree (rounded to minutes) has changed.
         let chartChanged = false;
-        for (const name of Object.keys(chart)) {
+        for (let i = 0; i < GEOCENTRIC_PLANETS.length; i++) {
+          const name = GEOCENTRIC_PLANETS[i];
           const info = chart[name];
           if (!info) continue;
           // Bit-pack sign index (0-11) and rounded minutes (0-1800) into a single integer
