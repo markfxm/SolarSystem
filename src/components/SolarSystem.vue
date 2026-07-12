@@ -891,9 +891,7 @@ onMounted(async () => {
         const aspects = AstrologyService.calculateAspects(chart)
         const vibe = AstrologyService.calculateElementBalance(chart, elementBalance.value, _vibeResult)
 
-        if (dominantElement.value !== vibe.dominant) {
-          dominantElement.value = vibe.dominant
-        }
+        dominantElement.value = vibe.dominant
 
         // Performance Optimization: Dirty check for Chart (Planets and Degrees).
         // Only trigger reactivity if a planet's sign or its degree (rounded to minutes) has changed.
