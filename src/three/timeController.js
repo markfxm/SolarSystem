@@ -79,12 +79,15 @@ export function createTimeController(planetObjects, orbitScale, extraRotating = 
       const el = computeElements(data, d, scratch, orbitScale);
       const pos = computePosition(el, _scratchPos);
 
+      let changed = false;
+
       // Performance Optimization: Only update position if movement exceeds 1e-5 units.
       // This avoids redundant Three.js matrix recalculations and world matrix dirty flags
       // during real-time or slow simulation speeds, as planets move negligibly per frame.
       const curPos = mesh.position;
       if (Math.abs(pos.x - curPos.x) > 1e-5 || Math.abs(pos.y - curPos.y) > 1e-5 || Math.abs(pos.z - curPos.z) > 1e-5) {
         mesh.position.set(pos.x, pos.y, pos.z);
+        changed = true;
       }
 
       // Performance Optimization: Check for quaternion change before applying rotation.
@@ -93,6 +96,13 @@ export function createTimeController(planetObjects, orbitScale, extraRotating = 
       const quat = computePlanetQuaternion(name, d, rotCache);
       if (!mesh.quaternion.equals(quat)) {
         mesh.setRotationFromQuaternion(quat);
+        changed = true;
+      }
+
+      // Performance Optimization: Manually update matrix if position or rotation changed.
+      // Since matrixAutoUpdate is disabled for planets, this is required for correct rendering.
+      if (changed) {
+        mesh.updateMatrix();
       }
     }
 
@@ -111,12 +121,16 @@ export function createTimeController(planetObjects, orbitScale, extraRotating = 
       const curMoonPos = moon.position;
       if (Math.abs(tx - curMoonPos.x) > 1e-5 || Math.abs(ty - curMoonPos.y) > 1e-5 || Math.abs(tz - curMoonPos.z) > 1e-5) {
         moon.position.set(tx, ty, tz);
+        // Performance Optimization: Manually update Moon matrix as matrixAutoUpdate is disabled.
+        moon.updateMatrix();
       }
 
       // Update Moon Orbit Line Position (moves with Earth)
       // Performance Optimization: Skip redundant copy if Earth hasn't moved significantly.
       if (moonOrbit && !moonOrbit.position.equals(earthPos)) {
         moonOrbit.position.copy(earthPos);
+        // Performance Optimization: Manually update Moon Orbit matrix as matrixAutoUpdate is disabled.
+        moonOrbit.updateMatrix();
       }
     }
 
@@ -127,6 +141,8 @@ export function createTimeController(planetObjects, orbitScale, extraRotating = 
       const quat = computePlanetQuaternion(name, d, rotCache);
       if (!mesh.quaternion.equals(quat)) {
         mesh.setRotationFromQuaternion(quat);
+        // Performance Optimization: Manually update matrix as matrixAutoUpdate is disabled for planets/sun/moon.
+        mesh.updateMatrix();
       }
     }
   }
