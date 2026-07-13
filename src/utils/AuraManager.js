@@ -139,6 +139,8 @@ export class AuraManager {
             // if the target scale is already reached or the change is negligible.
             if (Math.abs(aura.scale.x - targetScale) > 0.001) {
                 aura.scale.setScalar(targetScale);
+                // Performance Optimization: Manually update matrix as matrixAutoUpdate is disabled.
+                aura.updateMatrix();
             }
         }
     }
@@ -158,6 +160,11 @@ export class AuraManager {
 
         // Ensure it is skipped by holographic material overrides
         sprite.userData.isPOIGroup = true;
+
+        // Optimization: Disable per-frame matrix updates for auras as their scale
+        // is manually handled in the update loop.
+        sprite.matrixAutoUpdate = false;
+        sprite.updateMatrix();
 
         return sprite;
     }

@@ -19,6 +19,10 @@ export class Sun {
 
     this.mesh = new THREE.Mesh(unitSphereGeometry, material);
     this.mesh.scale.setScalar(this.radius);
+    // Optimization: Disable per-frame matrix updates for the Sun as its
+    // orientation is manually handled in the simulation loop.
+    this.mesh.matrixAutoUpdate = false;
+    this.mesh.updateMatrix();
 
     this.mesh.userData.name = this.name;
     this.mesh.userData.originalRadius = this.radius;
