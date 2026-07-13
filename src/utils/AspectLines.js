@@ -9,7 +9,6 @@ const _v1 = new THREE.Vector3();
 const _v2 = new THREE.Vector3();
 const _posArray = new Float32Array(6);
 const _resolution = new THREE.Vector2();
-const _activeKeys = new Set();
 
 export class AspectLinesManager {
     constructor(scene, planetObjects) {
@@ -25,12 +24,13 @@ export class AspectLinesManager {
 
         this.scene.add(this.group);
 
-        this.lines = new Map(); // Key: bit-shifted ID, Value: { line, aspectType }
+        this.lines = new Map(); // Key: bit-shifted ID, Value: { line, aspectType, lastUpdateFrame, p1Obj, p2Obj, attr, array }
         this.lastResolution = new THREE.Vector2(-1, -1);
+        this.frameID = 0;
     }
 
     update(aspects) {
-        _activeKeys.clear();
+        this.frameID++;
 
         // Update resolution scratch
         const w = window.innerWidth;
@@ -52,21 +52,18 @@ export class AspectLinesManager {
             const id1 = BODY_TO_ID[item.p1];
             const id2 = BODY_TO_ID[item.p2];
             const key = id1 < id2 ? (id1 << 8) | id2 : (id2 << 8) | id1;
-            _activeKeys.add(key);
 
-            const p1Obj = this.planetObjects[item.p1];
-            const p2Obj = this.planetObjects[item.p2];
+            // Optimization: Single Map.get() call to minimize lookups
+            let data = this.lines.get(key);
 
-            if (!p1Obj || !p2Obj) continue;
+            if (!data) {
+                const p1Obj = this.planetObjects[item.p1];
+                const p2Obj = this.planetObjects[item.p2];
+                if (!p1Obj || !p2Obj) continue;
 
-            // Performance Optimization: All planets are direct children of the scene
-            // and are updated earlier in the frame by timeController.
-            // Using .position directly instead of .getWorldPosition() saves matrix calculations
-            // and avoids O(N) traversals per planet per aspect.
-            _v1.copy(p1Obj.position);
-            _v2.copy(p2Obj.position);
+                _v1.copy(p1Obj.position);
+                _v2.copy(p2Obj.position);
 
-            if (!this.lines.has(key)) {
                 // Create new line using Line2
                 const geometry = new LineGeometry();
                 _posArray[0] = _v1.x; _posArray[1] = _v1.y; _posArray[2] = _v1.z;
@@ -82,13 +79,8 @@ export class AspectLinesManager {
                 });
 
                 const line = new Line2(geometry, material);
-                // Optimization: Aspect lines are not interactive, disable raycasting to save CPU
                 line.raycast = () => {};
-                line.renderOrder = 6; // Draw above ring but below labels
-
-                // Optimization: Line positions are in world space.
-                // Disabling matrixAutoUpdate and frustum culling (for these long lines)
-                // reduces per-frame CPU overhead in the render loop.
+                line.renderOrder = 6;
                 line.matrixAutoUpdate = false;
                 line.updateMatrix();
                 line.frustumCulled = false;
@@ -100,39 +92,45 @@ export class AspectLinesManager {
                 };
 
                 this.group.add(line);
-                this.lines.set(key, { line, aspectType: item.aspect.type });
-            } else {
-                // Update position of existing line
-                const data = this.lines.get(key);
-                const attr = data.line.geometry.attributes.instanceStart;
-                const array = attr.data.array;
 
-                // Performance Optimization: Only update GPU buffer if movement exceeds 1e-5 units.
-                // This eliminates ~99% of redundant re-uploads during real-time speeds,
-                // as planet positions are effectively stationary for many frames.
+                // Performance Optimization: Cache frequently used objects and attributes
+                // to avoid deep property lookups and Map access in the hot path.
+                const attr = line.geometry.attributes.instanceStart;
+                data = {
+                    line,
+                    aspectType: item.aspect.type,
+                    lastUpdateFrame: this.frameID,
+                    p1Obj,
+                    p2Obj,
+                    attr,
+                    array: attr.data.array
+                };
+                this.lines.set(key, data);
+            } else {
+                // Performance Optimization: Use cached object references (p1Obj, p2Obj, attr, array)
+                // to eliminate Map/Object lookups and property chains (60fps).
+                data.lastUpdateFrame = this.frameID;
+                const { line, p1Obj, p2Obj, attr, array } = data;
+
+                _v1.copy(p1Obj.position);
+                _v2.copy(p2Obj.position);
+
                 const moved =
                     Math.abs(array[0] - _v1.x) > 1e-5 || Math.abs(array[1] - _v1.y) > 1e-5 || Math.abs(array[2] - _v1.z) > 1e-5 ||
                     Math.abs(array[3] - _v2.x) > 1e-5 || Math.abs(array[4] - _v2.y) > 1e-5 || Math.abs(array[5] - _v2.z) > 1e-5;
 
                 if (moved) {
-                    // Performance Optimization: Direct buffer update avoids new object allocations.
-                    // LineGeometry.setPositions() creates a new InstancedInterleavedBuffer and
-                    // new InterleavedBufferAttribute on every call, which causes significant GC
-                    // pressure (~180 objects/sec for 10 aspects).
                     array[0] = _v1.x; array[1] = _v1.y; array[2] = _v1.z;
                     array[3] = _v2.x; array[4] = _v2.y; array[5] = _v2.z;
                     attr.data.needsUpdate = true;
                 }
 
-                // LineMaterial requires resolution update to correctly handle window resizing.
-                // Optimized to only copy if resolution changed for this instance.
                 if (resChanged) {
-                    data.line.material.resolution.copy(_resolution);
+                    line.material.resolution.copy(_resolution);
                 }
 
-                // If aspect type changed (possible with moving orbs), update color
                 if (data.aspectType !== item.aspect.type) {
-                    data.line.material.color.set(item.aspect.color);
+                    line.material.color.set(item.aspect.color);
                     data.aspectType = item.aspect.type;
                 }
             }
@@ -140,7 +138,9 @@ export class AspectLinesManager {
 
         // Cleanup and Animation loop
         for (const [key, data] of this.lines) {
-            if (!_activeKeys.has(key)) {
+            // Performance Optimization: Use frameID dirty-checking instead of Set clear/populate.
+            // This reduces GC pressure and O(N) Set operations per frame.
+            if (data.lastUpdateFrame !== this.frameID) {
                 data.line.userData.targetOpacity = 0;
                 // Dispose once fully faded
                 if (data.line.material.opacity <= 0.01) {
