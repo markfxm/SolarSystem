@@ -173,6 +173,7 @@ export class AestheticSnapshotManager {
 
             const visualRadius = this.config.visualRadii[name] || 34
             mesh.scale.setScalar(visualRadius)
+            mesh.updateMatrix()
 
             // Create and add schematic orbit
             const orbit = this.createSchematicOrbit(uniformR)
@@ -199,6 +200,7 @@ export class AestheticSnapshotManager {
             )
 
             moon.scale.setScalar(this.config.visualRadii.moon)
+            moon.updateMatrix()
 
             const moonOrbit = this.createSchematicOrbit(this.config.moonOrbitRadius)
             moonOrbit.position.copy(earthPos)
@@ -228,6 +230,7 @@ export class AestheticSnapshotManager {
             }
             sun.scale.setScalar(this.config.visualRadii.sun)
             sun.position.set(0, 0, 0)
+            sun.updateMatrix()
         }
     }
 
@@ -237,6 +240,7 @@ export class AestheticSnapshotManager {
             if (state.position) obj.position.copy(state.position)
             if (state.scale) obj.scale.copy(state.scale)
             if (state.rotation) obj.rotation.copy(state.rotation)
+            if (state.position || state.scale || state.rotation) obj.updateMatrix()
             if (state.visible !== undefined) obj.visible = state.visible
         }
 

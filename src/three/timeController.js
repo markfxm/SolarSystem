@@ -33,12 +33,20 @@ export function createTimeController(planetObjects, orbitScale, extraRotating = 
     }
   }
 
+  for (let i = 0; i < activePlanets.length; i++) {
+    const mesh = activePlanets[i].mesh;
+    if (mesh.matrixAutoUpdate) mesh.matrixAutoUpdate = false;
+    mesh.updateMatrix();
+  }
+
   // Pre-process extraRotating objects for efficient iteration
   const optimizedRotating = [];
   if (Array.isArray(extraRotating)) {
     for (let i = 0; i < extraRotating.length; i++) {
       const obj = extraRotating[i];
       if (obj && obj.userData && obj.userData.name) {
+        if (obj.matrixAutoUpdate) obj.matrixAutoUpdate = false;
+        obj.updateMatrix();
         optimizedRotating.push({
           name: obj.userData.name,
           mesh: obj,
@@ -46,6 +54,15 @@ export function createTimeController(planetObjects, orbitScale, extraRotating = 
         });
       }
     }
+  }
+
+  if (moon) {
+    if (moon.matrixAutoUpdate) moon.matrixAutoUpdate = false;
+    moon.updateMatrix();
+  }
+  if (moonOrbit) {
+    if (moonOrbit.matrixAutoUpdate) moonOrbit.matrixAutoUpdate = false;
+    moonOrbit.updateMatrix();
   }
 
   // Scratch variables to avoid per-frame GC
@@ -84,6 +101,7 @@ export function createTimeController(planetObjects, orbitScale, extraRotating = 
       // Performance Optimization: Only update position if movement exceeds 1e-5 units.
       // This avoids redundant Three.js matrix recalculations and world matrix dirty flags
       // during real-time or slow simulation speeds, as planets move negligibly per frame.
+      let changed = false;
       const curPos = mesh.position;
       if (Math.abs(pos.x - curPos.x) > 1e-5 || Math.abs(pos.y - curPos.y) > 1e-5 || Math.abs(pos.z - curPos.z) > 1e-5) {
         mesh.position.set(pos.x, pos.y, pos.z);
