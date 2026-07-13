@@ -96,8 +96,6 @@ export function createTimeController(planetObjects, orbitScale, extraRotating = 
       const el = computeElements(data, d, scratch, orbitScale);
       const pos = computePosition(el, _scratchPos);
 
-      let changed = false;
-
       // Performance Optimization: Only update position if movement exceeds 1e-5 units.
       // This avoids redundant Three.js matrix recalculations and world matrix dirty flags
       // during real-time or slow simulation speeds, as planets move negligibly per frame.
