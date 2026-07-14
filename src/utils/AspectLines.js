@@ -51,6 +51,7 @@ export class AspectLinesManager {
             // This avoids constant string concatenation in the 60fps astrology loop.
             const id1 = BODY_TO_ID[item.p1];
             const id2 = BODY_TO_ID[item.p2];
+            if (id1 === undefined || id2 === undefined) continue;
             const key = id1 < id2 ? (id1 << 8) | id2 : (id2 << 8) | id1;
 
             // Optimization: Single Map.get() call to minimize lookups
@@ -97,6 +98,7 @@ export class AspectLinesManager {
                 // to avoid deep property lookups and Map access in the hot path.
                 const attr = line.geometry.attributes.instanceStart;
                 data = {
+                    key,
                     line,
                     aspectType: item.aspect.type,
                     lastUpdateFrame: this.frameID,
@@ -137,7 +139,7 @@ export class AspectLinesManager {
         }
 
         // Cleanup and Animation loop
-        for (const [key, data] of this.lines) {
+        for (const data of this.lines.values()) {
             // Performance Optimization: Use frameID dirty-checking instead of Set clear/populate.
             // This reduces GC pressure and O(N) Set operations per frame.
             if (data.lastUpdateFrame !== this.frameID) {
@@ -147,7 +149,7 @@ export class AspectLinesManager {
                     this.group.remove(data.line);
                     data.line.geometry.dispose();
                     data.line.material.dispose();
-                    this.lines.delete(key);
+                    this.lines.delete(data.key);
                     continue;
                 }
             } else {
