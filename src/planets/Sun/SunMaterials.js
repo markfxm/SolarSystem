@@ -17,8 +17,12 @@ const surfaceFragmentShader = `
   varying vec2 vUv;
   varying vec3 vLocalPosition;
 
-  float hash(vec3 point) {
-    return fract(sin(dot(point, vec3(127.1, 311.7, 74.7))) * 43758.5453);
+  // Performance Optimization: Use Hoskins hash ("Hash without Sine") to avoid
+  // expensive transcendental function calls (sin) in the high-frequency shader loop.
+  float hash(vec3 p) {
+    p = fract(p * 0.1031);
+    p += dot(p, p.yzx + 33.33);
+    return fract((p.x + p.y) * p.z);
   }
 
   float noise(vec3 point) {

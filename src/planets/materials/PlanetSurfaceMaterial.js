@@ -79,13 +79,11 @@ const fragmentShader = `
     return dot(color, vec3(0.2126, 0.7152, 0.0722));
   }
 
-  vec3 detailedNormal(vec3 surfaceNormal) {
+  vec3 detailedNormal(vec3 surfaceNormal, float centerLuma) {
     if (detailStrength <= 0.0) return surfaceNormal;
 
     const vec2 texel = vec2(1.0 / 2048.0, 1.0 / 1024.0);
-    float left = surfaceLuma(texture2D(dayTexture, vUv - vec2(texel.x, 0.0)).rgb);
     float right = surfaceLuma(texture2D(dayTexture, vUv + vec2(texel.x, 0.0)).rgb);
-    float down = surfaceLuma(texture2D(dayTexture, vUv - vec2(0.0, texel.y)).rgb);
     float up = surfaceLuma(texture2D(dayTexture, vUv + vec2(0.0, texel.y)).rgb);
 
     vec3 referenceAxis = abs(surfaceNormal.y) > 0.95
@@ -93,14 +91,16 @@ const fragmentShader = `
       : vec3(0.0, 1.0, 0.0);
     vec3 tangent = normalize(cross(referenceAxis, surfaceNormal));
     vec3 bitangent = normalize(cross(surfaceNormal, tangent));
-    vec2 gradient = vec2(right - left, up - down);
+    // Performance Optimization: Use forward difference with a 2x factor instead of central difference.
+    // This reduces texture fetches from 5 to 3 per pixel while maintaining visual detail scale.
+    vec2 gradient = vec2(right - centerLuma, up - centerLuma) * 2.0;
     return normalize(surfaceNormal - detailStrength * (gradient.x * tangent + gradient.y * bitangent));
   }
 
   void main() {
     vec3 dayColor = texture2D(dayTexture, vUv).rgb;
     vec3 nightColor = useNight ? texture2D(nightTexture, vUv).rgb : vec3(0.0);
-    vec3 normal = detailedNormal(normalize(vNormal));
+    vec3 normal = detailedNormal(normalize(vNormal), surfaceLuma(dayColor));
     vec3 lightDir = normalize(-vWorldPosition);
     vec3 viewDir = normalize(cameraPosition - vWorldPosition);
     float lightAmount = dot(normal, lightDir);
