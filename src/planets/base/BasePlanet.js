@@ -3,56 +3,7 @@ import { createLatLonGrid } from '../../utils/Grid.js';
 import { createPOIMarkers } from '../../utils/POI.js';
 import { createHolographicMaterial } from '../../utils/HolographicMaterial';
 import { unitSphereGeometry } from '../../three/geometries.js';
-
-const vertexShader = `
-  varying vec2 vUv;
-  varying vec3 vNormal;
-  varying vec3 vWorldPosition;
-
-  void main() {
-    vUv = uv;
-    vNormal = normalize(mat3(modelMatrix) * normal);
-    vec4 worldPos = modelMatrix * vec4(position, 1.0);
-    vWorldPosition = worldPos.xyz;
-    gl_Position = projectionMatrix * viewMatrix * worldPos;
-  }
-`;
-
-const fragmentShader = `
-  uniform sampler2D dayTexture;
-  uniform sampler2D nightTexture;
-  uniform bool useNight;
-  varying vec2 vUv;
-  varying vec3 vNormal;
-  varying vec3 vWorldPosition;
-
-  const float directBoost  = 1.5;
-  const float ambientLevel = 0.15;
-  const float extraFill    = 0.1;
-
-  void main() {
-    vec3 dayColor   = texture2D(dayTexture, vUv).rgb;
-    vec3 nightColor = useNight ? texture2D(nightTexture, vUv).rgb : vec3(0.0);
-
-    vec3 lightDir   = normalize(-vWorldPosition);
-    float cosAngle  = dot(vNormal, lightDir);
-
-    float direct    = max(0.0, cosAngle) * directBoost;
-    float ambient   = ambientLevel + extraFill;
-
-    float mixFactor = smoothstep(-0.2, 0.2, cosAngle);
-
-    vec3 baseColor  = mix(nightColor, dayColor, mixFactor);
-    vec3 color      = baseColor * (direct + ambient);
-
-    if (useNight) {
-        float nightIntensity = smoothstep(0.2, -0.2, cosAngle);
-        color += nightColor * nightIntensity * 2.0;
-    }
-
-    gl_FragColor = vec4(color, 1.0);
-  }
-`;
+import { createPlanetSurfaceMaterial } from '../materials/PlanetSurfaceMaterial.js';
 
 export class BasePlanet {
   constructor(name, radius, scene) {
@@ -67,15 +18,7 @@ export class BasePlanet {
 
   createMesh(dayTexture, nightTexture = null) {
     // Optimized: Use shared unit geometry and scale the mesh by this.radius
-    const material = new THREE.ShaderMaterial({
-      uniforms: {
-        dayTexture: { value: dayTexture },
-        nightTexture: { value: nightTexture || new THREE.Texture() },
-        useNight: { value: !!nightTexture },
-      },
-      vertexShader,
-      fragmentShader
-    });
+    const material = createPlanetSurfaceMaterial(this.name, dayTexture, nightTexture);
 
     this.originalMaterial = material;
     this.mesh = new THREE.Mesh(unitSphereGeometry, material);
