@@ -1,6 +1,7 @@
 import * as THREE from 'three';
-import { createHolographicMaterial } from '../../utils/HolographicMaterial';
+import { createHolographicMaterial } from '../../utils/HolographicMaterial.ts';
 import { unitSphereGeometry } from '../../three/geometries.js';
+import { createSunSurfaceMaterial, createSunCoronaMaterial } from './SunMaterials.js';
 
 export class Sun {
   constructor(radius, scene) {
@@ -13,8 +14,7 @@ export class Sun {
   }
 
   create(texture) {
-    // Optimized: Use shared unit geometry and scale the mesh
-    const material = new THREE.MeshBasicMaterial({ map: texture });
+    const material = createSunSurfaceMaterial(texture);
     this.originalMaterial = material;
 
     this.mesh = new THREE.Mesh(unitSphereGeometry, material);
@@ -31,15 +31,33 @@ export class Sun {
     this.mesh.name = 'sun';
 
     this.scene.add(this.mesh);
+
+    this.coronaMaterial = createSunCoronaMaterial();
+    const corona = new THREE.Mesh(unitSphereGeometry, this.coronaMaterial);
+    corona.name = 'sunCorona';
+    corona.scale.setScalar(1.08);
+    corona.raycast = () => {};
+    corona.matrixAutoUpdate = false;
+    corona.updateMatrix();
+    this.mesh.add(corona);
+
     return this.mesh;
   }
 
   updateHQ(hqTexture) {
     if (!this.mesh) return;
-    const oldTex = this.originalMaterial.map;
-    this.originalMaterial.map = hqTexture;
-    this.originalMaterial.needsUpdate = true;
+    const oldTex = this.originalMaterial.uniforms.map.value;
+    this.originalMaterial.uniforms.map.value = hqTexture;
     if (oldTex && oldTex !== hqTexture) oldTex.dispose();
+  }
+
+  updateVisuals(deltaSeconds) {
+    if (this.originalMaterial) {
+      this.originalMaterial.uniforms.time.value += deltaSeconds;
+    }
+    if (this.coronaMaterial) {
+      this.coronaMaterial.uniforms.time.value += deltaSeconds;
+    }
   }
 
   setHolographic(enabled) {
