@@ -179,8 +179,11 @@ export function computeElements(planetNameOrData, d, target = null, scale = 10) 
 
   // Mean Anomaly (M) must be updated every frame for smooth motion
   // Optimized: Uses flattened property for O(1) access.
+  // Performance Optimization: Normalized to [-π, π] range.
+  // This prevents precision loss for large simulation dates while maintaining
+  // a stable input for the Kepler solver when combined with deltaM wrapping.
   const M = data.M0 + data.M1 * d;
-  res.M = M - Math.floor(M * INV_TWO_PI + 0.5) * TWO_PI;
+  res.M = M - Math.round(M * INV_TWO_PI) * TWO_PI;
 
   // Caching: Slow elements (a, e, i, N, w) change by negligible amounts in 0.01 days (~14 min)
   // Skip recalculation of P/Q vectors if we are within threshold and same planet/scale
@@ -271,13 +274,16 @@ export function computePosition(elements, target = null) {
     den = 1 - e * cosE;
   } else {
     let deltaM = M - lastM;
-    deltaM = deltaM - Math.floor(deltaM * INV_TWO_PI + 0.5) * TWO_PI;
-    // Only use warm start if the time step is reasonably small (< 0.1 radians)
+    // Performance Optimization: Wrap deltaM to [-π, π] to handle boundary crossings.
+    deltaM = deltaM - Math.round(deltaM * INV_TWO_PI) * TWO_PI;
+
     if (Math.abs(deltaM) < 0.1) {
       E = lastE + deltaM;
-      E = E - Math.floor(E * INV_TWO_PI + 0.5) * TWO_PI;
+      // Performance Optimization: Wrap E candidate to [-π, π] to handle boundary crossings.
+      // This ensures the initial residual is small, keeping the solver in the fast-path.
+      E = E - Math.round(E * INV_TWO_PI) * TWO_PI;
     } else {
-      E = e > 0.01 ? M + e * Math.sin(M) : M;
+      E = (e > 0.01 ? M + e * Math.sin(M) : M);
     }
 
     for (let iter = 0; iter < 6; iter++) {
