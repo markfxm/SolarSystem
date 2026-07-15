@@ -178,9 +178,12 @@ export function computeElements(planetNameOrData, d, target = null, scale = 10) 
   }
 
   // Mean Anomaly (M) must be updated every frame for smooth motion
-  // Optimized: Uses flattened property for O(1) access
-  let M = data.M0 + data.M1 * d;
-  res.M = M - Math.floor(M * INV_TWO_PI + 0.5) * TWO_PI;
+  // Optimized: Uses flattened property for O(1) access.
+  // Performance Optimization: Normalized to [-π, π] range.
+  // This prevents precision loss for large simulation dates while maintaining
+  // a stable input for the Kepler solver when combined with deltaM wrapping.
+  const M = data.M0 + data.M1 * d;
+  res.M = M - Math.round(M * INV_TWO_PI) * TWO_PI;
 
   // Caching: Slow elements (a, e, i, N, w) change by negligible amounts in 0.01 days (~14 min)
   // Skip recalculation of P/Q vectors if we are within threshold and same planet/scale
@@ -257,8 +260,8 @@ export function computeElements(planetNameOrData, d, target = null, scale = 10) 
  */
 export function computePosition(elements, target = null) {
   const res = target || _posResult;
-  const e = elements.e;
-  const M = elements.M;
+  // Performance Optimization: Destructure properties to eliminate redundant lookups in hot-path.
+  const { e, M, lastM, lastE, PxA, PyA, PzA, QxAS, QyAS, QzAS, aScaled } = elements;
 
   // Solve Kepler's equation with early exit for low eccentricity
   // Optimized: Use "warm-start" guess (previous E + delta M) for 60fps stability.
@@ -270,9 +273,18 @@ export function computePosition(elements, target = null) {
     cosE = Math.cos(E);
     den = 1 - e * cosE;
   } else {
-    const deltaM = M - elements.lastM;
-    // Only use warm start if the time step is reasonably small (< 0.1 radians)
-    E = (Math.abs(deltaM) < 0.1) ? elements.lastE + deltaM : (e > 0.01 ? M + e * Math.sin(M) : M);
+    let deltaM = M - lastM;
+    // Performance Optimization: Wrap deltaM to [-π, π] to handle boundary crossings.
+    deltaM = deltaM - Math.round(deltaM * INV_TWO_PI) * TWO_PI;
+
+    if (Math.abs(deltaM) < 0.1) {
+      E = lastE + deltaM;
+      // Performance Optimization: Wrap E candidate to [-π, π] to handle boundary crossings.
+      // This ensures the initial residual is small, keeping the solver in the fast-path.
+      E = E - Math.round(E * INV_TWO_PI) * TWO_PI;
+    } else {
+      E = (e > 0.01 ? M + e * Math.sin(M) : M);
+    }
 
     for (let iter = 0; iter < 6; iter++) {
       sinE = Math.sin(E);
@@ -293,13 +305,13 @@ export function computePosition(elements, target = null) {
   // Gaussian constants (PxA, QxAS, etc.) are already pre-multiplied by scale AND
   // pre-swapped into World space (X_world = X_ecl, Y_world = Z_ecl, Z_world = -Y_ecl) in computeElements.
   const cosEmE = cosE - e;
-  res.x = elements.PxA * cosEmE + elements.QxAS * sinE;
-  res.y = elements.PyA * cosEmE + elements.QyAS * sinE;
-  res.z = elements.PzA * cosEmE + elements.QzAS * sinE;
+  res.x = PxA * cosEmE + QxAS * sinE;
+  res.y = PyA * cosEmE + QyAS * sinE;
+  res.z = PzA * cosEmE + QzAS * sinE;
 
   // Performance Optimization: Reuse the Newton-Raphson denominator (1 - e * cosE)
   // to calculate the distance property, saving one multiplication and one subtraction.
-  res.r = elements.aScaled * den;
+  res.r = aScaled * den;
   return res;
 }
 
