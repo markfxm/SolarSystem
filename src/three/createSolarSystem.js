@@ -12,6 +12,7 @@ import {
   HIGH_RES_PLANET_MAPS,
   configureColorTexture
 } from './planetTextures.js'
+import { createPlanetDetailController } from './planetDetail.js'
 
 const orbitScale = 260
 const sizeScale = 1.2
@@ -142,6 +143,7 @@ export async function createSolarSystem(scene, renderer, zodiacNames = [], onPro
   scene.add(moonOrbit);
 
   const planets = Object.values(planetObjects);
+  const detailController = createPlanetDetailController(planetObjects);
 
   // Initial positions & orientations
   const startD = computeD(new Date());
@@ -236,7 +238,12 @@ export async function createSolarSystem(scene, renderer, zodiacNames = [], onPro
     zodiacRing,
     aspectsManager,
     auraManager,
+    updateVisuals: (deltaSeconds) => {
+      planetInstances.earth.updateVisuals?.(deltaSeconds);
+      planetInstances.sun.updateVisuals?.(deltaSeconds);
+    },
     prioritizeHQ: (name) => {
+       detailController.prioritize(name);
        if (name === 'earth') {
          loadHQ('earth', 'earth_day');
          loadHQ('earth', 'earth_night');

@@ -761,6 +761,7 @@ onMounted(async () => {
     if (viewMode.value === 'solar') {
       if (timeController) timeController.update(delta)
       if (interactions) interactions.update(delta)
+      if (solar?.updateVisuals) solar.updateVisuals(delta)
 
       // Update POI UI if one is selected
       if (selectedPOI.value && engine && solar) {
