@@ -7,6 +7,11 @@ import { createZodiacRing } from '../utils/ZodiacRing.js';
 import { AspectLinesManager } from '../utils/AspectLines.js';
 import { AuraManager } from '../utils/AuraManager.js';
 import { getHolographicLineColor } from '../utils/HolographicMaterial';
+import {
+  LOW_RES_PLANET_MAPS,
+  HIGH_RES_PLANET_MAPS,
+  configureColorTexture
+} from './planetTextures.js'
 
 const orbitScale = 260
 const sizeScale = 1.2
@@ -26,49 +31,26 @@ const sizes = {
   neptune: 12.03
 }
 
-const lowResMaps = {
-  sun: '/sun.jpg',
-  mercury: '/mercury.jpg',
-  venus: '/venus.jpg',
-  earth_day: '/2k_earth_daymap.jpg',
-  earth_night: '/2k_earth_nightmap.jpg',
-  mars: '/mars.jpg',
-  jupiter: '/jupiter.jpg',
-  saturn: '/saturn.jpg',
-  uranus: '/uranus.jpg',
-  neptune: '/neptune.jpg',
-  moon: '/mercury.jpg'
-}
-
-const highResMaps = {
-  sun: '/hq/8k_sun.jpg',
-  mercury: '/hq/8k_mercury.jpg',
-  venus: '/hq/8k_venus.jpg',
-  earth_day: '/hq/8k_earth_daymap.jpg',
-  earth_night: '/hq/8k_earth_nightmap.jpg',
-  mars: '/hq/8k_mars.jpg',
-  jupiter: '/hq/8k_jupiter.jpg',
-  saturn: '/hq/8k_saturn.jpg',
-  uranus: '/hq/2k_uranus.jpg',
-  neptune: '/hq/2k_neptune.jpg',
-  moon: '/hq/8k_moon.jpg'
-}
-
 const textureLoader = new THREE.TextureLoader()
 
-const loadTexture = (path) =>
+const loadTexture = (path, renderer) =>
   new Promise((resolve, reject) => {
-    textureLoader.load(path, resolve, undefined, reject)
+    textureLoader.load(
+      path,
+      texture => resolve(configureColorTexture(texture, renderer)),
+      undefined,
+      reject
+    )
   })
 
-export async function createSolarSystem(scene, zodiacNames = [], onProgress = () => {}) {
+export async function createSolarSystem(scene, renderer, zodiacNames = [], onProgress = () => {}) {
   // Performance Optimization: Track orbits and resolution-dependent objects in dedicated arrays
   // to avoid expensive O(N) scene traversals during resizing or mode toggling.
   const orbits = [];
   const resDependent = [];
 
   // 1. Initial Load: Load all low-res textures
-  const keys = Object.keys(lowResMaps);
+  const keys = Object.keys(LOW_RES_PLANET_MAPS);
   const totalSteps = keys.length;
   let loadedSteps = 0;
 
@@ -76,7 +58,7 @@ export async function createSolarSystem(scene, zodiacNames = [], onProgress = ()
 
   const loadLowRes = async (key) => {
     try {
-      const tex = await loadTexture(lowResMaps[key]);
+      const tex = await loadTexture(LOW_RES_PLANET_MAPS[key], renderer);
       loadedSteps++;
       onProgress((loadedSteps / totalSteps) * 100);
       lowResTextures[key] = tex;
@@ -90,6 +72,7 @@ export async function createSolarSystem(scene, zodiacNames = [], onProgress = ()
       ctx.fillStyle = '#333';
       ctx.fillRect(0,0,2,2);
       const fallback = new THREE.CanvasTexture(canvas);
+      configureColorTexture(fallback, renderer);
       lowResTextures[key] = fallback;
       return fallback;
     }
@@ -139,7 +122,7 @@ export async function createSolarSystem(scene, zodiacNames = [], onProgress = ()
   initPlanet('neptune', sizes.neptune * sizeScale, lowResTextures.neptune);
 
   // Saturn Rings
-  planetInstances.saturn.addRings(textureLoader).catch(console.error);
+  planetInstances.saturn.addRings(textureLoader, renderer).catch(console.error);
 
   // Moon
   const moonInstance = new PlanetClasses.moon(sizes.earth * sizeScale * 0.27, scene);
@@ -225,7 +208,7 @@ export async function createSolarSystem(scene, zodiacNames = [], onProgress = ()
     hqStatus[key] = 'loading';
 
     try {
-      const hqTex = await loadTexture(highResMaps[key]);
+      const hqTex = await loadTexture(HIGH_RES_PLANET_MAPS[key], renderer);
       const instance = planetInstances[planetName];
       if (instance) {
         const isNight = key.includes('night');
@@ -257,7 +240,7 @@ export async function createSolarSystem(scene, zodiacNames = [], onProgress = ()
        if (name === 'earth') {
          loadHQ('earth', 'earth_day');
          loadHQ('earth', 'earth_night');
-       } else if (highResMaps[name]) {
+       } else if (HIGH_RES_PLANET_MAPS[name]) {
          loadHQ(name, name);
        }
     },

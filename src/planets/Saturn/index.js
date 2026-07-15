@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { BasePlanet } from '../base/BasePlanet.js';
+import { configureDataTexture } from '../../three/planetTextures.js';
 
 export class Saturn extends BasePlanet {
   constructor(radius, scene) {
@@ -11,14 +12,19 @@ export class Saturn extends BasePlanet {
     return mesh;
   }
 
-  async addRings(textureLoader) {
+  async addRings(textureLoader, renderer) {
     // Optimized: Use normalized dimensions as it is now a child of a scaled unit-sphere.
     const innerRadius = 1.11;
     const outerRadius = 2.33;
 
     try {
       const ringAlpha = await new Promise((resolve, reject) => {
-        textureLoader.load('/hq/8k_saturn_ring_alpha.png', resolve, undefined, reject);
+        textureLoader.load(
+          '/hq/8k_saturn_ring_alpha.png',
+          texture => resolve(configureDataTexture(texture, renderer)),
+          undefined,
+          reject
+        );
       });
 
       const ringGeo = new THREE.RingGeometry(innerRadius, outerRadius, 128, 8);

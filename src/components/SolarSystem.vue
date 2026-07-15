@@ -668,7 +668,7 @@ onMounted(async () => {
   }
   requestAnimationFrame(updateLoaderUI)
 
-  solar = await createSolarSystem(engine.scene, t('zodiac_names'), (progress) => {
+  solar = await createSolarSystem(engine.scene, engine.renderer, t('zodiac_names'), (progress) => {
     actualProgress = progress
     loadingProgress.value = Math.round(progress)
   })
