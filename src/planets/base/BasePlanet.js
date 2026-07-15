@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { createLatLonGrid } from '../../utils/Grid.js';
 import { createPOIMarkers } from '../../utils/POI.js';
-import { createHolographicMaterial } from '../../utils/HolographicMaterial';
+import { createHolographicMaterial } from '../../utils/HolographicMaterial.ts';
 import { unitSphereGeometry } from '../../three/geometries.js';
 import { createPlanetSurfaceMaterial } from '../materials/PlanetSurfaceMaterial.js';
 
