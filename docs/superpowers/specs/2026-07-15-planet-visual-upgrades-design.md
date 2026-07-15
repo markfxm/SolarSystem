@@ -64,7 +64,7 @@ Expose a single `updateVisuals(deltaSeconds)` method from the solar-system facto
 ## Error Handling
 
 - Preserve the current fallback texture behavior when a color texture cannot load.
-- If a high-resolution texture fails, retain the low-resolution texture and default geometry.
+- If a high-resolution texture fails, retain the low-resolution texture; close-view geometry may remain active because it is shared and does not depend on the texture request.
 - Decorative layers must not prevent the corresponding planet from being created.
 - Generated shader materials and geometries are shared where safe and disposed with the existing scene lifecycle when disposal support is extended.
 
