@@ -75,7 +75,7 @@ const fragmentShader = `
   varying vec3 vNormal;
   varying vec3 vWorldPosition;
 
-  float luminance(vec3 color) {
+  float surfaceLuma(vec3 color) {
     return dot(color, vec3(0.2126, 0.7152, 0.0722));
   }
 
@@ -83,10 +83,10 @@ const fragmentShader = `
     if (detailStrength <= 0.0) return surfaceNormal;
 
     const vec2 texel = vec2(1.0 / 2048.0, 1.0 / 1024.0);
-    float left = luminance(texture2D(dayTexture, vUv - vec2(texel.x, 0.0)).rgb);
-    float right = luminance(texture2D(dayTexture, vUv + vec2(texel.x, 0.0)).rgb);
-    float down = luminance(texture2D(dayTexture, vUv - vec2(0.0, texel.y)).rgb);
-    float up = luminance(texture2D(dayTexture, vUv + vec2(0.0, texel.y)).rgb);
+    float left = surfaceLuma(texture2D(dayTexture, vUv - vec2(texel.x, 0.0)).rgb);
+    float right = surfaceLuma(texture2D(dayTexture, vUv + vec2(texel.x, 0.0)).rgb);
+    float down = surfaceLuma(texture2D(dayTexture, vUv - vec2(0.0, texel.y)).rgb);
+    float up = surfaceLuma(texture2D(dayTexture, vUv + vec2(0.0, texel.y)).rgb);
 
     vec3 referenceAxis = abs(surfaceNormal.y) > 0.95
       ? vec3(1.0, 0.0, 0.0)

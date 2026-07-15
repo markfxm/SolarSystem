@@ -25,3 +25,8 @@ test('Earth material retains day and night texture uniforms', () => {
   assert.equal(material.uniforms.nightTexture.value, night)
   assert.equal(material.uniforms.useNight.value, true)
 })
+
+test('surface shader avoids Three.js built-in luminance symbol', () => {
+  const material = createPlanetSurfaceMaterial('mars', new THREE.Texture())
+  assert.doesNotMatch(material.fragmentShader, /float\s+luminance\s*\(/)
+})
