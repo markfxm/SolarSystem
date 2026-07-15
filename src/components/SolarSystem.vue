@@ -277,12 +277,17 @@ function startClock() {
 
 function onPlanetSelected(id) {
   selectedPlanetId.value = id
-  interactions?.focusPlanetById(id)
+  focusPlanetWithDeferredDetail(id)
+}
 
-  // Prioritize HQ texture loading for selected planet
-  if (solar && solar.prioritizeHQ) {
-    solar.prioritizeHQ(id)
-  }
+function focusPlanetWithDeferredDetail(id) {
+  const detailReady = solar?.preloadHQ?.(id) || Promise.resolve(false)
+  interactions?.focusPlanetById(id, async () => {
+    const loaded = await detailReady
+    if (loaded && selectedPlanetId.value === id) {
+      solar?.applyPreparedHQ?.(id)
+    }
+  })
 }
 
 function onShowInfo(id) {
@@ -390,12 +395,7 @@ function returnToOrbit() {
 }
 
 function handleFocusPlanet(name) {
-  if (interactions) {
-    interactions.focusPlanetById(name)
-  }
-  if (solar && solar.prioritizeHQ) {
-    solar.prioritizeHQ(name)
-  }
+  focusPlanetWithDeferredDetail(name)
 }
 
 function onHomeClick() {

@@ -79,6 +79,7 @@ export function createInteractions({
   let flyDurationMs = 1500
   let flyTargetBody = null
   let flyCameraOffset = null
+  let flyOnArrive = null
   let prevControlsState = null
 
   /* ─────────────────────────────
@@ -113,7 +114,7 @@ export function createInteractions({
     }
   }
 
-  function startFlyTo(body) {
+  function startFlyTo(body, onArrive = null) {
     timeController?.freeze()
 
     const { cameraPos, lookAt, minDistance } =
@@ -145,6 +146,7 @@ export function createInteractions({
     flyStartMs = performance.now()
     flyTargetBody = body
     flyCameraOffset = cameraPos.clone().sub(body.position)
+    flyOnArrive = onArrive
 
     // Mark selection immediately so the panel can reflect the state
     selectedObject = body
@@ -199,6 +201,14 @@ export function createInteractions({
       selectedObject = flyTargetBody
       flyTargetBody = null
       flyCameraOffset = null
+    }
+
+    const onArrive = flyOnArrive
+    flyOnArrive = null
+    try {
+      onArrive?.()
+    } catch (e) {
+      // noop
     }
   }
 
@@ -334,13 +344,13 @@ export function createInteractions({
      Public API
   ───────────────────────────── */
 
-  function focusPlanetById(id) {
+  function focusPlanetById(id, onArrive = null) {
     const target = planets.find(
       p => p.userData.name === id
     )
     if (!target) return
 
-    startFlyTo(target)
+    startFlyTo(target, onArrive)
   }
 
   function update(deltaSeconds = 0) {
@@ -456,6 +466,7 @@ export function createInteractions({
     isFlying = false
     flyTargetBody = null
     flyCameraOffset = null
+    flyOnArrive = null
 
     // Notify host that selection was cleared
     try {

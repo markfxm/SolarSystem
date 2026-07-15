@@ -13,6 +13,7 @@ import {
   configureColorTexture
 } from './planetTextures.js'
 import { createPlanetDetailController } from './planetDetail.js'
+import { createPlanetTextureController } from './planetTextureController.js'
 
 const orbitScale = 260
 const sizeScale = 1.2
@@ -203,26 +204,18 @@ export async function createSolarSystem(scene, renderer, zodiacNames = [], onPro
   const aspectsManager = new AspectLinesManager(scene, planetObjects);
   const auraManager = new AuraManager(scene, planetObjects);
 
-  const hqStatus = {};
-
-  const loadHQ = async (planetName, key) => {
-    if (hqStatus[key]) return;
-    hqStatus[key] = 'loading';
-
-    try {
-      const hqTex = await loadTexture(HIGH_RES_PLANET_MAPS[key], renderer);
-      const instance = planetInstances[planetName];
-      if (instance) {
-        const isNight = key.includes('night');
-        instance.updateHQ(hqTex, isNight);
-        hqStatus[key] = 'loaded';
-        console.log(`🚀 HQ Texture loaded for ${planetName} (${key})`);
-      }
-    } catch (e) {
-      delete hqStatus[key];
-      console.warn(`Failed to load HQ texture for ${planetName}`, e);
+  const textureController = createPlanetTextureController({
+    maps: HIGH_RES_PLANET_MAPS,
+    loadTexture: path => loadTexture(path, renderer),
+    planetInstances,
+    detailController,
+    onLoaded: (planetName, key) => {
+      console.log(`Detail texture prepared for ${planetName} (${key})`);
+    },
+    onError: (planetName, key, error) => {
+      console.warn(`Failed to load detail texture for ${planetName} (${key})`, error);
     }
-  }
+  });
 
   return {
     scene,
@@ -242,15 +235,9 @@ export async function createSolarSystem(scene, renderer, zodiacNames = [], onPro
       planetInstances.earth.updateVisuals?.(deltaSeconds);
       planetInstances.sun.updateVisuals?.(deltaSeconds);
     },
-    prioritizeHQ: (name) => {
-       detailController.prioritize(name);
-       if (name === 'earth') {
-         loadHQ('earth', 'earth_day');
-         loadHQ('earth', 'earth_night');
-       } else if (HIGH_RES_PLANET_MAPS[name]) {
-         loadHQ(name, name);
-       }
-    },
+    preloadHQ: name => textureController.preload(name),
+    applyPreparedHQ: name => textureController.apply(name),
+    prioritizeHQ: name => textureController.prioritize(name),
     setHolographic: (enabled) => {
       // 1. Toggle Planets
       Object.values(planetInstances).forEach(instance => {
