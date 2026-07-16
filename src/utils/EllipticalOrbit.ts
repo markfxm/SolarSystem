@@ -71,7 +71,9 @@ export function createEllipticalOrbit(
   })
 
   // Set resolution later in SolarSystem.vue
-  material.resolution.set(window.innerWidth, window.innerHeight)
+  if (typeof window !== 'undefined') {
+    material.resolution.set(window.innerWidth, window.innerHeight)
+  }
 
   const orbitLine = new Line2(geometry, material)
   // Optimization: Orbit lines are not interactive, disable raycasting to save CPU during mouse movement
