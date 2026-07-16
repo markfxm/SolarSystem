@@ -22,13 +22,13 @@ export async function captureHighRes(
     renderer.getSize(originalSize)
     const originalPixelRatio = renderer.getPixelRatio()
 
+    let originalAspect = 1
     try {
         // 1. Set High Resolution
         renderer.setPixelRatio(1) // Force 1:1 pixel ratio for exact sizing
         renderer.setSize(width, height, false) // false = don't update canvas style
 
         // Update camera aspect ratio
-        let originalAspect = 1
         if (camera instanceof THREE.PerspectiveCamera) {
           originalAspect = camera.aspect
           camera.aspect = width / height
@@ -53,7 +53,11 @@ export async function captureHighRes(
         ctx.drawImage(renderer.domElement, 0, 0)
 
         const dataUrl = canvas.toDataURL('image/png', 1.0)
-
+        return dataUrl
+    } catch (err) {
+        console.error("Screenshot failed:", err)
+        return null
+    } finally {
         // 4. Restore State
         if (camera instanceof THREE.PerspectiveCamera) {
           camera.aspect = originalAspect
@@ -65,15 +69,6 @@ export async function captureHighRes(
 
         // Re-render immediately to avoid flicker
         renderer.render(scene, camera)
-
-        return dataUrl
-    } catch (err) {
-        console.error("Screenshot failed:", err)
-
-        // Attempt restore just in case
-        renderer.setSize(originalSize.x, originalSize.y, false)
-        renderer.setPixelRatio(originalPixelRatio)
-        return null
     }
 }
 
