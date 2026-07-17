@@ -22,6 +22,7 @@ const SNAPSHOT_ORBIT_BASE_RADIUS = 220
 const SNAPSHOT_ORBIT_STEP = 140
 const SNAPSHOT_OUTER_ORBIT_RADIUS = SNAPSHOT_ORBIT_BASE_RADIUS + 7 * SNAPSHOT_ORBIT_STEP
 const SNAPSHOT_MOON_ORBIT_RADIUS = 80
+const META_CACHE_LIMIT = 10
 const SNAPSHOT_BODY_INDEX = {
   mercury: 0,
   venus: 1,
@@ -79,8 +80,8 @@ function buildSnapshotBodies(date) {
     sun: { x: 0, y: 0 }
   }
 
-  for (const id of SNAPSHOT_BODY_IDS) {
-    if (id === 'sun') continue
+  const planetoids = [...SNAPSHOT_BODY_IDS.filter(id => id !== 'sun'), 'earth']
+  for (const id of planetoids) {
     // Use per-planet scratch to enable NR solver optimizations
     const elements = computeElements(id, d, _posterScratch[id], 1)
     const pos = computePosition(elements)
@@ -91,12 +92,6 @@ function buildSnapshotBodies(date) {
     const len = Math.sqrt(pos.x * pos.x + pos.y * pos.y) || 1
     bodies[id] = { x: (pos.x / len) * radius, y: (pos.y / len) * radius }
   }
-
-  const earthElements = computeElements('earth', d, _posterScratch.earth, 1)
-  const earthPos = computePosition(earthElements)
-  const earthLen = Math.sqrt(earthPos.x * earthPos.x + earthPos.y * earthPos.y) || 1
-  const earthRadius = (SNAPSHOT_ORBIT_BASE_RADIUS + SNAPSHOT_BODY_INDEX.earth * SNAPSHOT_ORBIT_STEP) / SNAPSHOT_OUTER_ORBIT_RADIUS
-  bodies.earth = { x: (earthPos.x / earthLen) * earthRadius, y: (earthPos.y / earthLen) * earthRadius }
 
   const moonElements = computeElements('moon', d, _posterScratch.moon, 1)
   const moonPos = computePosition(moonElements)
@@ -136,8 +131,8 @@ export function buildStellarPosterMeta({
 
     cached = { chart, aspects, majorAspect, elementResult, snapshotBodies };
 
-    // Simple cache eviction (limit to 10 entries)
-    if (metaCache.size > 10) {
+    // Simple cache eviction (limit to META_CACHE_LIMIT entries)
+    if (metaCache.size >= META_CACHE_LIMIT) {
       const firstKey = metaCache.keys().next().value;
       metaCache.delete(firstKey);
     }
