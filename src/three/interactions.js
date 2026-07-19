@@ -49,14 +49,17 @@ export function createInteractions({
 
   // Performance Optimization: Pre-calculate POI collections to avoid redundant
   // scene graph traversal in the 30fps mouse move loop.
+  // By only collecting the interactive 'dot' mesh (instead of both 'dot' and the large,
+  // transparent 'labelMesh'), we reduce candidates by 50% and avoid false-positive hover triggers
+  // on the transparent label backgrounds.
   const planetPOIInfo = planets.map(p => {
     if (p.userData.pois) {
       const meshes = []
       const groups = p.userData.pois.children
       for (let i = 0; i < groups.length; i++) {
         const group = groups[i]
-        for (let j = 0; j < group.children.length; j++) {
-          meshes.push(group.children[j])
+        if (group.userData && group.userData.dot) {
+          meshes.push(group.userData.dot)
         }
       }
       return { group: p.userData.pois, meshes }
