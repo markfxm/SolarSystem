@@ -1,4 +1,4 @@
-import { computeD, computeElements, computePosition, RAD2DEG } from './Astronomy.js';
+import { computeD, computeElements, computePosition, RAD2DEG, PLANETS_DATA } from './Astronomy.js';
 
 export const ZODIAC_SIGNS = [
     'aries', 'taurus', 'gemini', 'cancer', 'leo', 'virgo',
@@ -24,6 +24,18 @@ for (const key in ASPECT_TYPES) {
 const HELIOCENTRIC_PLANETS = ['mercury', 'venus', 'earth', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune'];
 export const GEOCENTRIC_PLANETS = ['sun', 'moon', 'mercury', 'venus', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune'];
 export const GEOCENTRIC_PLANET_SET = new Set(GEOCENTRIC_PLANETS);
+
+const HELIOCENTRIC_ENTRIES = HELIOCENTRIC_PLANETS.map(name => ({
+    name,
+    data: PLANETS_DATA[name]
+}));
+
+const GEOCENTRIC_ENTRIES = GEOCENTRIC_PLANETS.map(name => ({
+    name,
+    data: PLANETS_DATA[name]
+}));
+
+const earthData = PLANETS_DATA.earth;
 const ALL_BODIES = ['sun', 'moon', 'mercury', 'venus', 'earth', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune'];
 
 // Pre-calculate minutes padding for formatDegree (00-59)
@@ -120,10 +132,12 @@ export class AstrologyService {
         const results = target || {};
         const days = computeD(d);
 
-        for (let i = 0; i < HELIOCENTRIC_PLANETS.length; i++) {
-            const name = HELIOCENTRIC_PLANETS[i];
+        for (let i = 0; i < HELIOCENTRIC_ENTRIES.length; i++) {
+            const entry = HELIOCENTRIC_ENTRIES[i];
+            const name = entry.name;
             // Performance Optimization: Use per-planet scratch to enable warm-start NR solver
-            const elements = computeElements(name, days, _geoScratch[name], 1);
+            // Passing entry.data directly eliminates string lookup and parsing in computeElements.
+            const elements = computeElements(entry.data, days, _geoScratch[name], 1);
             const pos = computePosition(elements, _pPos);
             // Math Fix: In world space, x_ecl = x, y_ecl = -z.
             // Previous code used world-y (ecliptic-z) which is wrong for longitude.
@@ -153,14 +167,16 @@ export class AstrologyService {
             earthX = earth.position.x;
             earthYecl = -earth.position.z;
         } else {
-            const earthElements = computeElements('earth', days, _earthElements, 1);
+            const earthElements = computeElements(earthData, days, _earthElements, 1);
             const earthPos = computePosition(earthElements, _earthPos);
             earthX = earthPos.x;
             earthYecl = -earthPos.z; // x_ecl = x, y_ecl = -z
         }
 
-        for (let i = 0; i < GEOCENTRIC_PLANETS.length; i++) {
-            const name = GEOCENTRIC_PLANETS[i];
+        for (let i = 0; i < GEOCENTRIC_ENTRIES.length; i++) {
+            const entry = GEOCENTRIC_ENTRIES[i];
+            const name = entry.name;
+            const data = entry.data;
             let relX, relY;
 
             if (name === 'sun') {
@@ -174,7 +190,7 @@ export class AstrologyService {
                 relX = moon.position.x - earth.position.x;
                 relY = -(moon.position.z - earth.position.z);
             } else if (name === 'moon') {
-                const elements = computeElements('moon', days, _geoScratch.moon, 1);
+                const elements = computeElements(data, days, _geoScratch.moon, 1);
                 const pPos = computePosition(elements, _pPos);
                 relX = pPos.x;
                 relY = -pPos.z; // world x=x_ecl, world z=-y_ecl
@@ -183,7 +199,7 @@ export class AstrologyService {
                 relX = p.position.x - earthX;
                 relY = -p.position.z - earthYecl;
             } else {
-                const elements = computeElements(name, days, _geoScratch[name], 1);
+                const elements = computeElements(data, days, _geoScratch[name], 1);
                 const pPos = computePosition(elements, _pPos);
                 relX = pPos.x - earthX;
                 relY = -pPos.z - earthYecl;

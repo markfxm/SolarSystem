@@ -1,5 +1,5 @@
 import { AstrologyService } from './AstrologyService.js'
-import { computeD, computeElements, computePosition } from './Astronomy.js'
+import { computeD, computeElements, computePosition, PLANETS_DATA } from './Astronomy.js'
 
 const OCCASION_FALLBACKS = {
   birthday: 'Birthday',
@@ -35,6 +35,11 @@ const SNAPSHOT_BODY_INDEX = {
 }
 
 export const OCCASION_TYPES = Object.keys(OCCASION_FALLBACKS)
+
+const SNAPSHOT_PLANETOID_ENTRIES = ['mercury', 'venus', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune', 'earth'].map(id => ({
+    id,
+    data: PLANETS_DATA[id]
+}));
 
 // Performance Optimization: Per-body scratch objects for poster meta generation.
 // This enables the "warm-start" Kepler solver and threshold optimizations in Astronomy.js.
@@ -80,10 +85,12 @@ function buildSnapshotBodies(date) {
     sun: { x: 0, y: 0 }
   }
 
-  const planetoids = [...SNAPSHOT_BODY_IDS.filter(id => id !== 'sun'), 'earth']
-  for (const id of planetoids) {
+  for (let i = 0; i < SNAPSHOT_PLANETOID_ENTRIES.length; i++) {
+    const entry = SNAPSHOT_PLANETOID_ENTRIES[i];
+    const id = entry.id;
     // Use per-planet scratch to enable NR solver optimizations
-    const elements = computeElements(id, d, _posterScratch[id], 1)
+    // Passing entry.data directly eliminates string lookup and parsing in computeElements.
+    const elements = computeElements(entry.data, d, _posterScratch[id], 1)
     const pos = computePosition(elements)
     const index = SNAPSHOT_BODY_INDEX[id]
     const radius = (SNAPSHOT_ORBIT_BASE_RADIUS + index * SNAPSHOT_ORBIT_STEP) / SNAPSHOT_OUTER_ORBIT_RADIUS
@@ -93,7 +100,7 @@ function buildSnapshotBodies(date) {
     bodies[id] = { x: (pos.x / len) * radius, y: (pos.y / len) * radius }
   }
 
-  const moonElements = computeElements('moon', d, _posterScratch.moon, 1)
+  const moonElements = computeElements(PLANETS_DATA.moon, d, _posterScratch.moon, 1)
   const moonPos = computePosition(moonElements)
   const moonLen = Math.sqrt(moonPos.x * moonPos.x + moonPos.y * moonPos.y) || 1
   const moonRadius = SNAPSHOT_MOON_ORBIT_RADIUS / SNAPSHOT_OUTER_ORBIT_RADIUS
