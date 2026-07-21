@@ -36,10 +36,10 @@ const SNAPSHOT_BODY_INDEX = {
 
 export const OCCASION_TYPES = Object.keys(OCCASION_FALLBACKS)
 
-const SNAPSHOT_PLANETOID_ENTRIES = ['mercury', 'venus', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune', 'earth'].map(id => ({
-    id,
-    data: PLANETS_DATA[id]
-}));
+const SNAPSHOT_PLANETOID_ENTRIES = [...SNAPSHOT_BODY_IDS.filter(id => id !== 'sun'), 'earth'].map(id => ({
+  id,
+  data: PLANETS_DATA[id]
+}))
 
 // Performance Optimization: Per-body scratch objects for poster meta generation.
 // This enables the "warm-start" Kepler solver and threshold optimizations in Astronomy.js.
