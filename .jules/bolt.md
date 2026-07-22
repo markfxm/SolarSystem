@@ -1,3 +1,7 @@
+## 2026-07-22 - [Computed Translation Caching in Vue Templates]
+**Learning:** Calling the translation lookup function `t()` directly inside Vue template loops (e.g. `v-for`) evaluates the function repeatedly on every render cycle, even if the locale/language has not changed. This results in redundant dictionary traversals and regex template-variable replacements.
+**Action:** Always extract inline translation calls in templates, especially within loops, into Vue computed properties. Computed properties are cached by Vue and only re-evaluate on actual dependency changes.
+
 ## 2025-05-15 - [Core Math Optimization]
 **Learning:** `Date.UTC` with multiple arguments is significantly more expensive than `Date.getTime()` because it involves date-time part parsing and validation. In a 60fps simulation, this adds up. Also, pre-converting static orbital constants from degrees to radians once at module load (via IIFE) prevents hundreds of redundant multiplications per frame.
 **Action:** Always prefer timestamp-based math for time deltas and pre-convert static units (degrees, kilometers) to the engine's internal units (radians, world units) at initialization.

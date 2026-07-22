@@ -32,7 +32,7 @@
       <!-- Stage 2: Full List -->
       <div v-if="panelState === 2" class="panel-content">
         <!-- Side Toggle for Stage 2 -->
-        <button class="side-toggle-btn" @click="panelState = 1" :title="t('nav.back_to_button')">
+        <button class="side-toggle-btn" @click="panelState = 1" :title="backToButtonTitle">
           <span class="tron-arrow right"></span>
         </button>
 
@@ -55,7 +55,7 @@
               <button
                 class="info-trigger"
                 @click.stop="$emit('info', body.id)"
-                :title="t('nav.show_info')"
+                :title="showInfoTitle"
               >
                 <span class="info-icon">三</span>
               </button>
@@ -82,6 +82,11 @@ defineEmits(['select', 'info'])
 const panelState = ref(0) // 0: Hidden (Arrow), 1: Peeking (Button), 2: Open (List)
 
 const title = computed(() => t('nav_title'))
+
+// Performance Optimization: Cache translation keys for the template
+// to avoid high-frequency dynamic traversal inside high-frequency template renders.
+const showInfoTitle = computed(() => t('nav.show_info'))
+const backToButtonTitle = computed(() => t('nav.back_to_button'))
 
 const bodies = computed(() => [
   { id: 'sun', label: t('planet.sun') },
