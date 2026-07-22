@@ -5,18 +5,22 @@ import * as THREE from 'three';
 // Saturation 0.8, and Lightness 0.5, we completely avoid 12,000 setHSL allocations
 // and conversions during initialization.
 const NEBULA_COLOR_LUT_SIZE = 512;
-const NEBULA_COLOR_LUT_R = new Float32Array(NEBULA_COLOR_LUT_SIZE);
-const NEBULA_COLOR_LUT_G = new Float32Array(NEBULA_COLOR_LUT_SIZE);
-const NEBULA_COLOR_LUT_B = new Float32Array(NEBULA_COLOR_LUT_SIZE);
+const MIN_HUE = 0.75;
+const MAX_HUE = 0.85;
+const HUE_RANGE = MAX_HUE - MIN_HUE;
+const SATURATION = 0.8;
+const LIGHTNESS = 0.5;
+const NEBULA_COLOR_LUT = new Float32Array(NEBULA_COLOR_LUT_SIZE * 3);
 
 (function initNebulaColorLUT() {
   const tempColor = new THREE.Color();
   for (let i = 0; i < NEBULA_COLOR_LUT_SIZE; i++) {
-    const h = 0.75 + (i / (NEBULA_COLOR_LUT_SIZE - 1)) * 0.1;
-    tempColor.setHSL(h, 0.8, 0.5);
-    NEBULA_COLOR_LUT_R[i] = tempColor.r;
-    NEBULA_COLOR_LUT_G[i] = tempColor.g;
-    NEBULA_COLOR_LUT_B[i] = tempColor.b;
+    const h = MIN_HUE + (i / (NEBULA_COLOR_LUT_SIZE - 1)) * HUE_RANGE;
+    tempColor.setHSL(h, SATURATION, LIGHTNESS);
+    const idx = i * 3;
+    NEBULA_COLOR_LUT[idx] = tempColor.r;
+    NEBULA_COLOR_LUT[idx + 1] = tempColor.g;
+    NEBULA_COLOR_LUT[idx + 2] = tempColor.b;
   }
 })();
 export function createNebula(position) {
@@ -43,10 +47,10 @@ export function createNebula(position) {
 
     // 2. Color and Size calculation (Merged from second loop)
     // Use the pre-calculated HSL-to-RGB color LUT to avoid 12,000 setHSL conversions and GC pressure.
-    const colorIdx = (Math.random() * NEBULA_COLOR_LUT_SIZE) | 0;
-    nebulaColors[idx3] = NEBULA_COLOR_LUT_R[colorIdx];
-    nebulaColors[idx3 + 1] = NEBULA_COLOR_LUT_G[colorIdx];
-    nebulaColors[idx3 + 2] = NEBULA_COLOR_LUT_B[colorIdx];
+    const colorIdx = ((Math.random() * NEBULA_COLOR_LUT_SIZE) | 0) * 3;
+    nebulaColors[idx3] = NEBULA_COLOR_LUT[colorIdx];
+    nebulaColors[idx3 + 1] = NEBULA_COLOR_LUT[colorIdx + 1];
+    nebulaColors[idx3 + 2] = NEBULA_COLOR_LUT[colorIdx + 2];
 
     nebulaSizes[i] = 400 + Math.random() * 800;
   }
