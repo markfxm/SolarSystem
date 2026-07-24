@@ -52,6 +52,17 @@ const THEME_CONFIGS = {
 
 // Cache for generated noise patterns to avoid redundant random data generation
 const noisePatternCache = new Map();
+
+// Precompute trigonometric values for static angles to avoid redundant calls during drawing
+const PULSAR_ANGLES = [0, 45, 80, 110, 150, 185, 210, 240, 270, 300, 320, 340, 355];
+const PULSAR_TRIG = PULSAR_ANGLES.map(angle => {
+    const rad = (angle * Math.PI) / 180;
+    return {
+        cos: Math.cos(rad),
+        sin: Math.sin(rad)
+    };
+});
+
 const OVERLAY_BODY_ORDER = ['sun', 'moon', 'mercury', 'venus', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune']
 const SNAPSHOT_ORBIT_BASE_RADIUS = 220
 const SNAPSHOT_ORBIT_STEP = 140
@@ -227,7 +238,8 @@ export function buildChartOverlayModel(posterMeta, imageX, imageY, imageW, image
         if (!snapshotBody && (!body || typeof body.longitude !== 'number')) continue
         const angle = snapshotBody ? Math.atan2(snapshotBody.y, snapshotBody.x) : ((body.longitude - 90) * Math.PI) / 180
         const orbitFactor = ORBIT_RADIUS_FACTORS[id] ?? 0.88
-        const normalizedRadius = snapshotBody ? Math.hypot(snapshotBody.x, snapshotBody.y) : orbitFactor
+        // Performance Optimization: Replace Math.hypot with faster Math.sqrt calculations to save CPU cycles
+        const normalizedRadius = snapshotBody ? Math.sqrt(snapshotBody.x * snapshotBody.x + snapshotBody.y * snapshotBody.y) : orbitFactor
         const r = radius * normalizedRadius
         bodies.push({
             id,
@@ -248,10 +260,13 @@ export function buildChartOverlayModel(posterMeta, imageX, imageY, imageW, image
         const earthY = centerY + snapshotBodies.earth.y * radius
         const moonX = centerX + snapshotBodies.moon.x * radius
         const moonY = centerY + snapshotBodies.moon.y * radius
+        const dx = moonX - earthX
+        const dy = moonY - earthY
+        // Performance Optimization: Replace Math.hypot with faster Math.sqrt calculations to save CPU cycles
         moonOrbit = {
             centerX: earthX,
             centerY: earthY,
-            radius: Math.hypot(moonX - earthX, moonY - earthY)
+            radius: Math.sqrt(dx * dx + dy * dy)
         }
     }
 
@@ -496,36 +511,37 @@ function drawPulsarMap(ctx, w, h) {
     ctx.lineWidth = 1.5
 
     // 2. Radiating Pulsar Lines and Binary Hash Marks
-    const angles = [0, 45, 80, 110, 150, 185, 210, 240, 270, 300, 320, 340, 355]
+    // Performance Optimization: Uses pre-calculated trigonometric values (PULSAR_TRIG)
+    // to completely avoid 130+ dynamic trig calculations and angle conversions per frame.
 
     // Batch Radiating Lines
     ctx.beginPath()
-    angles.forEach(angle => {
-        const rad = (angle * Math.PI) / 180
-        const len = maxRadius * (0.6 + Math.random() * 0.4)
-        ctx.moveTo(centerX, centerY)
-        ctx.lineTo(centerX + Math.cos(rad) * len, centerY + Math.sin(rad) * len)
-    })
+    for (let i = 0; i < PULSAR_TRIG.length; i++) {
+        const { cos, sin } = PULSAR_TRIG[i];
+        const len = maxRadius * (0.6 + Math.random() * 0.4);
+        ctx.moveTo(centerX, centerY);
+        ctx.lineTo(centerX + cos * len, centerY + sin * len);
+    }
     ctx.stroke()
 
     // Batch Hash Marks
     ctx.beginPath()
-    angles.forEach(angle => {
-        const rad = (angle * Math.PI) / 180
+    for (let i = 0; i < PULSAR_TRIG.length; i++) {
+        const { cos, sin } = PULSAR_TRIG[i];
         const len = maxRadius * 0.8 // Approximate for hash marks
-        const normalX = -Math.sin(rad)
-        const normalY = Math.cos(rad)
+        const normalX = -sin
+        const normalY = cos
         const hSize = 4
 
-        for (let i = 0.3; i < 0.9; i += 0.2) {
+        for (let j = 0.3; j < 0.9; j += 0.2) {
             if (Math.random() > 0.3) {
-                const px = centerX + Math.cos(rad) * len * i
-                const py = centerY + Math.sin(rad) * len * i
+                const px = centerX + cos * len * j
+                const py = centerY + sin * len * j
                 ctx.moveTo(px - normalX * hSize, py - normalY * hSize)
                 ctx.lineTo(px + normalX * hSize, py + normalY * hSize)
             }
         }
-    })
+    }
     ctx.stroke()
 
     ctx.font = '10px monospace'

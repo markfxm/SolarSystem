@@ -1,3 +1,7 @@
+## 2026-07-23 - [Trigonometric and Hypot Overhead in Canvas Poster Generation]
+**Learning:** During heavy poster generation (such as high-resolution "Stellar Moment" exports), repeatedly converting static angles to radians and calling `Math.sin` and `Math.cos` dynamically inside canvas loops creates up to 130 unnecessary trigonometric calculations per call. Additionally, `Math.hypot` carries built-in underflow/overflow bounds checking which makes it significantly slower than direct multiplication and `Math.sqrt` in standard JS engines.
+**Action:** Precompute static trigonometric values (sine/cosine) at the module scope as a flat array when rendering static patterns (e.g., pulsar maps). Always prefer direct multiplication and `Math.sqrt` over `Math.hypot` for distance calculations inside layout or canvas pipelines.
+
 ## 2026-07-22 - [Computed Translation Caching in Vue Templates]
 **Learning:** Calling the translation lookup function `t()` directly inside Vue template loops (e.g. `v-for`) evaluates the function repeatedly on every render cycle, even if the locale/language has not changed. This results in redundant dictionary traversals and regex template-variable replacements.
 **Action:** Always extract inline translation calls in templates, especially within loops, into Vue computed properties. Computed properties are cached by Vue and only re-evaluate on actual dependency changes.
