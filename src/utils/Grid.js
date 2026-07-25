@@ -16,13 +16,18 @@ const sharedLineMaterial = new THREE.LineBasicMaterial({
 /**
  * Disables raycasting for decorative elements within a group.
  * Optimization: Pruning these from the traversal tree significantly improves raycast performance.
+ * Performance Optimization: Since the grid group contains only direct children directly added
+ * via .add(), a recursive .traverse() is unnecessary. Replacing it with a flat loop over group.children
+ * completely avoids recursive traversal overhead and reduces function call stack / GC pressure.
  */
 function disableDecorativeRaycast(group) {
-  group.traverse(child => {
+  const children = group.children;
+  for (let i = 0; i < children.length; i++) {
+    const child = children[i];
     if (child.isLineSegments || child.isSprite || child.isLine) {
       child.raycast = () => {};
     }
-  });
+  }
 }
 
 /**
