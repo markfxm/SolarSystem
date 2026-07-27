@@ -1,3 +1,7 @@
+## 2026-07-24 - [Trigonometric Caching in Chart Overlay Generation]
+**Learning:** In the poster rendering pipeline (`buildChartOverlayModel`), calculating planetary positions and label offsets repeatedly evaluated `Math.cos(angle)` and `Math.sin(angle)` multiple times per body. Caching these once per body avoids up to 18 redundant trigonometric calls during high-resolution canvas poster generation.
+**Action:** Always store intermediate trigonometric calculations in local variables inside iteration loops that place elements dynamically on standard or schematic views.
+
 ## 2026-07-23 - [Trigonometric and Hypot Overhead in Canvas Poster Generation]
 **Learning:** During heavy poster generation (such as high-resolution "Stellar Moment" exports), repeatedly converting static angles to radians and calling `Math.sin` and `Math.cos` dynamically inside canvas loops creates up to 130 unnecessary trigonometric calculations per call. Additionally, `Math.hypot` carries built-in underflow/overflow bounds checking which makes it significantly slower than direct multiplication and `Math.sqrt` in standard JS engines.
 **Action:** Precompute static trigonometric values (sine/cosine) at the module scope as a flat array when rendering static patterns (e.g., pulsar maps). Always prefer direct multiplication and `Math.sqrt` over `Math.hypot` for distance calculations inside layout or canvas pipelines.
