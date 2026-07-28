@@ -573,7 +573,10 @@ export function t(path: string, vars: Record<string, string | number> | null = n
     cur = dict[_lang] || dict.en;
     for (let i = 0; i < parts.length; i++) {
       cur = cur?.[parts[i]];
-      if (cur === undefined) return path;
+      if (cur === undefined) {
+        translationCache.set(path, path);
+        return path;
+      }
     }
     // Cache the resolved template/value (string or array)
     translationCache.set(path, cur);
