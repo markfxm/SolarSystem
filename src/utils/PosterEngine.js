@@ -241,13 +241,18 @@ export function buildChartOverlayModel(posterMeta, imageX, imageY, imageW, image
         // Performance Optimization: Replace Math.hypot with faster Math.sqrt calculations to save CPU cycles
         const normalizedRadius = snapshotBody ? Math.sqrt(snapshotBody.x * snapshotBody.x + snapshotBody.y * snapshotBody.y) : orbitFactor
         const r = radius * normalizedRadius
+
+        // Performance Optimization: Cache trig evaluations once per body to avoid redundant calculation
+        const cosAngle = Math.cos(angle)
+        const sinAngle = Math.sin(angle)
+
         bodies.push({
             id,
             label: BODY_LABELS[id] || id.toUpperCase(),
-            x: snapshotBody ? centerX + snapshotBody.x * radius : centerX + Math.cos(angle) * r,
-            y: snapshotBody ? centerY + snapshotBody.y * radius : centerY + Math.sin(angle) * r,
-            labelX: snapshotBody ? centerX + snapshotBody.x * radius + Math.cos(angle) * 42 * scale : centerX + Math.cos(angle) * (r + 42 * scale),
-            labelY: snapshotBody ? centerY + snapshotBody.y * radius + Math.sin(angle) * 42 * scale : centerY + Math.sin(angle) * (r + 42 * scale),
+            x: snapshotBody ? centerX + snapshotBody.x * radius : centerX + cosAngle * r,
+            y: snapshotBody ? centerY + snapshotBody.y * radius : centerY + sinAngle * r,
+            labelX: snapshotBody ? centerX + snapshotBody.x * radius + cosAngle * 42 * scale : centerX + cosAngle * (r + 42 * scale),
+            labelY: snapshotBody ? centerY + snapshotBody.y * radius + sinAngle * 42 * scale : centerY + sinAngle * (r + 42 * scale),
             orbitRadius: r,
             source: snapshotBody ? 'snapshot' : 'chart',
             highlight: id === 'sun' ? 'sun' : id === 'moon' ? 'moon' : null
