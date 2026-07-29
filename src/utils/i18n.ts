@@ -542,6 +542,7 @@ const dict: { [key: string]: TranslationDict } = {
 // Performance Caches
 const pathCache = new Map<string, string[]>();
 const translationCache = new Map<string, any>();
+const MISSING_TRANSLATION = Symbol('missing translation');
 const RE_VAR = /\{(\w+)\}/g;
 
 // Clear translation cache on language change immediately
@@ -574,13 +575,15 @@ export function t(path: string, vars: Record<string, string | number> | null = n
     for (let i = 0; i < parts.length; i++) {
       cur = cur?.[parts[i]];
       if (cur === undefined) {
-        translationCache.set(path, path);
+        translationCache.set(path, MISSING_TRANSLATION);
         return path;
       }
     }
     // Cache the resolved template/value (string or array)
     translationCache.set(path, cur);
   }
+
+  if (cur === MISSING_TRANSLATION) return path;
 
   // 4. Variable replacement
   // Optimization: Use a single-pass regex replacement with a callback to avoid
