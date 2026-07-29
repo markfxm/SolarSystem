@@ -1,3 +1,7 @@
+## 2026-07-25 - [Negative Caching for Unresolved i18n Translation Paths]
+**Learning:** In any high-frequency translation system (such as reactive UI templates or dynamic lookup functions), querying missing or unresolved translation paths triggers redundant dictionary traversals and path splitting on every evaluation because the undefined results were not cached. Implementing "negative caching" by storing the fallback path itself in the cache completely eliminates dictionary lookup and split overhead.
+**Action:** Always store a sentinel or fallback representation (e.g., the unresolved path itself) inside lookup caches for negative lookups to ensure subsequent misses are resolved in O(1) time.
+
 ## 2026-07-24 - [Trigonometric Caching in Chart Overlay Generation]
 **Learning:** In the poster rendering pipeline (`buildChartOverlayModel`), calculating planetary positions and label offsets repeatedly evaluated `Math.cos(angle)` and `Math.sin(angle)` multiple times per body. Caching these once per body avoids up to 18 redundant trigonometric calls during high-resolution canvas poster generation.
 **Action:** Always store intermediate trigonometric calculations in local variables inside iteration loops that place elements dynamically on standard or schematic views.
@@ -62,7 +66,7 @@
 **Learning:** In Three.js, creating unique `SphereGeometry` instances for every celestial body (each with its own radius) prevents vertex buffer reuse and increases memory footprint. Using a single shared unit `SphereGeometry(1, 48, 48)` and applying `mesh.scale.setScalar(radius)` allows for 100% geometry reuse. However, this requires updating raycasting/interaction logic to use the original radius (stored in `userData`) and being careful with nested objects (like atmospheres) to avoid double-scaling.
 **Action:** Prefer unit geometries and mesh scaling for identical shapes. Store original dimensions in `userData` for navigation/logic and ensure child meshes account for parent scaling.
 
-## 2025-05-15 - [Minimap GC Pressure & Idle Loop Optimization]
+## 2025-05-16 - [Minimap GC Pressure & Idle Loop Optimization]
 **Learning:** The Mars minimap rendering loop in `MarsHUD.vue` was a significant performance bottleneck due to its "always-on" `requestAnimationFrame` and high garbage collection (GC) pressure. Specifically, the `drawMap` function allocated thousands of temporary `{x, y}` objects per frame to transform coordinates when drawing the `explorationPath`.
 **Action:** Inline coordinate math (avoiding object creation) and use reactive state watchers to stop animation loops when components are not visible. Always capture reactive props into local variables before entering high-frequency loops to minimize Proxy overhead. Move i18n translation lookups out of the 60fps loop into computed properties.
 
