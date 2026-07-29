@@ -1,3 +1,7 @@
+## 2026-07-26 - [High-Frequency toLocaleString Avoidance & Static Computed Hoisting]
+**Learning:** Calling `toLocaleString()` in high-frequency user interactions (like dragging speed multipliers at 60fps) is extremely expensive due to internationalization locale lookups and object allocations, causing stuttering and GC pressure. Implementing a math/string-based fast formatter bypasses the standard engine completely. Additionally, computed properties containing raw array/object declarations allocate memory on every evaluation. Hoisting static metadata arrays to the module scope avoids this overhead completely.
+**Action:** Avoid `toLocaleString()` in interactive animation or drag loops. Hoist static configurations out of Vue computed properties to prevent redundant memory allocation.
+
 ## 2026-07-25 - [Negative Caching for Unresolved i18n Translation Paths]
 **Learning:** In any high-frequency translation system (such as reactive UI templates or dynamic lookup functions), querying missing or unresolved translation paths triggers redundant dictionary traversals and path splitting on every evaluation because the undefined results were not cached. Implementing "negative caching" by storing the fallback path itself in the cache completely eliminates dictionary lookup and split overhead.
 **Action:** Always store a sentinel or fallback representation (e.g., the unresolved path itself) inside lookup caches for negative lookups to ensure subsequent misses are resolved in O(1) time.

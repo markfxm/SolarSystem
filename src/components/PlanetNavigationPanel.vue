@@ -88,18 +88,32 @@ const title = computed(() => t('nav_title'))
 const showInfoTitle = computed(() => t('nav.show_info'))
 const backToButtonTitle = computed(() => t('nav.back_to_button'))
 
-const bodies = computed(() => [
-  { id: 'sun', label: t('planet.sun') },
-  { id: 'mercury', label: t('planet.mercury') },
-  { id: 'venus', label: t('planet.venus') },
-  { id: 'earth', label: t('planet.earth') },
-  { id: 'moon', label: t('planet.moon') },
-  { id: 'mars', label: t('planet.mars') },
-  { id: 'jupiter', label: t('planet.jupiter') },
-  { id: 'saturn', label: t('planet.saturn') },
-  { id: 'uranus', label: t('planet.uranus') },
-  { id: 'neptune', label: t('planet.neptune') }
-])
+// Performance Optimization: Hoist static planet metadata outside the computed property
+// to prevent raw array/object structure allocations on every computed property evaluation.
+const BODIES_METADATA = [
+  { id: 'sun', key: 'planet.sun' },
+  { id: 'mercury', key: 'planet.mercury' },
+  { id: 'venus', key: 'planet.venus' },
+  { id: 'earth', key: 'planet.earth' },
+  { id: 'moon', key: 'planet.moon' },
+  { id: 'mars', key: 'planet.mars' },
+  { id: 'jupiter', key: 'planet.jupiter' },
+  { id: 'saturn', key: 'planet.saturn' },
+  { id: 'uranus', key: 'planet.uranus' },
+  { id: 'neptune', key: 'planet.neptune' }
+]
+
+const bodies = computed(() => {
+  const result = []
+  for (let i = 0; i < BODIES_METADATA.length; i++) {
+    const item = BODIES_METADATA[i]
+    result.push({
+      id: item.id,
+      label: t(item.key)
+    })
+  }
+  return result
+})
 </script>
 
 <style scoped>
