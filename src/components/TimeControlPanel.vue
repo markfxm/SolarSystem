@@ -102,17 +102,8 @@ const presets = [
 ]
 
 const multiplier = computed(() => Math.round(MIN + pos.value * (MAX - MIN)))
-
-// Performance Optimization: Replace expensive .toLocaleString() with a fast integer formatter.
-// Since multiplier is always an integer between 1 and 500,000, we can avoid standard locale
-// lookup overhead during high-frequency slider dragging (60fps), completely eliminating lag/GC pressure.
-const formattedMultiplier = computed(() => {
-  const val = multiplier.value
-  if (val < 1000) return String(val)
-  const thousands = Math.floor(val / 1000)
-  const remainder = val % 1000
-  return thousands + ',' + String(remainder).padStart(3, '0')
-})
+const multiplierFormatter = new Intl.NumberFormat()
+const formattedMultiplier = computed(() => multiplierFormatter.format(multiplier.value))
 
 const trackStyle = computed(() => {
   if (props.vertical) {
