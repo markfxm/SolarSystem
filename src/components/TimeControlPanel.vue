@@ -102,7 +102,8 @@ const presets = [
 ]
 
 const multiplier = computed(() => Math.round(MIN + pos.value * (MAX - MIN)))
-const formattedMultiplier = computed(() => multiplier.value.toLocaleString())
+const multiplierFormatter = new Intl.NumberFormat()
+const formattedMultiplier = computed(() => multiplierFormatter.format(multiplier.value))
 
 const trackStyle = computed(() => {
   if (props.vertical) {
