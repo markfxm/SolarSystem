@@ -1,3 +1,7 @@
+## 2026-07-27 - [Initialization Object Allocation & Loop Reusability]
+**Learning:** Instantiating utility class objects (such as `new THREE.Color()`) inside standard generation/initialization loops (e.g., 5,000+ stars) introduces substantial GC pressure and extends load times. Pre-allocating a single instance outside the loop and invoking mutation methods (`.setHSL(...)`) inside avoids object creation overhead entirely.
+**Action:** Always pre-allocate and reuse scratch objects when executing large-scale array filling or scene initialization loops.
+
 ## 2026-07-26 - [High-Frequency toLocaleString Avoidance & Static Computed Hoisting]
 **Learning:** Reusing a module-scoped `Intl.NumberFormat` instance avoids recreating locale formatters during high-frequency user interactions while preserving locale-aware grouping. Additionally, computed properties containing raw array/object declarations allocate memory on every evaluation. Hoisting static metadata arrays to the module scope avoids this overhead completely.
 **Action:** Cache `Intl.NumberFormat` instances when locale-aware formatting is needed in interactive loops. Hoist static configurations out of Vue computed properties to prevent redundant memory allocation.
