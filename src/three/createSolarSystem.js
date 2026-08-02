@@ -3,6 +3,7 @@ import { PlanetClasses } from '../planets/registry.js'
 import { createNebula } from '../utils/Nebula.js'
 import { computeElements, computePosition, computeD, computePlanetQuaternion } from '../utils/Astronomy.js'
 import { createEllipticalOrbit } from '../utils/EllipticalOrbit'
+import { createStarfield } from '../utils/Starfield';
 import { createZodiacRing } from '../utils/ZodiacRing.js';
 import { AspectLinesManager } from '../utils/AspectLines.js';
 import { AuraManager } from '../utils/AuraManager.js';
@@ -163,25 +164,7 @@ export async function createSolarSystem(scene, renderer, zodiacNames = [], onPro
   })
 
   // Environment
-  const starGeo = new THREE.BufferGeometry()
-  const starCount = 15000;
-  const starVertices = new Float32Array(starCount * 3);
-  for (let i = 0; i < starCount * 3; i++) {
-    starVertices[i] = Math.random() * 200000 - 100000;
-  }
-  starGeo.setAttribute('position', new THREE.BufferAttribute(starVertices, 3))
-  const starPoints = new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 2 }))
-  // Optimization: Starfield is not interactive, disable raycasting to save CPU
-  starPoints.raycast = () => {}
-  starPoints.userData.isStarfield = true
-
-  // Performance Optimization: The starfield is static and surrounds the camera.
-  // Disabling matrixAutoUpdate and frustumCulled reduces per-frame scene graph overhead.
-  starPoints.matrixAutoUpdate = false
-  starPoints.updateMatrix()
-  starPoints.frustumCulled = false
-
-  scene.add(starPoints)
+  const starPoints = createStarfield(scene)
 
   const nebula = createNebula(new THREE.Vector3(0, 0, -1500))
   nebula.userData.isNebula = true
