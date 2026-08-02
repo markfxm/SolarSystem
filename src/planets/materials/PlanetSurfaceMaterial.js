@@ -100,7 +100,15 @@ const fragmentShader = `
   void main() {
     vec3 dayColor = texture2D(dayTexture, vUv).rgb;
     vec3 nightColor = useNight ? texture2D(nightTexture, vUv).rgb : vec3(0.0);
-    vec3 normal = detailedNormal(normalize(vNormal), surfaceLuma(dayColor));
+
+    // Performance Optimization: Guard detailed normal and luma calculations with uniform branch.
+    // This completely skips detailed normal calculation and dot-product-heavy luma calculation
+    // for non-rocky/non-terrestrial bodies (Jupiter, Saturn, Uranus, Neptune).
+    vec3 normal = normalize(vNormal);
+    if (detailStrength > 0.0) {
+      normal = detailedNormal(normal, surfaceLuma(dayColor));
+    }
+
     vec3 lightDir = normalize(-vWorldPosition);
     vec3 viewDir = normalize(cameraPosition - vWorldPosition);
     float lightAmount = dot(normal, lightDir);

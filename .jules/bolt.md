@@ -1,3 +1,7 @@
+## 2026-07-28 - [GPU Uniform Branching for Non-Detailed Surfaces]
+**Learning:** Fragment shaders run for every single pixel on the screen, making them hot paths for GPU performance. Evaluating normal map perturbations and Rec 709 luminance dot products for planets that don't need them (like gas/ice giants where `detailStrength` is 0.0) is a major waste of GPU processing power and memory bandwidth. Guarding these calculations inside the fragment shader with a uniform-based `if (detailStrength > 0.0)` branch allows modern GPUs to skip these costly operations completely.
+**Action:** Always guard optional or detailed shader computations behind uniform conditional checks to bypass texture fetches, function calls, and dot-product calculations on the GPU for simpler materials.
+
 ## 2026-07-27 - [Initialization Object Allocation & Loop Reusability]
 **Learning:** Instantiating utility class objects (such as `new THREE.Color()`) inside standard generation/initialization loops (e.g., 5,000+ stars) introduces substantial GC pressure and extends load times. Pre-allocating a single instance outside the loop and invoking mutation methods (`.setHSL(...)`) inside avoids object creation overhead entirely.
 **Action:** Always pre-allocate and reuse scratch objects when executing large-scale array filling or scene initialization loops.
