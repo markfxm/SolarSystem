@@ -38,10 +38,13 @@ const cloudFragmentShader = `
   varying vec3 vNormal;
   varying vec3 vWorldPosition;
 
-  float hash(vec3 point) {
-    point = fract(point * 0.3183099 + vec3(0.17, 0.31, 0.53));
-    point *= 17.0;
-    return fract(point.x * point.y * point.z * (point.x + point.y + point.z));
+  // Performance Optimization: Use Hoskins hash ("Hash without Sine") to avoid
+  // potential floating-point overflow/underflow on mobile or integrated GPUs,
+  // while utilizing native hardware-level dot-product optimization.
+  float hash(vec3 p) {
+    p = fract(p * 0.1031);
+    p += dot(p, p.yzx + 33.33);
+    return fract((p.x + p.y) * p.z);
   }
 
   float noise(vec3 point) {
