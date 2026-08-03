@@ -1,7 +1,12 @@
 import * as THREE from 'three'
 
-export function createStarfield(scene: THREE.Scene): void {
-  const numStars = 5000 // Increased for more star lights
+/**
+ * Creates a high-performance, color-varied starfield.
+ * Optimized: Uses single-allocated THREE.Color, disabled raycasting, disabled frustum culling,
+ * disabled matrix updates, and correct 200,000 unit bounds matching the solar system scale.
+ */
+export function createStarfield(scene: THREE.Scene): THREE.Points {
+  const numStars = 5000 // High-quality star count
   const starsGeometry = new THREE.BufferGeometry()
   const positions = new Float32Array(numStars * 3)
   const starColors = new Float32Array(numStars * 3)
@@ -12,9 +17,11 @@ export function createStarfield(scene: THREE.Scene): void {
   const tempColor = new THREE.Color()
 
   for (let i = 0; i < numStars * 3; i += 3) {
-    positions[i] = (Math.random() - 0.5) * 5000
-    positions[i + 1] = (Math.random() - 0.5) * 5000
-    positions[i + 2] = (Math.random() - 0.5) * 5000
+    // Corrected: Set bounds to 200,000 units so stars are far in the background
+    // instead of floating inside the planetary orbits.
+    positions[i] = (Math.random() - 0.5) * 200000
+    positions[i + 1] = (Math.random() - 0.5) * 200000
+    positions[i + 2] = (Math.random() - 0.5) * 200000
 
     tempColor.setHSL(Math.random() * 0.1 + 0.5, 0.2, 0.8 + Math.random() * 0.2)
     starColors[i] = tempColor.r
@@ -33,5 +40,18 @@ export function createStarfield(scene: THREE.Scene): void {
   })
 
   const starField = new THREE.Points(starsGeometry, starsMaterial)
+
+  // Performance Optimization: Disable raycasting for non-interactive background elements.
+  starField.raycast = () => {}
+  starField.userData.isStarfield = true
+
+  // Performance Optimization: Starfield is static, disable per-frame matrix auto updates.
+  starField.matrixAutoUpdate = false
+  starField.updateMatrix()
+
+  // Performance Optimization: Starfield surrounds the camera, disable frustum culling to skip redundant checks.
+  starField.frustumCulled = false
+
   scene.add(starField)
+  return starField
 }
