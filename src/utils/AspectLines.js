@@ -25,6 +25,7 @@ export class AspectLinesManager {
         this.scene.add(this.group);
 
         this.lines = new Map(); // Key: bit-shifted ID, Value: { line, aspectType, lastUpdateFrame, p1Obj, p2Obj, attr, array }
+        this.activeLinesList = []; // Performance Optimization: Flat array of active aspect lines kept in sync with the Map to avoid MapIterator allocations
         this.lastResolution = new THREE.Vector2(-1, -1);
         this.frameID = 0;
     }
@@ -108,6 +109,7 @@ export class AspectLinesManager {
                     array: attr.data.array
                 };
                 this.lines.set(key, data);
+                this.activeLinesList.push(data); // Kept in sync
             } else {
                 // Performance Optimization: Use cached object references (p1Obj, p2Obj, attr, array)
                 // to eliminate Map/Object lookups and property chains (60fps).
@@ -139,7 +141,10 @@ export class AspectLinesManager {
         }
 
         // Cleanup and Animation loop
-        for (const data of this.lines.values()) {
+        // Performance Optimization: Iterate backwards over flat activeLinesList array to safely remove fully faded lines
+        // without allocating high-frequency MapIterator objects (60fps).
+        for (let i = this.activeLinesList.length - 1; i >= 0; i--) {
+            const data = this.activeLinesList[i];
             // Performance Optimization: Use frameID dirty-checking instead of Set clear/populate.
             // This reduces GC pressure and O(N) Set operations per frame.
             if (data.lastUpdateFrame !== this.frameID) {
@@ -150,6 +155,7 @@ export class AspectLinesManager {
                     data.line.geometry.dispose();
                     data.line.material.dispose();
                     this.lines.delete(data.key);
+                    this.activeLinesList.splice(i, 1); // Remove from flat array
                     continue;
                 }
             } else {
@@ -176,10 +182,12 @@ export class AspectLinesManager {
 
     dispose() {
         this.scene.remove(this.group);
-        for (const data of this.lines.values()) {
+        for (let i = 0; i < this.activeLinesList.length; i++) {
+            const data = this.activeLinesList[i];
             data.line.geometry.dispose();
             data.line.material.dispose();
         }
         this.lines.clear();
+        this.activeLinesList = [];
     }
 }

@@ -470,9 +470,10 @@ function updateOrbitResolution(w, h) {
   }
 
   // Targeted update for active aspect lines
-  if (solar.aspectsManager?.lines) {
-    for (const data of solar.aspectsManager.lines.values()) {
-      data.line.material.resolution.set(w, h)
+  if (solar.aspectsManager?.activeLinesList) {
+    const list = solar.aspectsManager.activeLinesList;
+    for (let i = 0; i < list.length; i++) {
+      list[i].line.material.resolution.set(w, h);
     }
   }
 }
