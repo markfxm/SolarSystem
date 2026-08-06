@@ -1,3 +1,7 @@
+## 2026-08-07 - [Spherical Starfield Projection for Background Safety]
+**Learning:** Distributing background stars uniformly inside a 3D bounding box (cube) allows stars to occasionally spawn close to the origin, resulting in background elements floating inside planetary orbits or near the camera. Projecting stars onto a sphere of a large constant radius (200,000 units) using Archimedes' theorem spherical projection ensures all background stars stay perfectly at the spatial edge while completely eliminating extra trigonometric operations like `Math.acos`.
+**Action:** Always project environmental background starfields onto a sphere/shell of appropriate radius instead of a 3D box, and utilize Archimedes' theorem for direct, branch-free coordinate generation.
+
 ## 2026-08-05 - [Map.prototype.values() Iterator GC Pressure in 60fps Loops]
 **Learning:** Calling `.values()` on an ES6 `Map` in a 60fps animation or render path allocates a new `MapIterator` object every single frame. Over time, these high-frequency allocations trigger substantial garbage collection (GC) pressure and micro-stuttering.
 **Action:** Always maintain a flat companion array (e.g., `activeLinesList`) in sync with the map for high-frequency iteration, using standard `for` loops or backwards array traversal for zero-allocation performance.

@@ -17,11 +17,17 @@ export function createStarfield(scene: THREE.Scene): THREE.Points {
   const tempColor = new THREE.Color()
 
   for (let i = 0; i < numStars * 3; i += 3) {
-    // Corrected: Set bounds to 200,000 units so stars are far in the background
-    // instead of floating inside the planetary orbits.
-    positions[i] = (Math.random() - 0.5) * 200000
-    positions[i + 1] = (Math.random() - 0.5) * 200000
-    positions[i + 2] = (Math.random() - 0.5) * 200000
+    // Corrected & Optimized: Distribute stars uniformly on a sphere of 200,000 units
+    // instead of a box. This completely prevents any stars from floating inside the
+    // planetary orbits or near the camera, while using highly efficient direct spherical math.
+    const theta = Math.random() * Math.PI * 2
+    const cosPhi = (Math.random() * 2) - 1
+    const sinPhi = Math.sqrt(1 - cosPhi * cosPhi)
+    const radius = 200000
+
+    positions[i] = radius * sinPhi * Math.cos(theta)
+    positions[i + 1] = radius * sinPhi * Math.sin(theta)
+    positions[i + 2] = radius * cosPhi
 
     tempColor.setHSL(Math.random() * 0.1 + 0.5, 0.2, 0.8 + Math.random() * 0.2)
     starColors[i] = tempColor.r
