@@ -65,7 +65,8 @@ test('AspectLinesManager removes fully faded lines and updates activeLinesList b
 
   const planetObjects = {
     sun: sunMesh,
-    earth: earthMesh
+    earth: earthMesh,
+    mars: new THREE.Mesh()
   }
   const manager = new AspectLinesManager(scene, planetObjects)
 
@@ -78,24 +79,31 @@ test('AspectLinesManager removes fully faded lines and updates activeLinesList b
         color: 0xff0000,
         orb: 0.1
       }
+    },
+    {
+      p1: 'earth',
+      p2: 'mars',
+      aspect: {
+        type: 'trine',
+        color: 0x00ff00,
+        orb: 0.1
+      }
     }
   ]
 
   // First frame: Add
   manager.update(aspects)
-  assert.equal(manager.lines.size, 1)
-  assert.equal(manager.activeLinesList.length, 1)
+  assert.equal(manager.lines.size, 2)
+  assert.equal(manager.activeLinesList.length, 2)
 
-  const data = manager.activeLinesList[0]
+  for (const data of manager.activeLinesList) {
+    data.line.material.opacity = 0.005 // Trigger immediate disposal
+  }
 
-  // Second frame: Aspect is no longer active
-  // Since it was added, first we fade. Let's make sure opacity is close to 0 to trigger immediate removal
-  data.line.material.opacity = 0.005 // Trigger immediate disposal
-
-  // Update without aspects to trigger fade/cleanup
+  // Update without aspects to trigger fade/cleanup of both lines.
   manager.update([])
 
-  // The line should be fully disposed and removed
+  // Both lines should be fully disposed and removed without skipping an entry.
   assert.equal(manager.lines.size, 0)
   assert.equal(manager.activeLinesList.length, 0)
 })
