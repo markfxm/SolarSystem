@@ -71,6 +71,21 @@
   </div>
 </template>
 
+<script>
+const MIN = 1
+const MAX = 500000
+
+const presets = [
+  { val: 1, norm: 0, label: 'x1' },
+  { val: 125000, norm: (125000 - MIN) / (MAX - MIN), label: '125K' },
+  { val: 250000, norm: (250000 - MIN) / (MAX - MIN), label: '250K' },
+  { val: 375000, norm: (375000 - MIN) / (MAX - MIN), label: '375K' },
+  { val: 500000, norm: 1, label: 'MAX' }
+]
+
+const multiplierFormatter = new Intl.NumberFormat()
+</script>
+
 <script setup>
 import { ref, computed, onBeforeUnmount } from 'vue'
 import { t } from '../utils/i18n'
@@ -90,19 +105,7 @@ const pos = ref(0)
 const wrap = ref(null)
 const knob = ref(null)
 
-const MIN = 1
-const MAX = 500000
-
-const presets = [
-  { val: 1, norm: 0, label: 'x1' },
-  { val: 125000, norm: (125000 - MIN) / (MAX - MIN), label: '125K' },
-  { val: 250000, norm: (250000 - MIN) / (MAX - MIN), label: '250K' },
-  { val: 375000, norm: (375000 - MIN) / (MAX - MIN), label: '375K' },
-  { val: 500000, norm: 1, label: 'MAX' }
-]
-
 const multiplier = computed(() => Math.round(MIN + pos.value * (MAX - MIN)))
-const multiplierFormatter = new Intl.NumberFormat()
 const formattedMultiplier = computed(() => multiplierFormatter.format(multiplier.value))
 
 const trackStyle = computed(() => {
