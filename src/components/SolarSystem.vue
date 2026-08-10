@@ -163,7 +163,7 @@ import { createSolarSystem } from '../three/createSolarSystem.js'
 import { createTimeController } from '../three/timeController.js'
 import { createInteractions } from '../three/interactions.js'
 import { createMarsSurface } from '../planets/Mars/MarsSurface.js'
-import { updatePOIs, refreshPOILabels } from '../utils/POI.js'
+import { updatePOIVisibility, animatePOIs, refreshPOILabels } from '../utils/POI.js'
 import { AestheticSnapshotManager } from '../utils/AestheticSnapshot.js'
 import { AstrologyService, GEOCENTRIC_PLANETS } from '../utils/AstrologyService.js'
 
@@ -833,13 +833,20 @@ onMounted(async () => {
         poiUI.visible = false;
       }
 
-      // Update POIs visibility and labels
-      // Performance Optimization: Throttle POI distance calculations to run only every 10 frames.
-      // This reduces CPU overhead in the 60fps loop with no discernible visual impact.
+      // Update POIs visibility (throttled to run only every 10 frames)
       if (frameCount % 10 === 0 && planetsWithPOIs.length > 0) {
         for (let i = 0; i < planetsWithPOIs.length; i++) {
           const p = planetsWithPOIs[i];
-          updatePOIs(p.mesh.userData.pois, engine.camera, p.mesh.position, p.name);
+          updatePOIVisibility(p.mesh.userData.pois, engine.camera, p.mesh.position);
+        }
+      }
+
+      // Animate POI hover transitions every frame (60fps) for buttery-smooth visual feedback,
+      // but only process if the POI group is currently visible.
+      if (planetsWithPOIs.length > 0) {
+        for (let i = 0; i < planetsWithPOIs.length; i++) {
+          const p = planetsWithPOIs[i];
+          animatePOIs(p.mesh.userData.pois);
         }
       }
     } else if (viewMode.value === 'mars' && marsSurface) {
