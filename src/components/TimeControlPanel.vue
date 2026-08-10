@@ -74,6 +74,7 @@
 <script>
 const MIN = 1
 const MAX = 500000
+const SNAP_THRESHOLD = 0.03
 
 const presets = [
   { val: 1, norm: 0, label: 'x1' },
@@ -132,7 +133,6 @@ function getPresetStyle(norm) {
 emit('speed-change', multiplier.value)
 
 let dragging = false
-const SNAP_THRESHOLD = 0.03
 
 function clamp(v, a = 0, b = 1) {
   return Math.max(a, Math.min(b, v))
