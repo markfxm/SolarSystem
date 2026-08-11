@@ -128,7 +128,7 @@ export function createPOIMarkers(planetName, radius) {
 
 const _tempScale = new THREE.Vector3();
 
-export function updatePOIs(group, camera, planetPosition) {
+export function updatePOIVisibility(group, camera, planetPosition) {
   if (!group) return;
 
   const distSq = camera.position.distanceToSquared(planetPosition);
@@ -138,34 +138,41 @@ export function updatePOIs(group, camera, planetPosition) {
   if (group.visible !== isVisible) {
     group.visible = isVisible;
   }
+}
 
-  if (isVisible) {
-    const children = group.children;
-    for (let i = 0; i < children.length; i++) {
-      const poiGroup = children[i];
-      const targetScale = poiGroup.userData.isHovered ? 1.5 : 1.0;
-      const dot = poiGroup.userData.dot;
-      const label = poiGroup.userData.label;
+export function animatePOIs(group) {
+  if (!group || !group.visible) return;
 
-      // Optimization: Skip Three.js property updates and matrix recalculations
-      // if the target scale is already reached.
-      if (Math.abs(dot.scale.x - targetScale) > 0.001) {
-        _tempScale.setScalar(targetScale);
-        dot.scale.lerp(_tempScale, 0.1);
-        label.scale.lerp(_tempScale, 0.1);
-        // Manual update required as matrixAutoUpdate = false
-        dot.updateMatrix();
-        label.updateMatrix();
-      } else if (dot.scale.x !== targetScale) {
-        // Snap to target if very close to avoid persistent sub-pixel updates
-        dot.scale.setScalar(targetScale);
-        label.scale.setScalar(targetScale);
-        // Manual update required as matrixAutoUpdate = false
-        dot.updateMatrix();
-        label.updateMatrix();
-      }
+  const children = group.children;
+  for (let i = 0; i < children.length; i++) {
+    const poiGroup = children[i];
+    const targetScale = poiGroup.userData.isHovered ? 1.5 : 1.0;
+    const dot = poiGroup.userData.dot;
+    const label = poiGroup.userData.label;
+
+    // Optimization: Skip Three.js property updates and matrix recalculations
+    // if the target scale is already reached.
+    if (Math.abs(dot.scale.x - targetScale) > 0.001) {
+      _tempScale.setScalar(targetScale);
+      dot.scale.lerp(_tempScale, 0.1);
+      label.scale.lerp(_tempScale, 0.1);
+      // Manual update required as matrixAutoUpdate = false
+      dot.updateMatrix();
+      label.updateMatrix();
+    } else if (dot.scale.x !== targetScale) {
+      // Snap to target if very close to avoid persistent sub-pixel updates
+      dot.scale.setScalar(targetScale);
+      label.scale.setScalar(targetScale);
+      // Manual update required as matrixAutoUpdate = false
+      dot.updateMatrix();
+      label.updateMatrix();
     }
   }
+}
+
+export function updatePOIs(group, camera, planetPosition) {
+  updatePOIVisibility(group, camera, planetPosition);
+  animatePOIs(group);
 }
 
 export function refreshPOILabels(group) {
