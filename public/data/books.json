@@ -1,0 +1,19 @@
+[
+  {
+    "title": "The Planets: The Definitive Visual Guide",
+    "sections": [
+      {
+        "name": "Mars Overview",
+        "content": "Mars is the fourth planet from the Sun and the second-smallest planet in the Solar System, being larger than only Mercury. In English, Mars carries the name of the Roman god of war and is often referred to as the 'Red Planet'."
+      },
+      {
+        "name": "Saturn's Rings",
+        "content": "Saturn is best known for the bright, spectacular rings that circle its equator. The rings are not a solid object but are made up of countless small particles, ranging in size from specks of dust to chunks as big as houses, that are thought to be pieces of comets, asteroids, or shattered moons."
+      },
+      {
+        "name": "Jupiter's Size",
+        "content": "Jupiter is the largest planet in the solar system. It is so big that all the other planets in the solar system could fit inside it. More than 1,300 Earths would fit inside Jupiter."
+      }
+    ]
+  }
+]
