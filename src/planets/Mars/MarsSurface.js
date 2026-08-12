@@ -536,20 +536,30 @@ export function createMarsSurface(renderer, options = {}) {
 
   updateChunks()
 
+  // Keep track of lander resources to avoid memory leaks
+  const landerGeometries = []
+  const landerMaterials = []
+
   // Lander
   const landerPos = { x: camera.position.x, z: camera.position.z - 10 }
   function createLander() {
     const group = new THREE.Group()
-    const body = new THREE.Mesh(
-      new THREE.CylinderGeometry(1.5, 2, 2, 6),
-      new THREE.MeshStandardMaterial({ color: 0xdddddd, metalness: 0.8, roughness: 0.2 })
-    )
+
+    const bodyGeo = new THREE.CylinderGeometry(1.5, 2, 2, 6)
+    const bodyMat = new THREE.MeshStandardMaterial({ color: 0xdddddd, metalness: 0.8, roughness: 0.2 })
+    landerGeometries.push(bodyGeo)
+    landerMaterials.push(bodyMat)
+
+    const body = new THREE.Mesh(bodyGeo, bodyMat)
     body.position.y = 2
     body.castShadow = true
     group.add(body)
 
     const legGeo = new THREE.CylinderGeometry(0.1, 0.1, 3)
     const legMat = new THREE.MeshStandardMaterial({ color: 0x888888, metalness: 0.9 })
+    landerGeometries.push(legGeo)
+    landerMaterials.push(legMat)
+
     for (let i = 0; i < 4; i++) {
       const leg = new THREE.Mesh(legGeo, legMat)
       const angle = (i / 4) * Math.PI * 2
@@ -560,10 +570,12 @@ export function createMarsSurface(renderer, options = {}) {
       group.add(leg)
     }
 
-    const dish = new THREE.Mesh(
-      new THREE.SphereGeometry(0.8, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2),
-      new THREE.MeshStandardMaterial({ color: 0xffffff, side: THREE.DoubleSide })
-    )
+    const dishGeo = new THREE.SphereGeometry(0.8, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2)
+    const dishMat = new THREE.MeshStandardMaterial({ color: 0xffffff, side: THREE.DoubleSide })
+    landerGeometries.push(dishGeo)
+    landerMaterials.push(dishMat)
+
+    const dish = new THREE.Mesh(dishGeo, dishMat)
     dish.position.set(0, 3, 0)
     dish.rotation.x = -Math.PI / 4
     dish.castShadow = true
@@ -713,6 +725,13 @@ export function createMarsSurface(renderer, options = {}) {
       // Dispose pooled chunks
       for (const chunk of chunkMeshPool) {
         chunk.geometry.dispose()
+      }
+      // Dispose lander assets
+      for (let i = 0; i < landerGeometries.length; i++) {
+        landerGeometries[i].dispose()
+      }
+      for (let i = 0; i < landerMaterials.length; i++) {
+        landerMaterials[i].dispose()
       }
       // Dispose shared assets
       rockGeo.dispose()

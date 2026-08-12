@@ -1,3 +1,7 @@
+## 2026-08-12 - [WebGL Geometry and Material Cleanup in Localized Sub-Scenes]
+**Learning:** WebGL geometries and materials inside localized sub-scenes (like `MarsSurface.js`) are not automatically garbage collected by the browser when switching scenes or returning to the orbit mode. If sub-scene elements like lander components are re-created dynamically, their underlying GPU-allocated buffers will leak unless explicitly tracked and disposed of.
+**Action:** Always maintain arrays to track dynamically instantiated geometries and materials inside sub-scenes, and ensure they are fully disposed of in the scene's `dispose()` handler.
+
 ## 2026-08-10 - [Vue 3 Setup Hoisting of Static Structures and Heavy Instances]
 **Learning:** Vue's SFC compiler can hoist literal constants from `<script setup>` when no normal `<script>` block is present, while arrays, non-literal objects, and constructed instances can remain inside each component's `setup()` function. Moving invariant values such as slider presets and `Intl.NumberFormat` to a module-scoped `<script>` shares them across component instances. Adding a normal `<script>` can also change the compiler's automatic hoisting behavior, so related invariant constants should be reviewed together.
 **Action:** Check the compiled output before hoisting, and move only invariant structures or constructor-heavy instances whose shared lifetime is useful.
