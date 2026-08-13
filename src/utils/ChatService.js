@@ -19,14 +19,30 @@ class ChatService {
     // Progress tracking
     this.progressItems = {}
     this.lastReportedProgress = 0
+
+    // Performance Optimization: Cache WebGPU support check result
+    this._webGpuSupported = null
   }
 
+  /**
+   * Performance Optimization: Caches the result of checking WebGPU support.
+   * This completely avoids repeating asynchronous browser-level GPU adapter queries (navigator.gpu.requestAdapter)
+   * on subsequent initializations, making checks instantaneous.
+   */
   async isWebGPUSupported() {
-    if (!navigator.gpu) return false
+    if (this._webGpuSupported !== null) {
+      return this._webGpuSupported
+    }
+    if (typeof navigator === 'undefined' || !navigator.gpu) {
+      this._webGpuSupported = false
+      return false
+    }
     try {
       const adapter = await navigator.gpu.requestAdapter()
-      return !!adapter
+      this._webGpuSupported = !!adapter
+      return this._webGpuSupported
     } catch (e) {
+      this._webGpuSupported = false
       return false
     }
   }
