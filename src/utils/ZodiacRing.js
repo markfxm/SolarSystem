@@ -8,7 +8,36 @@ import { LineSegmentsGeometry } from 'three/examples/jsm/lines/LineSegmentsGeome
 // Module-level caches and scratch variables to reuse across the application
 const textureCache = new Map();
 const materialCache = new Map();
-const resolution = new THREE.Vector2(window.innerWidth, window.innerHeight);
+const resolution = typeof window !== 'undefined'
+    ? new THREE.Vector2(window.innerWidth, window.innerHeight)
+    : new THREE.Vector2(1024, 768);
+
+// Optimization: Pre-calculated Trigonometric Lookup Tables (LUTs)
+// Eliminates 153 trigonometric calls (Math.cos/Math.sin) per createZodiacRing invocation.
+const RING_SEGMENTS = 128;
+const RING_STEP = (Math.PI * 2) / RING_SEGMENTS;
+const RING_TRIG = new Float32Array((RING_SEGMENTS + 1) * 2);
+for (let i = 0; i <= RING_SEGMENTS; i++) {
+    const theta = i * RING_STEP;
+    RING_TRIG[i * 2] = Math.cos(theta);
+    RING_TRIG[i * 2 + 1] = Math.sin(theta);
+}
+
+const TICK_STEP = (30 * Math.PI) / 180;
+const TICK_TRIG = new Float32Array(12 * 2);
+for (let i = 0; i < 12; i++) {
+    const angle = i * TICK_STEP;
+    TICK_TRIG[i * 2] = Math.cos(angle);
+    TICK_TRIG[i * 2 + 1] = Math.sin(angle);
+}
+
+const LABEL_ANGLE_OFFSET = (15 * Math.PI) / 180;
+const LABEL_TRIG = new Float32Array(12 * 2);
+for (let i = 0; i < 12; i++) {
+    const labelAngle = i * TICK_STEP + LABEL_ANGLE_OFFSET;
+    LABEL_TRIG[i * 2] = Math.cos(labelAngle);
+    LABEL_TRIG[i * 2 + 1] = Math.sin(labelAngle);
+}
 
 /**
  * Creates a canvas texture for a zodiac label
@@ -82,17 +111,16 @@ export function createZodiacRing(radius = 10000, initialNames = []) {
     group.matrixAutoUpdate = false;
 
     // 1. The main ring line
-    const ringSegments = 128;
-    const ringStep = (Math.PI * 2) / ringSegments;
-    // Optimized: Use Float32Array directly instead of Curve.getPoints() to avoid object allocations
-    const ringPoints = new Float32Array((ringSegments + 1) * 3);
-    for (let i = 0; i <= ringSegments; i++) {
-        const theta = i * ringStep;
+    // Optimization: Use pre-calculated RING_TRIG lookup table instead of per-point Math.cos/Math.sin calls
+    const ringPoints = new Float32Array((RING_SEGMENTS + 1) * 3);
+    for (let i = 0; i <= RING_SEGMENTS; i++) {
+        const cos = RING_TRIG[i * 2];
+        const sin = RING_TRIG[i * 2 + 1];
         const idx = i * 3;
         // Transform Ecliptic (XY-plane, Z-up) to World (XZ-plane, Y-up)
-        ringPoints[idx] = Math.cos(theta) * radius;
+        ringPoints[idx] = cos * radius;
         ringPoints[idx + 1] = 0;
-        ringPoints[idx + 2] = -Math.sin(theta) * radius;
+        ringPoints[idx + 2] = -sin * radius;
     }
 
     const ringGeo = new LineGeometry();
@@ -117,18 +145,20 @@ export function createZodiacRing(radius = 10000, initialNames = []) {
     group.add(ringLine);
 
     // 2. Dash/Tick marks every 30 degrees - Batched into a single LineSegments2
+    // Optimization: Use pre-calculated TICK_TRIG lookup table and hoist radius arithmetic outside the loop
     const tickLength = radius * 0.02;
-    const tickStep = (30 * Math.PI) / 180;
+    const rInner = radius - tickLength;
+    const rOuter = radius + tickLength;
     const tickPoints = new Float32Array(12 * 2 * 3); // 12 ticks, 2 points per tick, 3 components per point
-    for (let i = 0; i < 12; i++) {
-        const angle = i * tickStep;
-        const cos = Math.cos(angle);
-        const sin = Math.sin(angle);
 
-        const startX = cos * (radius - tickLength);
-        const startY = sin * (radius - tickLength);
-        const endX = cos * (radius + tickLength);
-        const endY = sin * (radius + tickLength);
+    for (let i = 0; i < 12; i++) {
+        const cos = TICK_TRIG[i * 2];
+        const sin = TICK_TRIG[i * 2 + 1];
+
+        const startX = cos * rInner;
+        const startY = sin * rInner;
+        const endX = cos * rOuter;
+        const endY = sin * rOuter;
 
         const idx = i * 6;
         // Transform Ecliptic (XY-plane, Z-up) to World (XZ-plane, Y-up)
@@ -163,12 +193,17 @@ export function createZodiacRing(radius = 10000, initialNames = []) {
     const sprites = [];
 
     // 3. Labels
-    const labelAngleOffset = (15 * Math.PI) / 180;
+    // Optimization: Use pre-calculated LABEL_TRIG lookup table and hoist radius arithmetic outside the loop
+    const labelRadius = radius * 1.05;
+    const spriteYOffset = radius * 0.001;
+    const spriteScaleX = radius * 0.3;
+    const spriteScaleY = radius * 0.0375;
+
     for (let i = 0; i < 12; i++) {
-        const labelAngle = i * tickStep + labelAngleOffset; // Center label in the 30deg segment
-        const labelRadius = radius * 1.05;
-        const lx = Math.cos(labelAngle) * labelRadius;
-        const ly = Math.sin(labelAngle) * labelRadius;
+        const cos = LABEL_TRIG[i * 2];
+        const sin = LABEL_TRIG[i * 2 + 1];
+        const lx = cos * labelRadius;
+        const ly = sin * labelRadius;
 
         const name = initialNames[i] || '';
         const symbol = ZODIAC_SYMBOLS[i] || '';
@@ -191,10 +226,10 @@ export function createZodiacRing(radius = 10000, initialNames = []) {
         sprite.raycast = () => {};
         // Transform Ecliptic (XY) to World (XZ)
         // Add a small Y-offset to prevent Z-fighting with the ring plane
-        sprite.position.set(lx, radius * 0.001, -ly);
+        sprite.position.set(lx, spriteYOffset, -ly);
         sprite.renderOrder = 10; // Draw on top
         // ScaleX is now 2x to maintain 8:1 ratio (radius*0.3 vs radius*0.0375)
-        sprite.scale.set(radius * 0.3, radius * 0.0375, 1);
+        sprite.scale.set(spriteScaleX, spriteScaleY, 1);
         // Optimization: Labels are static relative to the ring group
         sprite.matrixAutoUpdate = false;
         sprite.updateMatrix();
