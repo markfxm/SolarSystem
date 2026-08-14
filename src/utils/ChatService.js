@@ -19,16 +19,32 @@ class ChatService {
     // Progress tracking
     this.progressItems = {}
     this.lastReportedProgress = 0
+
+    // Performance Optimization: Cache the WebGPU support result or in-flight check
+    this._webGpuSupported = null
   }
 
+  /**
+   * Performance Optimization: Caches the result of checking WebGPU support and
+   * shares an in-flight check between concurrent callers.
+   */
   async isWebGPUSupported() {
-    if (!navigator.gpu) return false
-    try {
-      const adapter = await navigator.gpu.requestAdapter()
-      return !!adapter
-    } catch (e) {
+    if (this._webGpuSupported !== null) {
+      return this._webGpuSupported
+    }
+    if (typeof navigator === 'undefined' || !navigator.gpu) {
+      this._webGpuSupported = false
       return false
     }
+    try {
+      this._webGpuSupported = Promise.resolve(navigator.gpu.requestAdapter())
+        .then(adapter => !!adapter)
+        .catch(() => false)
+      this._webGpuSupported = await this._webGpuSupported
+    } catch (e) {
+      this._webGpuSupported = false
+    }
+    return this._webGpuSupported
   }
 
   async init(onProgress) {
