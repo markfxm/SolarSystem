@@ -68,3 +68,58 @@ test('planet fly-to invokes its arrival callback only after the flight completes
     if (originalPerformance) Object.defineProperty(globalThis, 'performance', originalPerformance)
   }
 })
+
+test('interactions handles planetNames as Vue computed ref with .value property', () => {
+  const originalWindow = globalThis.window
+  globalThis.window = {
+    innerWidth: 1280,
+    innerHeight: 720,
+    addEventListener: () => {},
+    removeEventListener: () => {}
+  }
+
+  const domElement = {
+    addEventListener: () => {},
+    removeEventListener: () => {}
+  }
+  const controls = {
+    enabled: true,
+    target: new THREE.Vector3(),
+    addEventListener: () => {},
+    removeEventListener: () => {}
+  }
+  const earth = new THREE.Mesh()
+  earth.position.set(0, 0, -10)
+  earth.userData.name = 'earth'
+  earth.userData.originalRadius = 3
+
+  let hoveredName = ''
+
+  try {
+    const computedPlanetNames = {
+      value: { earth: '地球' }
+    }
+
+    const interactions = createInteractions({
+      engine: {
+        camera: new THREE.PerspectiveCamera(),
+        controls,
+        renderer: { domElement },
+        scene: new THREE.Scene(),
+        defaultMinDistance: 1,
+        defaultMaxDistance: 10000
+      },
+      planets: [earth],
+      planetNames: computedPlanetNames,
+      timeController: { freeze: () => {}, unfreeze: () => {} },
+      onHoverNameChange: name => { hoveredName = name }
+    })
+
+    interactions.update()
+    assert.equal(typeof interactions.focusPlanetById, 'function')
+    interactions.dispose()
+  } finally {
+    if (originalWindow === undefined) delete globalThis.window
+    else globalThis.window = originalWindow
+  }
+})
