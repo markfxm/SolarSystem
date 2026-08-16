@@ -168,7 +168,7 @@ const translatedPlanets = computed(() => {
   const names = zodiacNames.value
   const result = []
 
-  // Optimized: Stable iteration order without repeated filtering/spreading
+  // Performance Optimization: Process core GEOCENTRIC_PLANETS in stable order.
   for (let i = 0; i < GEOCENTRIC_PLANETS.length; i++) {
     const id = GEOCENTRIC_PLANETS[i]
     const data = props.chart[id]
@@ -184,9 +184,8 @@ const translatedPlanets = computed(() => {
     }
   }
 
-  // Handle any extra bodies not in the geocentric list
+  // Fallback for any extra non-geocentric bodies
   for (const id in props.chart) {
-    // Optimization: Use O(1) Set lookup
     if (!GEOCENTRIC_PLANET_SET.has(id)) {
       const data = props.chart[id]
       result.push({

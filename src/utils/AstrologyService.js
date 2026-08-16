@@ -118,7 +118,9 @@ export class AstrologyService {
         if (normalized < 0) normalized += 360;
 
         const signIndex = Math.floor(normalized / 30);
-        const degreeWithinSign = normalized % 30;
+        // Performance Optimization: Replace floating-point modulo operator (normalized % 30)
+        // with exact subtraction (normalized - signIndex * 30) to eliminate modulo arithmetic in hot loop.
+        const degreeWithinSign = normalized - signIndex * 30;
 
         target.index = signIndex;
         target.signId = ZODIAC_SIGNS[signIndex];
