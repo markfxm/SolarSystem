@@ -123,3 +123,58 @@ test('interactions handles planetNames as Vue computed ref with .value property'
     else globalThis.window = originalWindow
   }
 })
+
+test('interaction starts preserve the current tracking position', () => {
+  const originalWindow = globalThis.window
+  const originalPerformance = Object.getOwnPropertyDescriptor(globalThis, 'performance')
+  let now = 0
+  let onControlsStart
+  let onPointerDown
+  globalThis.window = { innerWidth: 1280, innerHeight: 720, addEventListener: () => {}, removeEventListener: () => {} }
+  Object.defineProperty(globalThis, 'performance', { configurable: true, value: { now: () => now } })
+
+  const domElement = {
+    addEventListener: (event, handler) => { if (event === 'pointerdown') onPointerDown = handler },
+    removeEventListener: () => {}
+  }
+  const controls = {
+    enabled: true, enableRotate: true, enablePan: true, enableZoom: true, enableDamping: true,
+    minDistance: 1, maxDistance: 10000, target: new THREE.Vector3(), update: () => {},
+    addEventListener: (event, handler) => { if (event === 'start') onControlsStart = handler },
+    removeEventListener: () => {}
+  }
+  const earth = new THREE.Mesh()
+  earth.position.set(100, 0, 0)
+  earth.userData.name = 'earth'
+  earth.userData.originalRadius = 3
+
+  try {
+    const camera = new THREE.PerspectiveCamera()
+    const interactions = createInteractions({
+      engine: { camera, controls, renderer: { domElement }, scene: new THREE.Scene(), defaultMinDistance: 1, defaultMaxDistance: 10000 },
+      planets: [earth], planetNames: {}, timeController: { freeze: () => {}, unfreeze: () => {} }
+    })
+
+    interactions.focusPlanetById('earth')
+    now = 5000
+    interactions.update()
+    earth.position.x += 10
+    onControlsStart()
+    earth.position.x += 10
+    const cameraBeforeControlsStart = camera.position.x
+    interactions.update()
+    assert.equal(camera.position.x - cameraBeforeControlsStart, 10)
+
+    earth.position.x += 10
+    onPointerDown()
+    earth.position.x += 10
+    const cameraBeforePointerDown = camera.position.x
+    interactions.update()
+    assert.equal(camera.position.x - cameraBeforePointerDown, 10)
+    interactions.dispose()
+  } finally {
+    if (originalWindow === undefined) delete globalThis.window
+    else globalThis.window = originalWindow
+    if (originalPerformance) Object.defineProperty(globalThis, 'performance', originalPerformance)
+  }
+})

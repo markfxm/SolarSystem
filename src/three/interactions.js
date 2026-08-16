@@ -422,7 +422,8 @@ export function createInteractions({
     // change the camera's relative orbit/zoom around that moving target.
     if (selectedObject) {
       isTracking = true
-      hasTrackingLastPos = false
+      _trackingLastPosition.copy(selectedObject.position)
+      hasTrackingLastPos = true
     }
     // Ensure controls are enabled for manual interaction
     controls.enabled = true
@@ -433,7 +434,8 @@ export function createInteractions({
     if (!isEnabled) return
     if (selectedObject) {
       isTracking = true
-      hasTrackingLastPos = false
+      _trackingLastPosition.copy(selectedObject.position)
+      hasTrackingLastPos = true
     }
     controls.enabled = true
   }
