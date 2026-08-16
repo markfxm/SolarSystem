@@ -329,7 +329,7 @@ async function onLandOnMars(coords = null) {
     marsSurface.teleport(tx, tz);
   }
   const lPos = marsSurface.getLanderPosition()
-  if (lPos) {
+  if (lPos && (marsLanderPos.value.x !== lPos.x || marsLanderPos.value.y !== lPos.y || marsLanderPos.value.z !== lPos.z)) {
     marsLanderPos.value = { x: lPos.x, y: lPos.y, z: lPos.z }
   }
 
@@ -730,7 +730,9 @@ onMounted(async () => {
     planetNames,
     timeController,
     onHoverNameChange: name => {
-      hoveredPlanetName.value = name
+      if (hoveredPlanetName.value !== name) {
+        hoveredPlanetName.value = name
+      }
     },
     onSelectionChange: name => {
       // keep nav panel selection in sync; empty string -> clear selection
@@ -810,7 +812,7 @@ onMounted(async () => {
               const currentSide = (panelX + panelWidth / 2 < x) ? 'left' : 'right';
 
               // Optimized: Update reactive properties directly to eliminate per-frame object allocations
-              poiUI.visible = true;
+              if (poiUI.visible !== true) poiUI.visible = true;
               poiUI.x = x;
               poiUI.y = y;
               poiUI.side = currentSide;
@@ -825,11 +827,11 @@ onMounted(async () => {
                 poiUI.linePath = `M ${x} ${y} L ${panelX} ${panelY} L ${panelX + panelWidth} ${panelY}`;
               }
             }
-          } else {
+          } else if (poiUI.visible) {
             poiUI.visible = false;
           }
         }
-      } else {
+      } else if (poiUI.visible) {
         poiUI.visible = false;
       }
 
@@ -864,7 +866,7 @@ onMounted(async () => {
       }
 
       const lPos = marsSurface.getLanderPosition()
-      if (lPos) {
+      if (lPos && (marsLanderPos.value.x !== lPos.x || marsLanderPos.value.y !== lPos.y || marsLanderPos.value.z !== lPos.z)) {
         marsLanderPos.value = { x: lPos.x, y: lPos.y, z: lPos.z }
       }
     }
@@ -900,7 +902,9 @@ onMounted(async () => {
         const aspects = AstrologyService.calculateAspects(chart)
         const vibe = AstrologyService.calculateElementBalance(chart, elementBalance.value, _vibeResult)
 
-        dominantElement.value = vibe.dominant
+        if (dominantElement.value !== vibe.dominant) {
+          dominantElement.value = vibe.dominant
+        }
 
         // Performance Optimization: Dirty check for Chart (Planets and Degrees).
         // Only trigger reactivity if a planet's sign or its degree (rounded to minutes) has changed.

@@ -72,7 +72,8 @@ export function createInteractions({
   // Fly / tracking state
   let isFlying = false
   let isTracking = false
-  let trackingLastPosition = null
+  const _trackingLastPosition = new THREE.Vector3()
+  let hasTrackingLastPos = false
 
   let flyFromCameraPos = null
   let flyFromTarget = null
@@ -81,7 +82,7 @@ export function createInteractions({
   let flyStartMs = 0
   let flyDurationMs = 1500
   let flyTargetBody = null
-  let flyCameraOffset = null
+  const _flyCameraOffset = new THREE.Vector3()
   let flyOnArrive = null
   let prevControlsState = null
 
@@ -148,7 +149,7 @@ export function createInteractions({
 
     flyStartMs = performance.now()
     flyTargetBody = body
-    flyCameraOffset = cameraPos.clone().sub(body.position)
+    _flyCameraOffset.copy(cameraPos).sub(body.position)
     flyOnArrive = onArrive
 
     // Mark selection immediately so the panel can reflect the state
@@ -161,7 +162,7 @@ export function createInteractions({
 
     isFlying = true
     isTracking = true
-    trackingLastPosition = null
+    hasTrackingLastPos = false
 
     const dist = flyFromCameraPos.distanceTo(flyToCameraPos)
     flyDurationMs = Math.min(4500, Math.max(1200, dist * 3))
@@ -196,14 +197,13 @@ export function createInteractions({
       controls.enableDamping = false
     }
 
-    trackingLastPosition = null
+    hasTrackingLastPos = false
     timeController?.unfreeze()
 
     // Mark arrived target as selected and keep tracking enabled until user intervenes
     if (flyTargetBody) {
       selectedObject = flyTargetBody
       flyTargetBody = null
-      flyCameraOffset = null
     }
 
     const onArrive = flyOnArrive
@@ -301,8 +301,9 @@ export function createInteractions({
 
       if (current && hoveredObject !== current) {
         hoveredObject = current
+        const names = planetNames.value || planetNames
         onHoverNameChange?.(
-          planetNames[current.userData.name] ?? ''
+          names[current.userData.name] ?? ''
         )
       }
     } else {
@@ -361,11 +362,11 @@ export function createInteractions({
 
     // Smooth fly-to
     if (isFlying && flyFromCameraPos && flyToCameraPos) {
-      if (flyTargetBody && flyCameraOffset) {
+      if (flyTargetBody) {
         // Use scratch variables to avoid cloning every frame
         _tempVec3.copy(flyTargetBody.position)
         flyToTarget.copy(_tempVec3)
-        flyToCameraPos.copy(_tempVec3).add(flyCameraOffset)
+        flyToCameraPos.copy(_tempVec3).add(_flyCameraOffset)
       }
 
       const t = Math.min(
@@ -400,16 +401,17 @@ export function createInteractions({
 
     // Planet tracking
     if (!isFlying && isTracking && selectedObject) {
-      if (!trackingLastPosition) {
-        trackingLastPosition = selectedObject.position.clone()
+      if (!hasTrackingLastPos) {
+        _trackingLastPosition.copy(selectedObject.position)
+        hasTrackingLastPos = true
       }
 
-      _trackingDelta.copy(selectedObject.position).sub(trackingLastPosition)
+      _trackingDelta.copy(selectedObject.position).sub(_trackingLastPosition)
 
       camera.position.add(_trackingDelta)
       controls.target.copy(selectedObject.position)
 
-      trackingLastPosition.copy(selectedObject.position)
+      _trackingLastPosition.copy(selectedObject.position)
     }
   }
 
@@ -420,7 +422,8 @@ export function createInteractions({
     // change the camera's relative orbit/zoom around that moving target.
     if (selectedObject) {
       isTracking = true
-      trackingLastPosition = selectedObject.position.clone()
+      _trackingLastPosition.copy(selectedObject.position)
+      hasTrackingLastPos = true
     }
     // Ensure controls are enabled for manual interaction
     controls.enabled = true
@@ -431,7 +434,8 @@ export function createInteractions({
     if (!isEnabled) return
     if (selectedObject) {
       isTracking = true
-      trackingLastPosition = selectedObject.position.clone()
+      _trackingLastPosition.copy(selectedObject.position)
+      hasTrackingLastPos = true
     }
     controls.enabled = true
   }
@@ -464,11 +468,10 @@ export function createInteractions({
     selectedPOI = null
     onPOISelect?.(null)
     isTracking = false
-    trackingLastPosition = null
+    hasTrackingLastPos = false
 
     isFlying = false
     flyTargetBody = null
-    flyCameraOffset = null
     flyOnArrive = null
 
     // Notify host that selection was cleared
