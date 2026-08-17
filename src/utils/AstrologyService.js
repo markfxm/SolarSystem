@@ -60,6 +60,12 @@ export const BODY_TO_ID = {
     neptune: 9
 };
 
+// Optimization: Pre-link celestial body entries with pre-resolved numeric IDs to avoid BODY_TO_ID lookups inside loops
+const ALL_BODY_ENTRIES = ALL_BODIES.map(name => ({
+    name,
+    id: BODY_TO_ID[name]
+}));
+
 export const ZODIAC_ELEMENTS = {
     aries: 'fire', leo: 'fire', sagittarius: 'fire',
     taurus: 'earth', virgo: 'earth', capricorn: 'earth',
@@ -274,37 +280,36 @@ export class AstrologyService {
         aspects.length = 0;
         this._aspectPoolIdx = 0;
         this._wrapperPoolIdx = 0;
-        const bodies = ALL_BODIES;
+        const entries = ALL_BODY_ENTRIES;
 
         // Pre-calculate longitudes to avoid redundant math and object lookups in inner loop
         _longitudes.fill(-1);
-        for (let i = 0; i < bodies.length; i++) {
-            const name = bodies[i];
-            const c = chart[name];
+        for (let i = 0; i < entries.length; i++) {
+            const entry = entries[i];
+            const c = chart[entry.name];
             if (c) {
-                const id = BODY_TO_ID[name];
-                // Performance Optimization: Use pre-calculated calibrated longitude
-                _longitudes[id] = c.longitude;
+                // Performance Optimization: Use pre-calculated calibrated longitude and pre-resolved numeric id
+                _longitudes[entry.id] = c.longitude;
             }
         }
 
-        for (let i = 0; i < bodies.length; i++) {
-            const b1 = bodies[i];
-            const id1 = BODY_TO_ID[b1];
+        for (let i = 0; i < entries.length; i++) {
+            const e1 = entries[i];
+            const id1 = e1.id;
             const long1 = _longitudes[id1];
             if (long1 === -1) continue;
 
-            for (let j = i + 1; j < bodies.length; j++) {
-                const b2 = bodies[j];
-                const id2 = BODY_TO_ID[b2];
+            for (let j = i + 1; j < entries.length; j++) {
+                const e2 = entries[j];
+                const id2 = e2.id;
                 const long2 = _longitudes[id2];
                 if (long2 === -1) continue;
 
                 const aspect = this.findAspect(long1, long2, this._aspectPool[this._aspectPoolIdx]);
                 if (aspect) {
                     const wrapper = this._wrapperPool[this._wrapperPoolIdx];
-                    wrapper.p1 = b1;
-                    wrapper.p2 = b2;
+                    wrapper.p1 = e1.name;
+                    wrapper.p2 = e2.name;
                     wrapper.aspect = aspect;
                     aspects.push(wrapper);
 
