@@ -438,12 +438,13 @@ function toggleHolo() {
 function updateGridsVisibility() {
   if (!solar) return
   const allPlanets = solar.planets || []
-  allPlanets.forEach(p => {
+  for (let i = 0; i < allPlanets.length; i++) {
+    const p = allPlanets[i]
     if (p.userData && p.userData.grid) {
       // Show grid only if global toggle is ON and this planet is currently selected/focused
       p.userData.grid.visible = showGrid.value && (selectedPlanetId.value === p.userData.name)
     }
-  })
+  }
 }
 
 function onSpeedChange(mult) {
@@ -564,7 +565,9 @@ async function onStellarCapture(date) {
 
   try {
     // 1. Hide UI
-    uiElements.forEach(el => el.style.visibility = 'hidden')
+    for (let i = 0; i < uiElements.length; i++) {
+      uiElements[i].style.visibility = 'hidden'
+    }
 
     // 2. Apply Aesthetic Transformation
     aesthetic.apply(date)
@@ -593,7 +596,9 @@ async function onStellarCapture(date) {
     // Restore orbit resolution to screen size
     updateOrbitResolution(window.innerWidth, window.innerHeight)
     // Restore UI
-    uiElements.forEach(el => el.style.visibility = '')
+    for (let i = 0; i < uiElements.length; i++) {
+      uiElements[i].style.visibility = ''
+    }
     isCapturing.value = false
   }
 }
@@ -964,11 +969,12 @@ onMounted(async () => {
       }
       // Refresh POI labels for all relevant planets
       if (planetsWithPOIs.length > 0) {
-        planetsWithPOIs.forEach(({ mesh }) => {
+        for (let i = 0; i < planetsWithPOIs.length; i++) {
+          const mesh = planetsWithPOIs[i].mesh;
           if (mesh.userData.pois) {
-            refreshPOILabels(mesh.userData.pois)
+            refreshPOILabels(mesh.userData.pois);
           }
-        })
+        }
       }
     }
   })

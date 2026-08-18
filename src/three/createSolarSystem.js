@@ -149,19 +149,21 @@ export async function createSolarSystem(scene, renderer, zodiacNames = [], onPro
 
   // Initial positions & orientations
   const startD = computeD(new Date());
-  Object.keys(planetObjects).forEach(name => {
+  const planetNamesKeys = Object.keys(planetObjects);
+  for (let i = 0; i < planetNamesKeys.length; i++) {
+    const name = planetNamesKeys[i];
     // Moon position is handled geocentrically in timeController's update loop,
     // and Sun stays at the origin. Skip initial placement for them here.
     if (name === 'sun' || name === 'moon') {
       planetObjects[name].setRotationFromQuaternion(computePlanetQuaternion(name, startD));
-      return;
+      continue;
     }
 
-    const el = computeElements(name, startD, null, orbitScale)
-    const pos = computePosition(el)
-    planetObjects[name].position.set(pos.x, pos.y, pos.z)
+    const el = computeElements(name, startD, null, orbitScale);
+    const pos = computePosition(el);
+    planetObjects[name].position.set(pos.x, pos.y, pos.z);
     planetObjects[name].setRotationFromQuaternion(computePlanetQuaternion(name, startD));
-  })
+  }
 
   // Environment
   const starPoints = createStarfield(scene)
@@ -223,9 +225,11 @@ export async function createSolarSystem(scene, renderer, zodiacNames = [], onPro
     prioritizeHQ: name => textureController.prioritize(name),
     setHolographic: (enabled) => {
       // 1. Toggle Planets
-      Object.values(planetInstances).forEach(instance => {
+      const instances = Object.values(planetInstances);
+      for (let i = 0; i < instances.length; i++) {
+        const instance = instances[i];
         if (instance.setHolographic) instance.setHolographic(enabled);
-      });
+      }
 
       // 2. Toggle Orbits
       // Optimized: Iterate over pre-collected orbits array instead of full scene traversal.
