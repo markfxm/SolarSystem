@@ -119,8 +119,8 @@ export class AuraManager {
             const info = chart[item.name];
             if (!info) continue;
 
-            // Optimization: info.index directly maps to ELEMENT_BY_INDEX and our materialsByElementIndex
-            const elementIdx = info.index % 4; // Ensure index is in [0,3] range
+            // Optimization: Use pre-calculated elementIndex directly (0: fire, 1: earth, 2: air, 3: water)
+            const elementIdx = info.elementIndex ?? (info.index & 3);
 
             const aura = item.aura;
             // Optimization: Avoid redundant visibility updates

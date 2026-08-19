@@ -13,6 +13,14 @@ export const ASPECT_TYPES = {
     SEXTILE: { angle: 60, orb: 6, color: 0xffcc33, label: 'aspect.sextile' }
 };
 
+export const ASPECT_TYPE_TO_ID = {
+    CONJUNCTION: 0,
+    OPPOSITION: 1,
+    TRINE: 2,
+    SQUARE: 3,
+    SEXTILE: 4
+};
+
 // Add pre-formatted color strings for UI performance and flatten for O(1) loop access
 const ASPECT_DATA = [];
 for (const key in ASPECT_TYPES) {
@@ -129,6 +137,8 @@ export class AstrologyService {
         const degreeWithinSign = normalized - signIndex * 30;
 
         target.index = signIndex;
+        // Optimization: Pre-calculate elementIndex (0: fire, 1: earth, 2: air, 3: water) in O(1) time
+        target.elementIndex = signIndex & 3;
         target.signId = ZODIAC_SIGNS[signIndex];
         target.degree = degreeWithinSign;
         // Optimization: Store calibrated longitude to avoid re-calculation in calculateAspects
@@ -389,8 +399,8 @@ export class AstrologyService {
             const name = GEOCENTRIC_PLANETS[i];
             const info = chart[name];
             if (info) {
-                // Optimization: Use pre-indexed element lookup instead of string key
-                const element = ELEMENT_BY_INDEX[info.index];
+                // Optimization: Use pre-calculated element index for O(1) direct lookup
+                const element = ELEMENTS[info.elementIndex ?? (info.index & 3)];
                 if (element) balance[element]++;
             }
         }

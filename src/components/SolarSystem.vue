@@ -165,7 +165,7 @@ import { createInteractions } from '../three/interactions.js'
 import { createMarsSurface } from '../planets/Mars/MarsSurface.js'
 import { updatePOIVisibility, animatePOIs, refreshPOILabels } from '../utils/POI.js'
 import { AestheticSnapshotManager } from '../utils/AestheticSnapshot.js'
-import { AstrologyService, GEOCENTRIC_PLANETS } from '../utils/AstrologyService.js'
+import { AstrologyService, GEOCENTRIC_PLANETS, BODY_TO_ID, ASPECT_TYPE_TO_ID } from '../utils/AstrologyService.js'
 
 const container = shallowRef(null)
 const systemConsole = ref(null)
@@ -192,7 +192,8 @@ const _vibeResult = { balance: elementBalance.value, dominant: 'none' }
 
 // Optimization: Track last triggered state to minimize UI re-renders
 const _lastChartState = {}
-let _lastAspectsState = ''
+const _lastAspectsKeys = new Int32Array(64)
+let _lastAspectsCount = -1
 const dominantElement = ref('none')
 const showGrid = ref(false)
 const selectedPOI = ref(null)
@@ -931,17 +932,29 @@ onMounted(async () => {
           triggerRef(elementBalance);
         }
 
-        // Performance Optimization: Dirty check for Aspects.
-        // Only trigger reactivity if the set of active aspect pairs, types, or rounded orbs has changed.
-        let aspectsKey = '';
+        // Performance Optimization: Dirty check for Aspects using bit-packed integer keys.
+        // Bit packing: p1 (4 bits) | p2 (4 bits) | type (3 bits) | orbMinutes (9 bits)
+        // This eliminates string fragment allocations completely during simulation dirty checks.
+        let aspectsChanged = aspects.length !== _lastAspectsCount;
+        if (aspects.length > _lastAspectsKeys.length) {
+          _lastAspectsKeys = new Int32Array(aspects.length * 2);
+          aspectsChanged = true;
+        }
         for (let i = 0; i < aspects.length; i++) {
           const a = aspects[i];
-          // Use full names for robust identification without excessive overhead
-          aspectsKey += a.p1 + a.p2 + a.aspect.type + Math.round(a.aspect.orb * 60);
+          const p1Id = BODY_TO_ID[a.p1] ?? 0;
+          const p2Id = BODY_TO_ID[a.p2] ?? 0;
+          const typeId = ASPECT_TYPE_TO_ID[a.aspect.type] ?? 0;
+          const orbMin = Math.round(a.aspect.orb * 60);
+          const key = (p1Id << 20) | (p2Id << 16) | (typeId << 12) | orbMin;
+          if (_lastAspectsKeys[i] !== key) {
+            _lastAspectsKeys[i] = key;
+            aspectsChanged = true;
+          }
         }
 
-        if (aspectsKey !== _lastAspectsState) {
-          _lastAspectsState = aspectsKey;
+        if (aspectsChanged) {
+          _lastAspectsCount = aspects.length;
           if (activeAspects.value !== aspects) activeAspects.value = aspects;
           triggerRef(activeAspects);
         }
