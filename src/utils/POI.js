@@ -59,7 +59,8 @@ export function createPOIMarkers(planetName, radius) {
   group.matrixAutoUpdate = false;
   group.updateMatrix();
 
-  pois.forEach(poi => {
+  for (let i = 0; i < pois.length; i++) {
+    const poi = pois[i];
     const poiGroup = new THREE.Group();
     poiGroup.name = `POI_${poi.id}`;
     // Optimization: Set to Layer 1 to prune from standard recursive raycast passes (Layer 0).
@@ -94,7 +95,8 @@ export function createPOIMarkers(planetName, radius) {
     poiGroup.add(dot);
 
     // 2. Text Label
-    const labelMesh = createLabelMesh(poi, planetName);
+    const translationKey = `${planetName}.pois.${poi.id}`;
+    const labelMesh = createLabelMesh(poi, planetName, translationKey);
     // Optimization: Set to Layer 1 to prune from standard raycast passes.
     labelMesh.layers.set(1);
     // Offset slightly from dot to avoid Z-fighting
@@ -115,13 +117,14 @@ export function createPOIMarkers(planetName, radius) {
       isPOI: true,
       planetName: planetName,
       poiId: poi.id,
+      translationKey: translationKey,
       dot: dot,
       label: labelMesh
     };
 
     poiGroup.updateMatrix();
     group.add(poiGroup);
-  });
+  }
 
   return group;
 }
@@ -177,23 +180,26 @@ export function updatePOIs(group, camera, planetPosition) {
 
 export function refreshPOILabels(group) {
   if (!group) return;
-  group.children.forEach(poiGroup => {
-    const planet = poiGroup.userData.planetName;
-    const currentText = t(`${planet}.pois.${poiGroup.userData.poiId}`);
+  const children = group.children;
+  for (let i = 0; i < children.length; i++) {
+    const poiGroup = children[i];
+    const key = poiGroup.userData.translationKey || `${poiGroup.userData.planetName}.pois.${poiGroup.userData.poiId}`;
+    const currentText = t(key);
     const label = poiGroup.userData.label;
     if (label && label.material.map) {
       updateLabelCanvas(label.material.map.image, currentText);
       label.material.map.needsUpdate = true;
     }
-  });
+  }
 }
 
-function createLabelMesh(poi, planetName) {
+function createLabelMesh(poi, planetName, translationKey) {
   const canvas = document.createElement('canvas');
   canvas.width = 512;
   canvas.height = 128;
 
-  const text = t(`${planetName}.pois.${poi.id}`);
+  const key = translationKey || `${planetName}.pois.${poi.id}`;
+  const text = t(key);
   updateLabelCanvas(canvas, text);
 
   const texture = new THREE.CanvasTexture(canvas);
