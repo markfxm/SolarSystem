@@ -28,14 +28,25 @@ export class AspectLinesManager {
         this.activeLinesList = []; // Performance Optimization: Flat array of active aspect lines kept in sync with the Map to avoid MapIterator allocations
         this.lastResolution = new THREE.Vector2(-1, -1);
         this.frameID = 0;
+
+        // Performance Optimization: Cache window dimensions to avoid DOM layout queries on every frame
+        this.winWidth = typeof window !== 'undefined' ? window.innerWidth : 1024;
+        this.winHeight = typeof window !== 'undefined' ? window.innerHeight : 768;
+        this.onResize = () => {
+            this.winWidth = window.innerWidth;
+            this.winHeight = window.innerHeight;
+        };
+        if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+            window.addEventListener('resize', this.onResize);
+        }
     }
 
     update(aspects) {
         this.frameID++;
 
-        // Update resolution scratch
-        const w = window.innerWidth;
-        const h = window.innerHeight;
+        // Update resolution scratch using cached window dimensions to avoid redundant window property access
+        const w = this.winWidth;
+        const h = this.winHeight;
         _resolution.set(w, h);
 
         // Each instance tracks its own last resolution to support multi-viewport correctly
@@ -181,6 +192,9 @@ export class AspectLinesManager {
     }
 
     dispose() {
+        if (typeof window !== 'undefined' && typeof window.removeEventListener === 'function') {
+            window.removeEventListener('resize', this.onResize);
+        }
         this.scene.remove(this.group);
         for (let i = 0; i < this.activeLinesList.length; i++) {
             const data = this.activeLinesList[i];
