@@ -1,3 +1,7 @@
+## 2026-08-16 - [Bit-Packed Integer Dirty Checking for Active Aspects]
+**Learning:** Constructing concatenated strings (`a.p1 + a.p2 + a.aspect.type + orbMinutes`) inside throttled simulation dirty-check loops allocates dozens of short-lived string fragments per check. Packing integer body IDs, aspect type IDs, and orb minutes into 32-bit integers (`(p1 << 20) | (p2 << 16) | (type << 12) | orbMin`) and comparing against a typed array (`Int32Array`) achieves zero-allocation dirty checking during simulation updates.
+**Action:** Use bit-packed integer keys and typed arrays instead of string concatenations when performing equality/dirty checks in high-frequency simulation update loops.
+
 ## 2026-08-15 - [WebGPU Capability Check Caching]
 **Learning:** WebGPU capability checks via `navigator.gpu.requestAdapter()` trigger underlying asynchronous hardware queries which can be slow, block browser threads on certain driver configurations, or cause overhead if invoked repeatedly during single-page session initializations.
 **Action:** Always cache the resolved WebGPU/GPUAdapter capability results at a persistent scope (module or singleton instance) after the first evaluation to ensure subsequent checks resolve in O(1) time.

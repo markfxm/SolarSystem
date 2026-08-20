@@ -13,6 +13,14 @@ export const ASPECT_TYPES = {
     SEXTILE: { angle: 60, orb: 6, color: 0xffcc33, label: 'aspect.sextile' }
 };
 
+export const ASPECT_TYPE_TO_ID = {
+    CONJUNCTION: 0,
+    OPPOSITION: 1,
+    TRINE: 2,
+    SQUARE: 3,
+    SEXTILE: 4
+};
+
 // Add pre-formatted color strings for UI performance and flatten for O(1) loop access
 const ASPECT_DATA = [];
 for (const key in ASPECT_TYPES) {
@@ -59,6 +67,39 @@ export const BODY_TO_ID = {
     uranus: 8,
     neptune: 9
 };
+
+export function createAspectDirtyChecker(initialCapacity = 64) {
+    let lastKeys = new Int32Array(initialCapacity);
+    let lastCount = -1;
+
+    return {
+        hasChanged(aspects) {
+            let changed = aspects.length !== lastCount;
+
+            if (aspects.length > lastKeys.length) {
+                lastKeys = new Int32Array(Math.max(aspects.length * 2, 1));
+                changed = true;
+            }
+
+            for (let i = 0; i < aspects.length; i++) {
+                const item = aspects[i];
+                const p1Id = BODY_TO_ID[item.p1] ?? 0;
+                const p2Id = BODY_TO_ID[item.p2] ?? 0;
+                const typeId = ASPECT_TYPE_TO_ID[item.aspect.type] ?? 0;
+                const orbMin = Math.round(item.aspect.orb * 60);
+                const key = (p1Id << 20) | (p2Id << 16) | (typeId << 12) | orbMin;
+
+                if (lastKeys[i] !== key) {
+                    lastKeys[i] = key;
+                    changed = true;
+                }
+            }
+
+            if (changed) lastCount = aspects.length;
+            return changed;
+        }
+    };
+}
 
 // Optimization: Pre-link celestial body entries with pre-resolved numeric IDs to avoid BODY_TO_ID lookups inside loops
 const ALL_BODY_ENTRIES = ALL_BODIES.map(name => ({
@@ -129,6 +170,8 @@ export class AstrologyService {
         const degreeWithinSign = normalized - signIndex * 30;
 
         target.index = signIndex;
+        // Optimization: Pre-calculate elementIndex (0: fire, 1: earth, 2: air, 3: water) in O(1) time
+        target.elementIndex = signIndex & 3;
         target.signId = ZODIAC_SIGNS[signIndex];
         target.degree = degreeWithinSign;
         // Optimization: Store calibrated longitude to avoid re-calculation in calculateAspects
@@ -389,8 +432,8 @@ export class AstrologyService {
             const name = GEOCENTRIC_PLANETS[i];
             const info = chart[name];
             if (info) {
-                // Optimization: Use pre-indexed element lookup instead of string key
-                const element = ELEMENT_BY_INDEX[info.index];
+                // Optimization: Use pre-calculated element index for O(1) direct lookup
+                const element = ELEMENTS[info.elementIndex ?? (info.index & 3)];
                 if (element) balance[element]++;
             }
         }
