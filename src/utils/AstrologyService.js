@@ -68,6 +68,39 @@ export const BODY_TO_ID = {
     neptune: 9
 };
 
+export function createAspectDirtyChecker(initialCapacity = 64) {
+    let lastKeys = new Int32Array(initialCapacity);
+    let lastCount = -1;
+
+    return {
+        hasChanged(aspects) {
+            let changed = aspects.length !== lastCount;
+
+            if (aspects.length > lastKeys.length) {
+                lastKeys = new Int32Array(Math.max(aspects.length * 2, 1));
+                changed = true;
+            }
+
+            for (let i = 0; i < aspects.length; i++) {
+                const item = aspects[i];
+                const p1Id = BODY_TO_ID[item.p1] ?? 0;
+                const p2Id = BODY_TO_ID[item.p2] ?? 0;
+                const typeId = ASPECT_TYPE_TO_ID[item.aspect.type] ?? 0;
+                const orbMin = Math.round(item.aspect.orb * 60);
+                const key = (p1Id << 20) | (p2Id << 16) | (typeId << 12) | orbMin;
+
+                if (lastKeys[i] !== key) {
+                    lastKeys[i] = key;
+                    changed = true;
+                }
+            }
+
+            if (changed) lastCount = aspects.length;
+            return changed;
+        }
+    };
+}
+
 // Optimization: Pre-link celestial body entries with pre-resolved numeric IDs to avoid BODY_TO_ID lookups inside loops
 const ALL_BODY_ENTRIES = ALL_BODIES.map(name => ({
     name,
