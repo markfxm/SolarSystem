@@ -685,6 +685,10 @@ onMounted(async () => {
     loadingProgress.value = Math.round(progress)
   })
 
+  // A resize can occur while the asynchronous scene setup is in progress.
+  // Refresh the cache before the first projection frame after initialization.
+  updateOrbitResolution(window.innerWidth, window.innerHeight)
+
   loadingComplete = true
 
   const startFlyInAnimation = () => {
