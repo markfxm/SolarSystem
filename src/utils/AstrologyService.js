@@ -21,11 +21,21 @@ export const ASPECT_TYPE_TO_ID = {
     SEXTILE: 4
 };
 
-// Add pre-formatted color strings for UI performance and flatten for O(1) loop access
+const ASPECT_PRIORITY = {
+    'CONJUNCTION': 1,
+    'OPPOSITION': 2,
+    'SQUARE': 3,
+    'TRINE': 4,
+    'SEXTILE': 5
+};
+
+// Add pre-formatted color strings, lowercase type, and numeric priorities for O(1) hot loop access
 const ASPECT_DATA = [];
 for (const key in ASPECT_TYPES) {
     const aspect = ASPECT_TYPES[key];
     aspect.type = key;
+    aspect.typeLower = key.toLowerCase();
+    aspect.priority = ASPECT_PRIORITY[key] ?? 99;
     aspect.colorStr = '#' + aspect.color.toString(16).padStart(6, '0');
     ASPECT_DATA.push(aspect);
 }
@@ -117,14 +127,6 @@ export const ZODIAC_ELEMENTS = {
 // Optimization: Pre-indexed element lookup to avoid string key lookups in 60fps loops
 export const ELEMENTS = ['fire', 'earth', 'air', 'water'];
 export const ELEMENT_BY_INDEX = ['fire', 'earth', 'air', 'water', 'fire', 'earth', 'air', 'water', 'fire', 'earth', 'air', 'water'];
-
-const ASPECT_PRIORITY = {
-    'CONJUNCTION': 1,
-    'OPPOSITION': 2,
-    'SQUARE': 3,
-    'TRINE': 4,
-    'SEXTILE': 5
-};
 
 const CALIBRATION_OFFSET = 1.7;
 
@@ -298,11 +300,13 @@ export class AstrologyService {
                 // Reuse target object if provided to avoid per-aspect allocations
                 const res = target || {};
                 res.type = data.type;
+                res.typeLower = data.typeLower;
                 res.orb = orb;
                 res.angle = data.angle;
                 res.color = data.color;
                 res.label = data.label;
                 res.colorStr = data.colorStr;
+                res.priority = data.priority;
                 return res;
             }
         }
@@ -379,7 +383,7 @@ export class AstrologyService {
                 if (orbDiff < -1.0) {
                     major = item;
                 } else if (Math.abs(orbDiff) <= 1.0) {
-                    if (ASPECT_PRIORITY[item.aspect.type] < ASPECT_PRIORITY[major.aspect.type]) {
+                    if (item.aspect.priority < major.aspect.priority) {
                         major = item;
                     }
                 }
@@ -400,7 +404,7 @@ export class AstrologyService {
         let p2 = null;
 
         if (majorAspect) {
-            strategyKey = majorAspect.aspect.type.toLowerCase();
+            strategyKey = majorAspect.aspect.typeLower || majorAspect.aspect.type.toLowerCase();
             p1 = majorAspect.p1;
             p2 = majorAspect.p2;
         }
