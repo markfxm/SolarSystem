@@ -246,6 +246,10 @@ let clockTimer
 let planetsWithPOIs = []
 let _isAuraVisible = false
 
+// Performance Optimization: Cache window dimensions to avoid DOM layout queries in 60fps loops
+let winWidth = typeof window !== 'undefined' ? window.innerWidth : 1024
+let winHeight = typeof window !== 'undefined' ? window.innerHeight : 768
+
 // Scratch variables for POI projection to minimize GC
 const _poiWorldPos = new THREE.Vector3()
 let _lastPoiX = -1;
@@ -459,6 +463,8 @@ function onSpeedChange(mult) {
 }
 
 function updateOrbitResolution(w, h) {
+  winWidth = w
+  winHeight = h
   if (!solar) return
 
   // Performance Optimization: Use pre-collected resolution-dependent objects
@@ -679,6 +685,10 @@ onMounted(async () => {
     loadingProgress.value = Math.round(progress)
   })
 
+  // A resize can occur while the asynchronous scene setup is in progress.
+  // Refresh the cache before the first projection frame after initialization.
+  updateOrbitResolution(window.innerWidth, window.innerHeight)
+
   loadingComplete = true
 
   const startFlyInAnimation = () => {
@@ -752,8 +762,8 @@ onMounted(async () => {
         if (poi && engine) {
           poi.dot.getWorldPosition(_poiWorldPos);
           _tempV.copy(_poiWorldPos).project(engine.camera);
-          const x = (_tempV.x * 0.5 + 0.5) * window.innerWidth;
-          const half = window.innerWidth / 2;
+          const x = (_tempV.x * 0.5 + 0.5) * winWidth;
+          const half = winWidth / 2;
 
           if (x < half - 100) poiUI.initialSide = 'left';
           else if (x > half + 100) poiUI.initialSide = 'right';
@@ -788,8 +798,8 @@ onMounted(async () => {
 
           if (isFacing) {
             _tempV.copy(_poiWorldPos).project(engine.camera);
-            const x = (_tempV.x * 0.5 + 0.5) * window.innerWidth;
-            const y = (-(_tempV.y * 0.5) + 0.5) * window.innerHeight;
+            const x = (_tempV.x * 0.5 + 0.5) * winWidth;
+            const y = (-(_tempV.y * 0.5) + 0.5) * winHeight;
 
             // Performance Boost: Only update reactive UI state if position moved significantly (>0.1px)
             // This eliminates hundreds of redundant SVG path recalculations and Vue reactivity triggers
