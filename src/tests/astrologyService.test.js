@@ -47,6 +47,12 @@ test('findAspect and getMajorAspect use pre-computed priority and typeLower', ()
   assert.equal(major.p1, 'venus')
   assert.equal(major.p2, 'mars')
 
+  const plainAspects = [
+    { p1: 'sun', p2: 'moon', aspect: { orb: 2.0, type: 'SQUARE' } },
+    { p1: 'venus', p2: 'mars', aspect: { orb: 2.0, type: 'CONJUNCTION' } }
+  ]
+  assert.equal(AstrologyService.getMajorAspect(plainAspects).p1, 'venus')
+
   const chart = {
     sun: { signId: 'aries' },
     moon: { signId: 'taurus' }

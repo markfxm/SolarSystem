@@ -383,7 +383,9 @@ export class AstrologyService {
                 if (orbDiff < -1.0) {
                     major = item;
                 } else if (Math.abs(orbDiff) <= 1.0) {
-                    if (item.aspect.priority < major.aspect.priority) {
+                    const itemPriority = item.aspect.priority ?? ASPECT_PRIORITY[item.aspect.type] ?? 99;
+                    const majorPriority = major.aspect.priority ?? ASPECT_PRIORITY[major.aspect.type] ?? 99;
+                    if (itemPriority < majorPriority) {
                         major = item;
                     }
                 }
