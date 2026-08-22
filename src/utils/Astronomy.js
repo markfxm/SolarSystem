@@ -402,16 +402,16 @@ export function computePlanetQuaternion(planetName, d, rotationCache = null) {
   return cache.quat;
 }
 
+const moonData = planetsData.moon;
+
 // Dedicated Moon scratch objects to avoid interfering with planetary element caching
 const _moonElements = {
     a: 1, aScaled: 1, e: 0, i: 0, N: 0, w: 0, M: 0, sqrtEE: 1, aSqrtEE: 1,
     Px: 1, Qx: 0, Py: 0, Qy: 1, Pz: 0, Qz: 0,
     // Initial values baked for World space (X_world = X_ecl, Y_world = Z_ecl, Z_world = -Y_ecl)
     PxA: 1, PyA: 0, PzA: 0, QxAS: 0, QyAS: 0, QzAS: -1,
-    lastD: -999999, lastPlanet: 'moon', lastE: 0, lastM: 0, lastScale: -1
+    lastD: -999999, lastPlanet: moonData, lastE: 0, lastM: 0, lastScale: -1
 };
-
-const moonData = planetsData.moon;
 export function computeMoonPosition(d, scale = 1, target = null) {
   // Use accurate Keplerian elements for the Moon relative to Earth
   // Optimized: el.a is already 1.0 in planetsData, and computeElements

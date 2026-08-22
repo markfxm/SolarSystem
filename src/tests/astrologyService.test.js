@@ -30,3 +30,35 @@ test('aspect dirty checker grows beyond its initial capacity without throwing', 
   assert.equal(checker.hasChanged(aspects), true)
   assert.equal(checker.hasChanged(aspects), false)
 })
+
+test('findAspect and getMajorAspect use pre-computed priority and typeLower', () => {
+  const aspect = AstrologyService.findAspect(0, 0)
+  assert.notEqual(aspect, null)
+  assert.equal(aspect.type, 'CONJUNCTION')
+  assert.equal(aspect.typeLower, 'conjunction')
+  assert.equal(aspect.priority, 1)
+
+  const aspects = [
+    { p1: 'sun', p2: 'moon', aspect: { orb: 2.0, priority: 3, type: 'SQUARE', typeLower: 'square' } },
+    { p1: 'venus', p2: 'mars', aspect: { orb: 2.0, priority: 1, type: 'CONJUNCTION', typeLower: 'conjunction' } }
+  ]
+
+  const major = AstrologyService.getMajorAspect(aspects)
+  assert.equal(major.p1, 'venus')
+  assert.equal(major.p2, 'mars')
+
+  const plainAspects = [
+    { p1: 'sun', p2: 'moon', aspect: { orb: 2.0, type: 'SQUARE' } },
+    { p1: 'venus', p2: 'mars', aspect: { orb: 2.0, type: 'CONJUNCTION' } }
+  ]
+  assert.equal(AstrologyService.getMajorAspect(plainAspects).p1, 'venus')
+
+  const chart = {
+    sun: { signId: 'aries' },
+    moon: { signId: 'taurus' }
+  }
+  const guidance = AstrologyService.getCosmicGuidance(chart, major)
+  assert.equal(guidance.strategyKey, 'conjunction')
+  assert.equal(guidance.p1, 'venus')
+  assert.equal(guidance.p2, 'mars')
+})
