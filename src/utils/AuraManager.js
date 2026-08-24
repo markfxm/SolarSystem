@@ -7,6 +7,9 @@ const PULSE_FREQ_NORMAL = 1.5;
 const PULSE_FREQ_DOMINANT = 3.0;
 const PULSE_AMP = 0.1;
 
+// Optimization: Hoist element index mapping to module scope to eliminate instance property lookups in 60fps update loop
+const ELEMENT_TO_INDEX = { fire: 0, earth: 1, air: 2, water: 3 };
+
 /**
  * Manages glowing "Auras" around planets based on their astrological elements.
  */
@@ -60,9 +63,6 @@ export class AuraManager {
         ];
         this.defaultMaterial = defaultMat;
 
-        // Map dominant element string to numeric index for O(1) comparison
-        this.elementToIndex = { fire: 0, earth: 1, air: 2, water: 3 };
-
         // Pre-link all planets and create their auras immediately to avoid per-frame logic
         for (const name in planetObjects) {
             const mesh = planetObjects[name];
@@ -110,8 +110,8 @@ export class AuraManager {
         const scaleNormal = BASE_SCALE_NORMAL + Math.sin(time * PULSE_FREQ_NORMAL) * PULSE_AMP;
         const scaleDominant = BASE_SCALE_DOMINANT + Math.sin(time * PULSE_FREQ_DOMINANT) * PULSE_AMP;
 
-        // Optimization: Pre-resolve dominant element index for fast comparison
-        const dominantIdx = this.elementToIndex[dominantElement] ?? -1;
+        // Optimization: Pre-resolve dominant element index using module-scoped lookup for fast comparison without 'this' property access
+        const dominantIdx = ELEMENT_TO_INDEX[dominantElement] ?? -1;
 
         // Use a standard for loop to iterate over pre-linked aura objects
         for (let i = 0; i < this.activeAuras.length; i++) {
