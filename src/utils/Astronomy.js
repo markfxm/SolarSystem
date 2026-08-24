@@ -355,8 +355,14 @@ export function getRotationCache(planetName) {
     QUAT_CACHE.set(planetName, cache);
   }
 
+  // Performance Optimization: Pre-extract base quaternion components (bx, by, bz, bw)
+  // to eliminate Three.js private property accesses (_x, _y, _z, _w) inside computePlanetQuaternion.
   return {
     base,
+    bx: base.x,
+    by: base.y,
+    bz: base.z,
+    bw: base.w,
     constants: ORIENTATION_CONSTANTS[planetName],
     cache
   };
@@ -382,14 +388,13 @@ export function computePlanetQuaternion(planetName, d, rotationCache = null) {
     return cache.quat;
   }
 
-  const base = r.base;
+  const { bx, by, bz, bw } = r;
   const c = r.constants;
   const halfW = c.W0_half + c.Wdot_half * d;
   const s = Math.sin(halfW);
   const cW = Math.cos(halfW);
 
   // Unrolled quaternion multiplication: qResult = base * q(Y, W)
-  const bx = base._x, by = base._y, bz = base._z, bw = base._w;
 
   const rx = bx * cW - bz * s;
   const ry = by * cW + bw * s;

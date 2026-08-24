@@ -61,4 +61,7 @@ test('findAspect and getMajorAspect use pre-computed priority and typeLower', ()
   assert.equal(guidance.strategyKey, 'conjunction')
   assert.equal(guidance.p1, 'venus')
   assert.equal(guidance.p2, 'mars')
+
+  const archetype = AstrologyService.getArchetype('aries', 'fire')
+  assert.equal(archetype, 'aries_fire')
 })

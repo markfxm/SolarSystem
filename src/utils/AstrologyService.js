@@ -124,6 +124,12 @@ export const ZODIAC_ELEMENTS = {
     cancer: 'water', scorpio: 'water', pisces: 'water'
 };
 
+// Pre-calculate archetype strings at module scope to eliminate string allocations and property lookups in getArchetype
+const SIGN_ARCHETYPE = ZODIAC_SIGNS.reduce((acc, sign) => {
+    acc[sign] = `${sign}_${ZODIAC_ELEMENTS[sign]}`;
+    return acc;
+}, {});
+
 // Optimization: Pre-indexed element lookup to avoid string key lookups in 60fps loops
 export const ELEMENTS = ['fire', 'earth', 'air', 'water'];
 export const ELEMENT_BY_INDEX = ['fire', 'earth', 'air', 'water', 'fire', 'earth', 'air', 'water', 'fire', 'earth', 'air', 'water'];
@@ -465,7 +471,6 @@ export class AstrologyService {
         if (!sunSignId || !dominantElement || dominantElement === 'none') {
             return null;
         }
-        const naturalElement = ZODIAC_ELEMENTS[sunSignId];
-        return `${sunSignId}_${naturalElement}`;
+        return SIGN_ARCHETYPE[sunSignId] || null;
     }
 }
