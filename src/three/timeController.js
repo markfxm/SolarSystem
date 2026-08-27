@@ -123,15 +123,18 @@ export function createTimeController(planetObjects, orbitScale, extraRotating = 
     }
 
     // Update Moon Position (Geocentric orbit)
-    // Performance Optimization: Access Earth mesh position directly from earthEntry
-    // instead of copying it to a scratch variable in the loop.
+    // Performance Optimization: Cache Earth mesh position coordinates (ex, ey, ez) into local variables.
+    // This eliminates repeated object property lookups and vector method calls in 60fps loops.
     if (moon && earthEntry) {
       const earthPos = earthEntry.mesh.position;
+      const ex = earthPos.x;
+      const ey = earthPos.y;
+      const ez = earthPos.z;
       const moonLocal = computeMoonPosition(d, moonOrbitRadius, _scratchPos);
 
-      const tx = earthPos.x + moonLocal.x;
-      const ty = earthPos.y + moonLocal.y;
-      const tz = earthPos.z + moonLocal.z;
+      const tx = ex + moonLocal.x;
+      const ty = ey + moonLocal.y;
+      const tz = ez + moonLocal.z;
 
       // Performance Optimization: Apply same 1e-5 threshold for geocentric Moon updates.
       const curMoonPos = moon.position;
@@ -142,11 +145,14 @@ export function createTimeController(planetObjects, orbitScale, extraRotating = 
       }
 
       // Update Moon Orbit Line Position (moves with Earth)
-      // Performance Optimization: Skip redundant copy if Earth hasn't moved significantly.
-      if (moonOrbit && !moonOrbit.position.equals(earthPos)) {
-        moonOrbit.position.copy(earthPos);
-        // Performance Optimization: Manually update Moon Orbit matrix as matrixAutoUpdate is disabled.
-        moonOrbit.updateMatrix();
+      // Performance Optimization: Use 1e-5 threshold component check instead of .equals() to skip redundant updates.
+      if (moonOrbit) {
+        const curOrbitPos = moonOrbit.position;
+        if (Math.abs(ex - curOrbitPos.x) > 1e-5 || Math.abs(ey - curOrbitPos.y) > 1e-5 || Math.abs(ez - curOrbitPos.z) > 1e-5) {
+          moonOrbit.position.set(ex, ey, ez);
+          // Performance Optimization: Manually update Moon Orbit matrix as matrixAutoUpdate is disabled.
+          moonOrbit.updateMatrix();
+        }
       }
     }
 
