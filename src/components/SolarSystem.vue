@@ -760,7 +760,17 @@ onMounted(async () => {
 
         // Determine initial side
         if (poi && engine) {
-          poi.dot.getWorldPosition(_poiWorldPos);
+          const planetMesh = solar?.planetObjects[poi.planetName] || (poi.planetName === 'moon' ? solar?.moon : null);
+          if (planetMesh && poi.dot) {
+            // Performance Optimization: Direct vector transformation avoids calling Three.js
+            // updateWorldMatrix() and traversing the scene graph tree.
+            _poiWorldPos.copy(poi.dot.position)
+              .applyQuaternion(planetMesh.quaternion)
+              .multiplyScalar(planetMesh.scale.x)
+              .add(planetMesh.position);
+          } else {
+            poi.dot.getWorldPosition(_poiWorldPos);
+          }
           _tempV.copy(_poiWorldPos).project(engine.camera);
           const x = (_tempV.x * 0.5 + 0.5) * winWidth;
           const half = winWidth / 2;
@@ -787,7 +797,13 @@ onMounted(async () => {
         const planetMesh = solar.planetObjects[poi.planetName] || (poi.planetName === 'moon' ? solar.moon : null);
 
         if (planetMesh && poi.dot) {
-          poi.dot.getWorldPosition(_poiWorldPos);
+          // Performance Optimization: Calculate POI world position directly via vector transformation.
+          // This avoids calling poi.dot.getWorldPosition() which triggers updateWorldMatrix() and
+          // scene graph parent traversal every frame at 60fps.
+          _poiWorldPos.copy(poi.dot.position)
+            .applyQuaternion(planetMesh.quaternion)
+            .multiplyScalar(planetMesh.scale.x)
+            .add(planetMesh.position);
           // Optimization: Reuse mesh.position as world position since planets are direct children of the scene
           _planetWorldPos.copy(planetMesh.position);
 
