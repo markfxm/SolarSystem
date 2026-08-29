@@ -221,3 +221,7 @@
 ## 2025-05-21 - [Vue Reactivity Dirty Checks]
 **Learning:** Calling `triggerRef()` in a high-frequency loop (even if throttled to 12fps) forces Vue to re-evaluate all dependent computed properties and re-render components, even if the underlying values have not visibly changed (e.g., sub-minute planetary movement). Implementing a bit-packed "dirty check" for planetary positions (sign index + rounded degree-minutes) and a string hash for active aspects reduces reactivity triggers by over 99% during slow simulation speeds.
 **Action:** Always implement explicit dirty checks before manually triggering reactivity on shallow references in high-frequency update loops.
+
+## 2026-05-22 - [Vue Computed Object Mutation Anti-Pattern]
+**Learning:** Mutating and returning a single module-scoped object or array reference inside a Vue `computed` property breaks Vue reactivity. Vue's reactivity system uses `Object.is()` identity comparison to detect changes. Returning the same object reference prevents Vue from notifying downstream template nodes and watchers when underlying reactive dependencies (such as language/i18n state) change.
+**Action:** Always return new objects or arrays from `computed` properties when their contents are transformed, relying on Vue's dependency tracking to re-evaluate them only when dependencies change.
