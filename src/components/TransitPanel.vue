@@ -257,8 +257,8 @@ const strategyGuidance = computed(() => {
     if (!keys?.strategyKey) return t('report.no_aspect');
     
     return t(`guidance.strategy.${keys.strategyKey}`, {
-        p1: t('planet.' + keys.p1),
-        p2: t('planet.' + keys.p2)
+        p1: t(PLANET_NAME_CACHE[keys.p1] || ('planet.' + keys.p1)),
+        p2: t(PLANET_NAME_CACHE[keys.p2] || ('planet.' + keys.p2))
     });
 })
 

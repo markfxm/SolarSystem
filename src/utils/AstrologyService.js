@@ -401,7 +401,11 @@ export class AstrologyService {
         return major;
     }
 
-    static getCosmicGuidance(chart, majorAspect) {
+    /**
+     * Calculates guidance keys for the current chart and major aspect.
+     * Optimization: Accepts an optional target object to allow zero-allocation updates in hot loops.
+     */
+    static getCosmicGuidance(chart, majorAspect, target = null) {
         if (!chart || !chart.sun || !chart.moon) return null;
 
         const sunSign = chart.sun.signId;
@@ -417,13 +421,13 @@ export class AstrologyService {
             p2 = majorAspect.p2;
         }
 
-        return {
-            sunKey: sunSign,
-            moonKey: moonSign,
-            strategyKey: strategyKey,
-            p1: p1,
-            p2: p2
-        };
+        const res = target || {};
+        res.sunKey = sunSign;
+        res.moonKey = moonSign;
+        res.strategyKey = strategyKey;
+        res.p1 = p1;
+        res.p2 = p2;
+        return res;
     }
 
     /**
