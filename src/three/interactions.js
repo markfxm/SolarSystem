@@ -45,6 +45,7 @@ export function createInteractions({
   const _trackingDelta = new THREE.Vector3()
   const _tempVec3 = new THREE.Vector3()
   const _tempLookAt = new THREE.Vector3()
+  const _flyOffsetScratch = new THREE.Vector3()
   const _poiCandidates = [] // Scratch array to avoid per-event allocations
 
   // Performance Optimization: Pre-calculate POI collections to avoid redundant
@@ -109,9 +110,10 @@ export function createInteractions({
     const distance = Math.max(radius * 5, 20)
     const verticalOffset = Math.max(radius * 1.5, 6)
 
+    // Performance Optimization: Use scratch vector _flyOffsetScratch to avoid allocating a new THREE.Vector3
     return {
       cameraPos: body.position.clone().add(
-        new THREE.Vector3(0, verticalOffset, distance)
+        _flyOffsetScratch.set(0, verticalOffset, distance)
       ),
       lookAt: body.position.clone(),
       minDistance: radius * 1.5
@@ -231,7 +233,10 @@ export function createInteractions({
     const my = -(event.clientY / windowHeight) * 2 + 1
 
     // Threshold check: only raycast if mouse moved significantly
-    const distSq = (mx - lastMousePos.x) ** 2 + (my - lastMousePos.y) ** 2
+    // Performance Optimization: Use direct multiplication dx * dx + dy * dy instead of Math.pow / ** 2
+    const dx = mx - lastMousePos.x
+    const dy = my - lastMousePos.y
+    const distSq = dx * dx + dy * dy
     if (distSq < 0.0001) return
 
     lastMouseMoveTime = now
