@@ -65,3 +65,21 @@ test('findAspect and getMajorAspect use pre-computed priority and typeLower', ()
   const archetype = AstrologyService.getArchetype('aries', 'fire')
   assert.equal(archetype, 'aries_fire')
 })
+
+test('getCosmicGuidance keeps the original two-argument contract', () => {
+  const chart = {
+    sun: { signId: 'aries' },
+    moon: { signId: 'taurus' }
+  }
+  const majorAspect = {
+    p1: 'sun',
+    p2: 'moon',
+    aspect: { type: 'CONJUNCTION', typeLower: 'conjunction' }
+  }
+  const target = { untouched: true }
+
+  const result = AstrologyService.getCosmicGuidance(chart, majorAspect, target)
+
+  assert.notEqual(result, target)
+  assert.deepEqual(target, { untouched: true })
+})
