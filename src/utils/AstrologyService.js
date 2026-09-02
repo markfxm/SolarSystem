@@ -210,63 +210,74 @@ export class AstrologyService {
 
     /**
      * Calculates planetary longitudes relative to Earth.
-     * Performance Optimization: Can accept planetObjects (scene meshes) to reuse
-     * already-calculated positions, skipping expensive Keplerian math.
+     * Performance Optimization: Fast-path for scene-mesh positioning when planetObjects
+     * is provided. Caches Earth coordinates once and eliminates per-iteration condition checks
+     * and property lookups inside the 9-body loop during 60fps simulation updates.
      */
     static calculateGeocentricChart(d, planetObjects = null, target = null) {
         const results = target || {};
         const days = computeD(d);
 
-        let earthX = 0, earthYecl = 0;
-
+        // Performance Optimization: Fast-path when scene meshes are provided (simulation hot-path)
         if (planetObjects && planetObjects.earth) {
-            // Optimization: Reuse scene positions. In our coordinate system,
-            // x_ecliptic = world.x, y_ecliptic = -world.z
-            const earth = planetObjects.earth;
-            earthX = earth.position.x;
-            earthYecl = -earth.position.z;
-        } else {
-            const earthElements = computeElements(earthData, days, _earthElements, 1);
-            const earthPos = computePosition(earthElements, _earthPos);
-            earthX = earthPos.x;
-            earthYecl = -earthPos.z; // x_ecl = x, y_ecl = -z
+            const earthPos = planetObjects.earth.position;
+            const earthX = earthPos.x;
+            const earthYecl = -earthPos.z;
+
+            for (let i = 0; i < GEOCENTRIC_ENTRIES.length; i++) {
+                const name = GEOCENTRIC_ENTRIES[i].name;
+                let relX, relY;
+
+                if (name === 'sun') {
+                    relX = -earthX;
+                    relY = -earthYecl;
+                } else {
+                    const p = planetObjects[name];
+                    if (p) {
+                        relX = p.position.x - earthX;
+                        relY = -p.position.z - earthYecl;
+                    } else {
+                        const elements = computeElements(GEOCENTRIC_ENTRIES[i].data, days, _geoScratch[name], 1);
+                        const pPos = computePosition(elements, _pPos);
+                        relX = (name === 'moon') ? pPos.x : pPos.x - earthX;
+                        relY = (name === 'moon') ? -pPos.z : -pPos.z - earthYecl;
+                    }
+                }
+
+                const longitudeDeg = Math.atan2(relY, relX) * RAD2DEG;
+                results[name] = this.getSignAndDegree(longitudeDeg, results[name]);
+            }
+
+            return results;
         }
+
+        // Fallback path: Analytical Keplerian calculations when planetObjects is not available
+        const earthElements = computeElements(earthData, days, _earthElements, 1);
+        const earthPos = computePosition(earthElements, _earthPos);
+        const earthX = earthPos.x;
+        const earthYecl = -earthPos.z;
 
         for (let i = 0; i < GEOCENTRIC_ENTRIES.length; i++) {
             const entry = GEOCENTRIC_ENTRIES[i];
             const name = entry.name;
-            const data = entry.data;
             let relX, relY;
 
             if (name === 'sun') {
                 relX = -earthX;
                 relY = -earthYecl;
-            } else if (name === 'moon' && planetObjects && planetObjects.moon && planetObjects.earth) {
-                // Moon is already geocentric in our scene relative to Earth's mesh
-                // so we use its local position relative to Earth
-                const moon = planetObjects.moon;
-                const earth = planetObjects.earth;
-                relX = moon.position.x - earth.position.x;
-                relY = -(moon.position.z - earth.position.z);
             } else if (name === 'moon') {
-                const elements = computeElements(data, days, _geoScratch.moon, 1);
+                const elements = computeElements(entry.data, days, _geoScratch.moon, 1);
                 const pPos = computePosition(elements, _pPos);
                 relX = pPos.x;
-                relY = -pPos.z; // world x=x_ecl, world z=-y_ecl
-            } else if (planetObjects && planetObjects[name]) {
-                const p = planetObjects[name];
-                relX = p.position.x - earthX;
-                relY = -p.position.z - earthYecl;
+                relY = -pPos.z;
             } else {
-                const elements = computeElements(data, days, _geoScratch[name], 1);
+                const elements = computeElements(entry.data, days, _geoScratch[name], 1);
                 const pPos = computePosition(elements, _pPos);
                 relX = pPos.x - earthX;
                 relY = -pPos.z - earthYecl;
             }
 
-            const longitudeRad = Math.atan2(relY, relX);
-            const longitudeDeg = longitudeRad * RAD2DEG;
-
+            const longitudeDeg = Math.atan2(relY, relX) * RAD2DEG;
             results[name] = this.getSignAndDegree(longitudeDeg, results[name]);
         }
 
