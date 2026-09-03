@@ -83,3 +83,14 @@ test('getCosmicGuidance keeps the original two-argument contract', () => {
   assert.notEqual(result, target)
   assert.deepEqual(target, { untouched: true })
 })
+
+test('calculateGeocentricChart keeps using supplied planet meshes when Earth is absent', () => {
+  const d = new Date('2026-09-03T00:00:00Z')
+  const chart = AstrologyService.calculateGeocentricChart(d, {
+    mars: { position: { x: 0, y: 0, z: 100 } }
+  })
+
+  // Expected from the existing partial-object contract: analytical Earth plus
+  // the supplied Mars mesh, normalized with the service calibration offset.
+  assert.ok(Math.abs(chart.mars.longitude - 271.15794014437183) < 1e-9)
+})

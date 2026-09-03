@@ -260,18 +260,30 @@ export class AstrologyService {
         for (let i = 0; i < GEOCENTRIC_ENTRIES.length; i++) {
             const entry = GEOCENTRIC_ENTRIES[i];
             const name = entry.name;
+            const data = entry.data;
             let relX, relY;
 
             if (name === 'sun') {
                 relX = -earthX;
                 relY = -earthYecl;
+            } else if (name === 'moon' && planetObjects && planetObjects.moon && planetObjects.earth) {
+                // Moon is already geocentric in our scene relative to Earth's mesh
+                // so we use its local position relative to Earth
+                const moon = planetObjects.moon;
+                const earth = planetObjects.earth;
+                relX = moon.position.x - earth.position.x;
+                relY = -(moon.position.z - earth.position.z);
             } else if (name === 'moon') {
-                const elements = computeElements(entry.data, days, _geoScratch.moon, 1);
+                const elements = computeElements(data, days, _geoScratch.moon, 1);
                 const pPos = computePosition(elements, _pPos);
                 relX = pPos.x;
                 relY = -pPos.z;
+            } else if (planetObjects && planetObjects[name]) {
+                const p = planetObjects[name];
+                relX = p.position.x - earthX;
+                relY = -p.position.z - earthYecl;
             } else {
-                const elements = computeElements(entry.data, days, _geoScratch[name], 1);
+                const elements = computeElements(data, days, _geoScratch[name], 1);
                 const pPos = computePosition(elements, _pPos);
                 relX = pPos.x - earthX;
                 relY = -pPos.z - earthYecl;
