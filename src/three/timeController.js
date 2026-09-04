@@ -19,6 +19,7 @@ export function createTimeController(planetObjects, orbitScale, extraRotating = 
         data, // Performance Boost: Pre-linked data object for O(1) access in computeElements
         mesh: planetObjects[name],
         rotCache: getRotationCache(name),
+        lastQuatD: -999999, // Performance Boost: Timestamp tracking for O(1) rotation update skip
         // Performance Optimization: store per-planet scratch objects directly on the planet entry
         // to eliminate Map-like lookups in the hot path.
         scratch: {
@@ -50,7 +51,8 @@ export function createTimeController(planetObjects, orbitScale, extraRotating = 
         optimizedRotating.push({
           name: obj.userData.name,
           mesh: obj,
-          rotCache: getRotationCache(obj.userData.name)
+          rotCache: getRotationCache(obj.userData.name),
+          lastQuatD: -999999
         });
       }
     }
@@ -106,12 +108,12 @@ export function createTimeController(planetObjects, orbitScale, extraRotating = 
         changed = true;
       }
 
-      // Performance Optimization: Check for quaternion change before applying rotation.
-      // This skips redundant Three.js matrix updates and _onChangeCallback triggers
-      // when the orientation is retrieved from the Astronomy.js threshold cache.
+      // Performance Optimization: Skip redundant rotation updates and quaternion equality checks
+      // by comparing the entry's last apply timestamp with the rotation cache's update timestamp.
       const quat = computePlanetQuaternion(name, d, rotCache);
-      if (!mesh.quaternion.equals(quat)) {
+      if (activePlanets[i].lastQuatD !== rotCache.cache.lastD) {
         mesh.setRotationFromQuaternion(quat);
+        activePlanets[i].lastQuatD = rotCache.cache.lastD;
         changed = true;
       }
 
@@ -158,11 +160,16 @@ export function createTimeController(planetObjects, orbitScale, extraRotating = 
 
     // rotate any extra objects (e.g. the Sun, Moon) using optimized list
     for (let i = 0; i < optimizedRotating.length; i++) {
-      const { name, mesh, rotCache } = optimizedRotating[i];
+      const entry = optimizedRotating[i];
+      const { name, mesh, rotCache } = entry;
       // Performance Optimization: Skip redundant rotation updates
       const quat = computePlanetQuaternion(name, d, rotCache);
-      if (!mesh.quaternion.equals(quat)) {
+      const shouldUpdate = rotCache
+        ? entry.lastQuatD !== rotCache.cache.lastD
+        : !mesh.quaternion.equals(quat);
+      if (shouldUpdate) {
         mesh.setRotationFromQuaternion(quat);
+        if (rotCache) entry.lastQuatD = rotCache.cache.lastD;
         // Performance Optimization: Manually update matrix as matrixAutoUpdate is disabled for planets/sun/moon.
         mesh.updateMatrix();
       }
