@@ -30,6 +30,17 @@ test('time controller disables automatic matrix updates for externally supplied 
   assert.ok(earth.matrix.equals(new THREE.Matrix4().compose(earth.position, earth.quaternion, earth.scale)))
 })
 
+test('time controller preserves the fallback for rotating objects without a rotation cache', () => {
+  const customObject = new THREE.Mesh()
+  customObject.userData.name = 'custom-object'
+  customObject.rotation.set(0, Math.PI / 4, 0)
+
+  const controller = createTimeController({}, 1, [customObject])
+
+  assert.doesNotThrow(() => controller.update(0))
+  assert.ok(customObject.quaternion.equals(new THREE.Quaternion()))
+})
+
 test('aesthetic snapshot updates matrices when applying and restoring transforms', () => {
   globalThis.window = { innerWidth: 1280, innerHeight: 720 }
 

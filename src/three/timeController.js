@@ -164,9 +164,12 @@ export function createTimeController(planetObjects, orbitScale, extraRotating = 
       const { name, mesh, rotCache } = entry;
       // Performance Optimization: Skip redundant rotation updates
       const quat = computePlanetQuaternion(name, d, rotCache);
-      if (entry.lastQuatD !== rotCache.cache.lastD) {
+      const shouldUpdate = rotCache
+        ? entry.lastQuatD !== rotCache.cache.lastD
+        : !mesh.quaternion.equals(quat);
+      if (shouldUpdate) {
         mesh.setRotationFromQuaternion(quat);
-        entry.lastQuatD = rotCache.cache.lastD;
+        if (rotCache) entry.lastQuatD = rotCache.cache.lastD;
         // Performance Optimization: Manually update matrix as matrixAutoUpdate is disabled for planets/sun/moon.
         mesh.updateMatrix();
       }
