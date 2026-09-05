@@ -132,19 +132,33 @@ const ASPECT_TIP_CACHE = Object.keys(AstrologyService.ASPECT_TYPES || {}).reduce
 // Pre-calculate percentage widths for 0 to TOTAL_PLANETS
 // This eliminates toFixed() and string concatenations in the computed property.
 const WIDTH_CACHE = Array.from({ length: TOTAL_PLANETS + 1 }, (_, i) => (i * (100 / TOTAL_PLANETS)).toFixed(1) + '%');
+const BAR_WIDTHS_CACHE = new Map();
+const EMPTY_BAR_WIDTHS = {};
 
 /**
- * Performance Optimization: Uses pre-calculated percentage widths.
+ * Performance Optimization: Uses pre-calculated percentage widths and memoized result objects.
+ * Returning cached object references eliminates per-eval object allocations and prevents
+ * downstream Vue template re-renders when element balance counts haven't changed.
  */
 const elementBarWidths = computed(() => {
-  if (!props.visible) return {};
-  const result = {};
-  for (let i = 0; i < ELEMENTS.length; i++) {
-    const el = ELEMENTS[i];
-    const count = props.elementBalance[el] || 0;
-    result[el] = WIDTH_CACHE[count] || '0.0%';
+  if (!props.visible) return EMPTY_BAR_WIDTHS;
+  const f = props.elementBalance?.fire || 0;
+  const e = props.elementBalance?.earth || 0;
+  const a = props.elementBalance?.air || 0;
+  const w = props.elementBalance?.water || 0;
+  const key = `${f}-${e}-${a}-${w}`;
+
+  let cached = BAR_WIDTHS_CACHE.get(key);
+  if (!cached) {
+    cached = {
+      fire: WIDTH_CACHE[f] || '0.0%',
+      earth: WIDTH_CACHE[e] || '0.0%',
+      air: WIDTH_CACHE[a] || '0.0%',
+      water: WIDTH_CACHE[w] || '0.0%'
+    };
+    BAR_WIDTHS_CACHE.set(key, cached);
   }
-  return result;
+  return cached;
 });
 
 /**
