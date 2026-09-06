@@ -1,72 +1,11 @@
 <template>
-  <div class="lang-panel" role="group" aria-label="Language switch">
-    <button
-      class="lang-btn"
-      :class="{ active: current === 'en' }"
-      @click="setLocalLang('en')"
-      title="English"
-    >
-      EN
-    </button>
-    <button
-      class="lang-btn"
-      :class="{ active: current === 'zh' }"
-      @click="setLocalLang('zh')"
-      title="中文"
-    >
-      中
-    </button>
-  </div>
+  <select class="language-select" :value="currentLang" @change="setLang($event.target.value)" aria-label="Language / 语言">
+    <option value="en">EN</option><option value="zh">中文</option>
+  </select>
 </template>
-
 <script setup>
-import { computed } from 'vue'
 import { currentLang, setLang } from '../utils/i18n'
-
-const current = computed(() => currentLang.value)
-function setLocalLang(lang) {
-  setLang(lang)
-}
 </script>
-
 <style scoped>
-.lang-panel {
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  z-index: 140;
-  display: flex;
-  gap: 6px;
-  align-items: center;
-  pointer-events: auto;
-}
-
-.lang-btn {
-  width: 22px;
-  height: 22px;
-  border-radius: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(30, 30, 40, 0.9);
-  color: #ddd;
-  font-weight: 700;
-  font-size: 11px;
-  line-height: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: transform 0.12s ease, box-shadow 0.12s ease;
-  box-sizing: border-box;
-  padding: 0;
-}
-
-.lang-btn:hover {
-  transform: translateY(-1px);
-}
-
-.lang-btn.active {
-  background: var(--glow-color);
-  color: #fff;
-  box-shadow: 0 6px 18px rgba(var(--glow-rgb), 0.3);
-}
+.language-select { color: #e9e5dd; background: #0b0d10; border: 1px solid #ffffff18; border-radius: 20px; padding: 8px 10px; font: inherit; font-size: 11px; cursor: pointer; }
 </style>

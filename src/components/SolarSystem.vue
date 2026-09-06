@@ -2,39 +2,48 @@
   <div class="solar-system-root">
     <div ref="container" class="three-container"></div>
 
-    <!-- HUD -->
-    <div v-if="!isLoading && viewMode === 'solar'" class="hud">
-      <div class="time-container">
-        <div class="time-real">
-          <span class="label">{{ t('control.realTime') || 'Real Time' }}:</span>
-          {{ currentTime }}
+    <template v-if="!isLoading && viewMode === 'solar'">
+      <header class="top-navigation">
+        <button class="wordmark" @click="onHomeClick">STELLAR<span>{{ t('explorer.brand') }}</span></button>
+        <nav :aria-label="t('explorer.navigation')">
+          <button :class="{ active: !activeOverlay }" @click="onHomeClick">{{ t('explorer.explore') }}</button>
+          <button :aria-expanded="activeOverlay === 'planets'" aria-controls="planet-navigator" @click="toggleOverlay('planets', $event)">{{ t('explorer.planets') }}</button>
+          <button :aria-expanded="activeOverlay === 'missions'" @click="toggleOverlay('missions', $event)">{{ t('explorer.missions') }}</button>
+          <button :aria-expanded="activeOverlay === 'about'" @click="toggleOverlay('about', $event)">{{ t('explorer.about') }}</button>
+        </nav>
+        <div class="navigation-status">
+          <div class="live-status" :title="currentTime + (isSimulating ? ' · ' + simulationTime : '')"><time>{{ clockTime }}</time><span :class="{ simulation: isSimulating }">{{ isSimulating ? t('explorer.simulation') : t('explorer.live') }}</span></div>
+          <LanguagePanel />
+          <button class="menu-trigger" :aria-expanded="activeOverlay === 'menu'" aria-controls="control-drawer" @click="toggleOverlay('menu', $event)">{{ t('control.menu') }}</button>
         </div>
-        <div class="time-sim" v-if="isSimulating">
-          <span class="label">{{ t('control.simTime') || 'Sim Time' }}:</span>
-          {{ simulationTime }}
-        </div>
-      </div>
-      <div v-if="hoveredPlanetName" class="hover-name">
-        {{ hoveredPlanetName }}
-      </div>
-    </div>
+      </header>
+      <div v-if="hoveredPlanetName" class="hover-label">{{ hoveredPlanetName }}</div>
+      <section v-if="!selectedPlanetId" class="hero-copy">
+        <p class="eyebrow">{{ t('explorer.eyebrow') }}</p>
+        <h1>{{ t('explorer.headline') }}<br><span>{{ t('explorer.headlineEnd') }}</span></h1>
+        <p class="hero-description">{{ t('explorer.description') }}</p>
+        <button class="journey-button" @click="startJourney">{{ t('explorer.start') }}</button>
+        <p class="hero-caption">{{ t('explorer.scaleNote') }}</p>
+      </section>
+      <footer v-if="!selectedPlanetId" class="explorer-footer"><span>{{ t('explorer.footer') }}</span><span>{{ t('explorer.gesture') }}</span></footer>
+      <button v-if="activeOverlay" class="overlay-dismiss" :aria-label="t('explorer.close')" @click="closeOverlay"></button>
+      <PlanetNavigationPanel v-if="activeOverlay === 'planets'" :selectedBody="selectedPlanetId" @close="closeOverlay" @select="onPlanetSelected" @info="closeOverlay(); onShowInfo($event)" />
+      <aside v-if="activeOverlay === 'about' || activeOverlay === 'missions'" class="editorial-panel explorer-panel">
+        <header><h2>{{ t('explorer.' + activeOverlay) }}</h2><button @click="closeOverlay">{{ t('explorer.close') }}</button></header>
+        <template v-if="activeOverlay === 'about'"><p>{{ t('explorer.aboutCopy') }}</p><p class="muted">{{ t('explorer.scaleNote') }}</p></template>
+        <template v-else><p class="eyebrow">{{ t('planet.mars') }}</p><h3>{{ t('explorer.marsTitle') }}</h3><p>{{ t('explorer.marsCopy') }}</p><button class="journey-button" @click="onPlanetSelected('mars'); onShowInfo('mars')">{{ t('explorer.marsAction') }}</button></template>
+      </aside>
+      <article v-if="selectedBodyInfo && !infoPlanetId && !selectedPOI && !activeOverlay" class="selected-body-card">
+        <div class="card-heading"><div><p class="eyebrow">{{ t('explorer.selected') }}</p><h2>{{ selectedBodyInfo.displayName }}</h2></div><button @click="onHomeClick">{{ t('control.home') }}</button></div>
+        <p>{{ selectedBodyInfo.facts[0] }}</p>
+        <dl><div><dt>{{ t('explorer.radius') }}</dt><dd>{{ selectedBodyInfo.radius }}</dd></div><div><dt>{{ t('explorer.orbit') }}</dt><dd>{{ selectedBodyInfo.orbit }}</dd></div></dl>
+        <button class="card-explore" @click="onShowInfo(selectedPlanetId)">{{ t('explorer.details') }}</button>
+      </article>
+    </template>
 
-    <!-- System Console (Unified Controls) -->
-    <SystemConsole
-      v-if="!isLoading && viewMode === 'solar'"
-      ref="systemConsole"
-      :showZodiac="showZodiac"
-      :showGrid="showGrid"
-      :showHolo="showHolo"
-      :hasSelectedPlanet="!!selectedPlanetId"
-      positionTop="80px"
-      @home="onHomeClick"
-      @toggle-zodiac="toggleZodiac"
-      @toggle-grid="toggleGrid"
-      @toggle-holo="toggleHolo"
-      @speed-change="onSpeedChange"
-      @reset="onReset"
-    />
+      <SystemConsole v-if="!isLoading" ref="systemConsole" :open="viewMode === 'solar' && activeOverlay === 'menu'" :showZodiac="showZodiac" :showGrid="showGrid" :showHolo="showHolo" :hasSelectedPlanet="!!selectedPlanetId"
+        @close="closeOverlay" @home="onHomeClick" @toggle-zodiac="toggleZodiac" @toggle-grid="toggleGrid" @toggle-holo="toggleHolo" @speed-change="onSpeedChange" @reset="onReset"
+        @snapshot="closeOverlay(); openStellarModal()" @planets="activeOverlay = 'planets'" @missions="activeOverlay = 'missions'" @about="activeOverlay = 'about'" />
 
     <!-- POI Overlay -->
     <svg v-if="selectedPOI && poiUI.visible" class="poi-svg-overlay">
@@ -57,18 +66,7 @@
       />
     </div>
 
-    <!-- Top Center Actions -->
-    <div v-if="!isLoading && viewMode === 'solar'" class="top-center-actions">
-      <button 
-        class="stellar-btn"
-        @click="openStellarModal"
-      >
-        ✨ {{ t('stellar.btn') }}
-      </button>
-    </div>
-
-    <!-- Language Panel -->
-    <LanguagePanel />
+    <div v-if="viewMode === 'mars'" class="mars-language"><LanguagePanel /></div>
 
     <!-- Stellar Moment Modal -->
     <StellarMomentModal
@@ -105,14 +103,6 @@
       </button>
     </div>
 
-    <!-- Navigation Panel -->
-    <PlanetNavigationPanel
-      v-if="!isLoading && viewMode === 'solar'"
-      :selectedBody="selectedPlanetId"
-      @select="onPlanetSelected"
-      @info="onShowInfo"
-    />
-
     <TransitPanel
       :visible="showTransitPanel"
       :chart="currentChart"
@@ -142,7 +132,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, shallowRef, onMounted, onUnmounted, computed, watch, triggerRef } from 'vue'
+import { ref, reactive, shallowRef, onMounted, onUnmounted, computed, watch, triggerRef, nextTick } from 'vue'
 
 import PlanetNavigationPanel from './PlanetNavigationPanel.vue'
 import SystemConsole from './SystemConsole.vue'
@@ -154,6 +144,8 @@ import MarsHUD from '../planets/Mars/MarsHUD.vue'
 import POIPanel from './POIPanel.vue'
 import ChatAgent from './ChatAgent.vue'
 
+import { PLANET_DATA } from '../data/planetData'
+import { getHomeView } from '../three/homeView.js'
 import { t, currentLang } from '../utils/i18n'
 import { captureHighRes, downloadImage } from '../utils/ScreenshotEngine'
 import * as THREE from 'three'
@@ -169,6 +161,26 @@ import { AstrologyService, GEOCENTRIC_PLANETS, createAspectDirtyChecker } from '
 
 const container = shallowRef(null)
 const systemConsole = ref(null)
+const activeOverlay = ref(null)
+const clockTime = ref('')
+let overlayTrigger = null
+const selectedBodyInfo = computed(() => (PLANET_DATA[currentLang.value] || PLANET_DATA.en)[selectedPlanetId.value] || null)
+function toggleOverlay(name, event) {
+  overlayTrigger = event.currentTarget
+  activeOverlay.value = activeOverlay.value === name ? null : name
+  if (activeOverlay.value) nextTick(() => document.querySelector('.explorer-panel:not([style*="display: none"]) button')?.focus())
+}
+function closeOverlay() {
+  activeOverlay.value = null
+  nextTick(() => overlayTrigger?.focus())
+}
+function handleExplorerKey(event) {
+  if (event.key === 'Escape' && activeOverlay.value) closeOverlay()
+}
+function startJourney() {
+  onPlanetSelected('earth')
+}
+
 
 const hoveredPlanetName = ref('')
 const selectedPlanetId = ref(null)
@@ -274,12 +286,15 @@ const planetNames = computed(() => ({
 
 function startClock() {
   currentTime.value = new Date().toLocaleString()
+  clockTime.value = new Date().toLocaleTimeString([], { hour12: false })
   return setInterval(() => {
     currentTime.value = new Date().toLocaleString()
+    clockTime.value = new Date().toLocaleTimeString([], { hour12: false })
   }, 1000)
 }
 
 function onPlanetSelected(id) {
+  closeOverlay()
   selectedPlanetId.value = id
   focusPlanetWithDeferredDetail(id)
 }
@@ -403,6 +418,8 @@ function handleFocusPlanet(name) {
 }
 
 function onHomeClick() {
+  closeOverlay()
+  infoPlanetId.value = null
   selectedPlanetId.value = null
   interactions?.goHome()
 }
@@ -565,7 +582,7 @@ async function onStellarCapture(date) {
   await new Promise(r => requestAnimationFrame(r))
   await new Promise(r => setTimeout(r, 100)) // slight buffer for heavy scenes
 
-  const uiElements = document.querySelectorAll('.hud, .language-panel, .tour-panel, .planet-nav-panel, .system-console, .stellar-modal-overlay')
+  const uiElements = document.querySelectorAll('.top-navigation, .hero-copy, .explorer-footer, .explorer-panel, .selected-body-card, .hover-label, .tour-panel, .stellar-modal-overlay')
   
   const aesthetic = new AestheticSnapshotManager(engine.scene, engine.camera, solar.planetObjects)
 
@@ -628,6 +645,7 @@ function onStellarDiscard() {
 
 onMounted(async () => {
   const startTime = Date.now()
+  window.addEventListener('keydown', handleExplorerKey)
   clockTimer = startClock()
 
   engine = createEngine(container.value)
@@ -675,6 +693,8 @@ onMounted(async () => {
           // Start fly-in only after loader is fully gone
           startFlyInAnimation()
         }, 1000)
+      } else {
+        startFlyInAnimation()
       }
     }
   }
@@ -693,7 +713,8 @@ onMounted(async () => {
 
   const startFlyInAnimation = () => {
     if (engine && engine.camera && engine.controls) {
-      const targetPos = new THREE.Vector3(0, 500, 1500)
+      const homeView = getHomeView(engine.camera.aspect)
+      const targetPos = new THREE.Vector3(...homeView.position)
       const duration = 4000 // Slower, more immersive (from 2s to 4s)
       const startPos = engine.camera.position.clone()
       const startTimeAnim = Date.now()
@@ -709,20 +730,19 @@ onMounted(async () => {
         const ease = 1 - Math.pow(1 - progress, 3)
 
         engine.camera.position.lerpVectors(startPos, targetPos, ease)
-        engine.controls.target.set(0, 0, 0) // Ensure looking at sun
+        engine.controls.target.set(...homeView.target)
 
         if (progress < 1) {
           requestAnimationFrame(animateCamera)
         } else {
-          // Re-enable controls when finished
+          // Re-enable controls and overlays together to avoid competing camera flights.
           engine.controls.enabled = true
+          isLoading.value = false
         }
       }
       animateCamera()
     }
   }
-
-  isLoading.value = false
 
   // Pre-cache planets that have POIs to avoid Object.entries() in the render loop
   planetsWithPOIs = Object.entries(solar.planetObjects)
@@ -1007,6 +1027,7 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  window.removeEventListener('keydown', handleExplorerKey)
   window.removeEventListener('mousemove', handlePoiDragMove)
   window.removeEventListener('mouseup', handlePoiDragEnd)
   clearInterval(clockTimer)
@@ -1021,6 +1042,8 @@ onUnmounted(() => {
 })
 </script>
 
+<style src="./explorer.css"></style>
+
 <style scoped>
 .solar-system-root {
   position: relative;
@@ -1032,105 +1055,6 @@ onUnmounted(() => {
 .three-container {
   width: 100%;
   height: 100%;
-}
-
-.hud {
-  position: absolute;
-  top: 16px;
-  left: 16px;
-  color: #fff;
-  pointer-events: none;
-  font-family: system-ui, sans-serif;
-  z-index: 1000;
-}
-
-.time-container {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-}
-
-.time-real, .time-sim {
-  font-size: 13px;
-  font-weight: 500;
-  color: #fff;
-  text-shadow: 0 1px 4px rgba(0,0,0,0.5);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.time-real {
-  opacity: 0.7;
-}
-
-.time-sim {
-  font-size: 15px;
-  color: var(--glow-color);
-  font-weight: 600;
-}
-
-.top-center-actions {
-  position: absolute;
-  top: 16px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.top-actions-row {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 12px;
-}
-
-.label {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  opacity: 0.6;
-}
-
-
-/* 保留 hover-name 样式 */
-.hover-name {
-  margin-top: 6px;
-  font-size: 20px;
-  font-weight: 600;
-}
-
-.stellar-btn {
-  pointer-events: auto;
-  padding: 8px 16px;
-  font-size: 13px;
-  text-transform: none;
-  letter-spacing: normal;
-  font-weight: 600;
-  color: #fff;
-  background: rgba(180, 150, 100, 0.2);
-  border: 1px solid rgba(255, 200, 100, 0.25);
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  height: 34px;
-}
-
-.stellar-btn:hover {
-  background: rgba(50, 60, 110, 0.9);
-  transform: translateY(-2px);
-  border-color: rgba(100, 180, 255, 0.6);
-  box-shadow: 0 6px 20px rgba(0, 100, 255, 0.3);
-}
-
-.stellar-btn:active {
-  transform: translateY(1px);
 }
 
 /* Cloud Overlay */

@@ -1,5 +1,11 @@
 <template>
-  <div class="time-control-panel" :class="{ 'is-open': isOpen, 'is-vertical': vertical }" @click.stop>
+  <div v-if="embedded" class="embedded-time">
+    <label for="simulation-speed">{{ t('control.speed') }} <output>{{ formattedMultiplier }}×</output></label>
+    <input id="simulation-speed" type="range" min="0" max="1" step="0.000002" :value="pos" @input="setByPos(Number($event.target.value))" />
+    <div class="speed-presets"><button v-for="p in presets" :key="p.val" @click="setByPos(p.norm)">{{ p.label }}</button></div>
+    <button class="reset-time" @click="$emit('reset')">{{ t('explorer.resetTime') }}</button>
+  </div>
+  <div v-else class="time-control-panel" :class="{ 'is-open': isOpen, 'is-vertical': vertical }" @click.stop>
     <div class="industrial-frame">
       <!-- Energy Tank Header (Only in horizontal mode) -->
       <div v-if="!vertical" class="panel-header">
@@ -8,7 +14,7 @@
           <div class="status-dot"></div>
         </div>
         <div class="current-display">
-          <span class="unit">×</span>
+          <span class="unit">Ã—</span>
           <span class="value">{{ formattedMultiplier }}</span>
         </div>
       </div>
@@ -17,7 +23,7 @@
       <div class="tank-container">
         <!-- Vertical Display (Multiplier value above slider) -->
         <div v-if="vertical" class="vertical-header-display">
-          <span class="unit">×</span>
+          <span class="unit">Ã—</span>
           <span class="value">{{ formattedMultiplier }}</span>
         </div>
 
@@ -92,6 +98,7 @@ import { ref, computed, onBeforeUnmount } from 'vue'
 import { t } from '../utils/i18n'
 
 const props = defineProps({
+  embedded: Boolean,
   vertical: {
     type: Boolean,
     default: false
@@ -233,6 +240,13 @@ defineExpose({ resetVisuals, setOpen })
 </script>
 
 <style scoped>
+.embedded-time label { display: flex; justify-content: space-between; font-size: 13px; }
+.embedded-time output { color: #e4bf89; font-variant-numeric: tabular-nums; }
+.embedded-time input { width: 100%; margin: 18px 0 8px; accent-color: #e4bf89; cursor: pointer; }
+.speed-presets { display: flex; justify-content: space-between; }
+.speed-presets button { font-size: 9px; padding: 5px 0; color: #aaa; background: transparent; border: 0; }
+.reset-time { margin-top: 14px; width: 100%; border: 1px solid #ffffff20; background: #ffffff05; font-size: 12px; color: #ddd; }
+
 .time-control-panel {
   position: relative;
   width: 100%;

@@ -52,6 +52,26 @@ export async function createSolarSystem(scene, renderer, zodiacNames = [], onPro
   const orbits = [];
   const resDependent = [];
 
+  // A quiet, non-interactive dust belt between Mars and Jupiter, in one draw call.
+  const beltPositions = new Float32Array(2400 * 3);
+  for (let i = 0; i < 2400; i++) {
+    const angle = i * 2.399963229728653;
+    const spread = (Math.sin(i * 127.1) * 43758.5453) % 1;
+    const radius = orbitScale * (2.2 + Math.abs(spread));
+    beltPositions[i * 3] = Math.cos(angle) * radius;
+    beltPositions[i * 3 + 1] = Math.sin(i * 17.3) * 5;
+    beltPositions[i * 3 + 2] = Math.sin(angle) * radius;
+  }
+  const beltGeometry = new THREE.BufferGeometry();
+  beltGeometry.setAttribute('position', new THREE.BufferAttribute(beltPositions, 3));
+  const belt = new THREE.Points(beltGeometry, new THREE.PointsMaterial({
+    color: 0xa89378, size: 1.8, transparent: true, opacity: 0.45, depthWrite: false
+  }));
+  belt.name = 'asteroid-belt';
+  belt.raycast = () => {};
+  belt.matrixAutoUpdate = false;
+  scene.add(belt);
+
   // 1. Initial Load: Load all low-res textures
   const keys = Object.keys(LOW_RES_PLANET_MAPS);
   const totalSteps = keys.length;
@@ -102,7 +122,7 @@ export async function createSolarSystem(scene, renderer, zodiacNames = [], onPro
 
     if (name !== 'sun' && name !== 'moon') {
       const elements = computeElements(name, 0, null, orbitScale);
-      const orbit = createEllipticalOrbit(elements, 512, 0xd4aaff, 0.92);
+      const orbit = createEllipticalOrbit(elements, 512, 0xb6a995, 0.25);
       orbit.userData.isOrbit = true;
       orbits.push(orbit);
       if (orbit.material && orbit.material.resolution) {

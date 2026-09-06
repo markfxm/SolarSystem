@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { getHomeView } from './homeView.js'
 
 export function createInteractions({
   engine,
@@ -463,9 +464,6 @@ export function createInteractions({
      Init
   ───────────────────────────── */
 
-  const HOME_CAMERA_POS = new THREE.Vector3(0, 500, 1500)
-  const HOME_LOOK_AT = new THREE.Vector3(0, 0, 0)
-
   function goHome() {
     timeController?.freeze()
 
@@ -516,8 +514,9 @@ export function createInteractions({
     flyFromCameraPos = camera.position.clone()
     flyFromTarget = controls.target.clone()
 
-    flyToCameraPos = HOME_CAMERA_POS.clone()
-    flyToTarget = HOME_LOOK_AT.clone()
+    const homeView = getHomeView(camera.aspect)
+    flyToCameraPos = new THREE.Vector3(...homeView.position)
+    flyToTarget = new THREE.Vector3(...homeView.target)
 
     flyStartMs = performance.now()
     flyDurationMs = 1600

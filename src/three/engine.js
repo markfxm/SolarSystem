@@ -4,7 +4,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 export function createEngine(container) {
   // Scene
   const scene = new THREE.Scene()
-  scene.background = new THREE.Color(0x000011)
+  scene.background = new THREE.Color(0x020307)
 
   // Camera
   const camera = new THREE.PerspectiveCamera(

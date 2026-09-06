@@ -1,0 +1,83 @@
+.solar-system-root .top-navigation {
+  position: absolute; inset: 0 0 auto; z-index: 1100; height: 92px;
+  padding: 0 3.5%; display: flex; align-items: center; justify-content: space-between;
+  color: #ede9e1; border-bottom: 1px solid #ffffff0c;
+}
+.top-navigation button { background: transparent; color: inherit; border: 0; border-radius: 0; }
+.top-navigation .wordmark { padding: 0; text-align: left; font-size: 21px; letter-spacing: .28em; font-weight: 400; }
+.wordmark span { display: block; font-size: 8px; letter-spacing: .4em; color: #bca582; margin-top: 2px; }
+.top-navigation nav { display: flex; gap: 28px; }
+.top-navigation nav button { padding: 16px 0; font-size: 13px; color: #bbb9b6; border-bottom: 1px solid transparent; }
+.top-navigation nav button.active, .top-navigation nav button[aria-expanded=true] { color: #fff; border-color: #d6b27b; }
+.navigation-status { display: flex; align-items: center; gap: 24px; }
+.live-status { display: flex; align-items: center; gap: 12px; font-size: 12px; font-variant-numeric: tabular-nums; }
+.live-status span { font-size: 9px; letter-spacing: .1em; color: #b5c8b5; text-transform: uppercase; }
+.live-status .simulation { color: #e3bc82; }
+.top-navigation .menu-trigger { padding: 10px 0; font-size: 12px; }
+.solar-system-root .hero-copy { position: absolute; left: 8%; top: 24%; max-width: 490px; color: #f2eee6; pointer-events: none; text-shadow: 0 2px 12px #000, 0 0 4px #000; }
+.hero-copy .eyebrow { width: fit-content; background: #020307d9; padding: 3px 0; }
+.eyebrow { font-size: 10px; letter-spacing: .25em; color: #c9bca7; line-height: 1.7; }
+.hero-copy h1 { font-size: clamp(44px, 4.7vw, 88px); font-weight: 300; line-height: 1.08; letter-spacing: -.045em; margin: 25px 0; }
+.hero-copy h1 span { color: #f3e7d1; }
+.hero-description { color: #aeaca9; max-width: 360px; font-size: 15px; line-height: 1.8; font-weight: 300; }
+.journey-button { pointer-events: auto; margin-top: 20px; padding: 14px 28px; min-width: 180px; border-radius: 30px; background: #f2ebdf; color: #181715; border: 1px solid #f2ebdf; font-size: 13px; }
+.journey-button:hover { background: #fff; border-color: #fff; }
+.hero-caption { color: #898681; font-size: 10px; margin-top: 22px; max-width: 270px; line-height: 1.7; }
+.explorer-footer { position: absolute; bottom: 35px; left: 8%; right: 4%; display: flex; justify-content: space-between; pointer-events: none; font-size: 9px; letter-spacing: .18em; color: #99958c; }
+.overlay-dismiss { position: absolute; inset: 92px 0 0; width: 100%; border: 0; border-radius: 0; background: transparent; z-index: 1101; cursor: default; }
+.explorer-panel { position: absolute; top: 104px; right: 3.5%; z-index: 1102; box-sizing: border-box; padding: 24px; max-height: calc(100dvh - 128px); overflow-y: auto; border: 1px solid #ffffff20; border-radius: 14px; background: #0c0e12f2; backdrop-filter: blur(24px); color: #e8e3da; box-shadow: 0 24px 80px #0008; }
+.explorer-panel header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; gap: 16px; }
+.explorer-panel header h2 { font-size: 15px; font-weight: 400; margin: 0; }
+.explorer-panel header button, .card-heading button { padding: 7px; color: #a8a6a3; font-size: 11px; background: transparent; border: 0; }
+.editorial-panel { width: 350px; font-size: 14px; line-height: 1.8; }
+.editorial-panel h3 { font-size: 24px; font-weight: 300; line-height: 1.4; }
+.editorial-panel .muted { color: #999; font-size: 11px; }
+.selected-body-card { position: absolute; bottom: 65px; right: 4%; width: 320px; box-sizing: border-box; padding: 25px; color: #e5e2dc; border: 1px solid #ffffff20; border-radius: 14px; background: #0a0c10e8; backdrop-filter: blur(20px); }
+.card-heading { display: flex; align-items: center; justify-content: space-between; }
+.selected-body-card h2 { font-size: 26px; font-weight: 300; margin: 4px 0; }
+.selected-body-card p { font-size: 12px; line-height: 1.7; color: #aaa8a3; }
+.selected-body-card .eyebrow { font-size: 8px; margin: 0; }
+.selected-body-card dl { display: flex; gap: 26px; margin: 22px 0; }
+.selected-body-card dt { font-size: 10px; color: #999; }
+.selected-body-card dd { margin: 5px 0 0; font-size: 12px; }
+.card-explore { font-size: 12px; width: 100%; border: 1px solid #ffffff25; background: transparent; color: #ece7dd; }
+.hover-label { position: absolute; left: 50%; bottom: 40px; transform: translateX(-50%); font-size: 12px; letter-spacing: .15em; color: #ddd; pointer-events: none; }
+.mars-language { position: absolute; top: 24px; right: 24px; z-index: 1100; }
+.solar-system-root .tour-panel { top: 104px; max-height: calc(100dvh - 128px); background: #0c0e12f2; border-color: #ffffff20; }
+.solar-system-root .transit-panel:not(.visible) { visibility: hidden; }
+.solar-system-root .chat-toggle-btn { box-shadow: none; border-color: #ffffff30; width: 44px; height: 44px; }
+.solar-system-root .ai-pulse { border-color: #c9b18c; }
+.top-navigation button:hover, .explorer-panel button:hover { color: #f1cf9c; }
+.solar-system-root button:focus-visible, .solar-system-root select:focus-visible { outline: 2px solid #ddbf90; outline-offset: 4px; }
+@media (max-width: 1100px) {
+  .top-navigation nav { gap: 18px; }
+  .navigation-status { gap: 14px; }
+  .hero-copy { max-width: 390px; }
+}
+@media (max-width: 700px) {
+  .solar-system-root .top-navigation { height: 72px; padding: 0 20px; }
+  .top-navigation nav { display: none; }
+  .top-navigation .wordmark { font-size: 15px; }
+  .wordmark span { font-size: 6px; }
+  .live-status { flex-direction: column; gap: 1px; font-size: 10px; }
+  .live-status span { font-size: 7px; }
+  .navigation-status { gap: 12px; }
+  .solar-system-root .hero-copy { left: 7%; top: 16%; max-width: 86%; }
+  .hero-copy h1 { font-size: 44px; margin: 16px 0; }
+  .hero-description { max-width: 265px; font-size: 12px; }
+  .hero-copy .eyebrow { font-size: 8px; }
+  .hero-caption { display: none; }
+  .explorer-footer { left: 24px; bottom: 20px; right: 24px; justify-content: flex-end; font-size: 7px; }
+  .explorer-footer span:first-child { display: none; }
+  .explorer-panel { top: 84px; right: 16px; width: min(350px, calc(100vw - 32px)); max-height: calc(100dvh - 100px); }
+  .overlay-dismiss { top: 72px; }
+  .solar-system-root .tour-panel { top: 84px; max-width: calc(100vw - 40px); max-height: calc(100dvh - 104px); }
+  .selected-body-card { bottom: 65px; right: 16px; width: 270px; padding: 18px; }
+  .selected-body-card dl { margin: 12px 0; }
+}
+@media (max-height: 620px) {
+  .solar-system-root .hero-copy { top: 20%; }
+  .hero-copy h1 { font-size: 38px; }
+  .hero-caption, .hero-description { display: none; }
+  .selected-body-card { bottom: 20px; }
+}
