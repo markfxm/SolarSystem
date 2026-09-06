@@ -10,6 +10,9 @@ const PLANET_ORDER_MAP = new Map([
     ['jupiter', 4], ['saturn', 5], ['uranus', 6], ['neptune', 7]
 ]);
 
+// Performance Optimization: Module-scoped scratch vector to eliminate temporary 2D vector allocations
+const _scratchVec2 = new THREE.Vector2();
+
 /**
  * Handles temporary transformations for a schematic "Blueprint" snapshot.
  * Features: Top-down view, fat concentric orbits, and uniform planet sizes.
@@ -48,8 +51,9 @@ export class AestheticSnapshotManager {
             }
         }
 
-        // Performance Optimization: Instance-level material reuse
+        // Performance Optimization: Instance-level material reuse and pre-cached entries
         this.sharedMaterial = null
+        this.planetEntries = Object.entries(this.planetObjects)
     }
 
     /**
@@ -146,9 +150,13 @@ export class AestheticSnapshotManager {
         // 3. Transform Planets
         const d = (date.getTime() - J2000_EPOCH) / 86400000
 
-        // Performance Optimization: Pre-calculate planet entries to avoid repeated object lookups
-        const planetEntries = Object.entries(this.planetObjects)
-        const schematicPositions = new Map()
+        // Performance Optimization: Use pre-cached planet entries and track Earth position directly
+        // to avoid calling Object.entries() and position.clone() on every apply() call.
+        const planetEntries = this.planetEntries
+        let earthSchematicX = 0
+        let earthSchematicY = 0
+        let hasEarth = false
+
         for (let i = 0; i < planetEntries.length; i++) {
             const [name, mesh] = planetEntries[i]
             if (name === 'sun') continue; // Skip sun in planetary loop
@@ -165,11 +173,18 @@ export class AestheticSnapshotManager {
             const posData = computePosition(elements)
 
             const uniformR = this.getUniformRadius(name)
-            // Flatten to XY plane (z=0)
-            const unitPos = new THREE.Vector2(posData.x, posData.y).normalize()
+            // Flatten to XY plane (z=0) using scratch vector to eliminate temporary allocations
+            _scratchVec2.set(posData.x, posData.y).normalize()
 
-            mesh.position.set(unitPos.x * uniformR, unitPos.y * uniformR, 0)
-            schematicPositions.set(name, mesh.position.clone())
+            const px = _scratchVec2.x * uniformR
+            const py = _scratchVec2.y * uniformR
+
+            mesh.position.set(px, py, 0)
+            if (name === 'earth') {
+                earthSchematicX = px
+                earthSchematicY = py
+                hasEarth = true
+            }
 
             const visualRadius = this.config.visualRadii[name] || 34
             mesh.scale.setScalar(visualRadius)
@@ -181,9 +196,8 @@ export class AestheticSnapshotManager {
             this.tempOrbits.push(orbit)
         }
 
-        const earthPos = schematicPositions.get('earth')
         const moon = this.planetObjects.moon
-        if (earthPos && moon) {
+        if (hasEarth && moon) {
             this.originalStates.set(moon, {
                 position: moon.position.clone(),
                 scale: moon.scale.clone(),
@@ -192,10 +206,10 @@ export class AestheticSnapshotManager {
 
             const moonElements = computeElements('moon', d, null, 1)
             const moonPos = computePosition(moonElements)
-            const moonDir = new THREE.Vector2(moonPos.x, moonPos.y).normalize()
+            _scratchVec2.set(moonPos.x, moonPos.y).normalize()
             moon.position.set(
-                earthPos.x + moonDir.x * this.config.moonOrbitRadius,
-                earthPos.y + moonDir.y * this.config.moonOrbitRadius,
+                earthSchematicX + _scratchVec2.x * this.config.moonOrbitRadius,
+                earthSchematicY + _scratchVec2.y * this.config.moonOrbitRadius,
                 0
             )
 
@@ -203,7 +217,7 @@ export class AestheticSnapshotManager {
             moon.updateMatrix()
 
             const moonOrbit = this.createSchematicOrbit(this.config.moonOrbitRadius)
-            moonOrbit.position.copy(earthPos)
+            moonOrbit.position.set(earthSchematicX, earthSchematicY, 0)
             this.scene.add(moonOrbit)
             this.tempOrbits.push(moonOrbit)
         }
