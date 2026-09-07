@@ -688,10 +688,10 @@ onMounted(async () => {
       const initialLoader = document.getElementById('initial-loader')
       if (initialLoader) {
         initialLoader.style.opacity = '0'
+        // Start the opening flight while the loader fades out, so page text appears immediately.
+        startFlyInAnimation()
         setTimeout(() => {
           initialLoader.remove()
-          // Start fly-in only after loader is fully gone
-          startFlyInAnimation()
         }, 1000)
       } else {
         startFlyInAnimation()
@@ -713,6 +713,9 @@ onMounted(async () => {
 
   const startFlyInAnimation = () => {
     if (engine && engine.camera && engine.controls) {
+      // Reveal the page chrome with the first camera frame, not after the flight completes.
+      isLoading.value = false
+
       const homeView = getHomeView(engine.camera.aspect)
       const targetPos = new THREE.Vector3(...homeView.position)
       const duration = 4000 // Slower, more immersive (from 2s to 4s)
@@ -735,9 +738,8 @@ onMounted(async () => {
         if (progress < 1) {
           requestAnimationFrame(animateCamera)
         } else {
-          // Re-enable controls and overlays together to avoid competing camera flights.
+          // Re-enable controls after the opening flight completes.
           engine.controls.enabled = true
-          isLoading.value = false
         }
       }
       animateCamera()
@@ -809,7 +811,7 @@ onMounted(async () => {
     if (viewMode.value === 'solar') {
       if (timeController) timeController.update(delta)
       if (interactions) interactions.update(delta)
-      if (solar?.updateVisuals) solar.updateVisuals(delta)
+      if (solar?.updateVisuals) solar.updateVisuals(delta, engine.camera, !selectedPlanetId.value)
 
       // Update POI UI if one is selected
       if (selectedPOI.value && engine && solar) {
@@ -1032,6 +1034,7 @@ onUnmounted(() => {
   window.removeEventListener('mouseup', handlePoiDragEnd)
   clearInterval(clockTimer)
   interactions?.dispose()
+  solar?.asteroidField?.dispose()
   engine?.dispose()
   if (marsSurface) {
     window.removeEventListener('keydown', marsSurface.onKeyDown)

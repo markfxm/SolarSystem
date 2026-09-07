@@ -15,6 +15,7 @@ import {
 } from './planetTextures.js'
 import { createPlanetDetailController } from './planetDetail.js'
 import { createPlanetTextureController } from './planetTextureController.js'
+import { createAsteroidField } from './createAsteroidField.js'
 
 const orbitScale = 260
 const sizeScale = 1.2
@@ -52,25 +53,8 @@ export async function createSolarSystem(scene, renderer, zodiacNames = [], onPro
   const orbits = [];
   const resDependent = [];
 
-  // A quiet, non-interactive dust belt between Mars and Jupiter, in one draw call.
-  const beltPositions = new Float32Array(2400 * 3);
-  for (let i = 0; i < 2400; i++) {
-    const angle = i * 2.399963229728653;
-    const spread = (Math.sin(i * 127.1) * 43758.5453) % 1;
-    const radius = orbitScale * (2.2 + Math.abs(spread));
-    beltPositions[i * 3] = Math.cos(angle) * radius;
-    beltPositions[i * 3 + 1] = Math.sin(i * 17.3) * 5;
-    beltPositions[i * 3 + 2] = Math.sin(angle) * radius;
-  }
-  const beltGeometry = new THREE.BufferGeometry();
-  beltGeometry.setAttribute('position', new THREE.BufferAttribute(beltPositions, 3));
-  const belt = new THREE.Points(beltGeometry, new THREE.PointsMaterial({
-    color: 0xa89378, size: 1.8, transparent: true, opacity: 0.45, depthWrite: false
-  }));
-  belt.name = 'asteroid-belt';
-  belt.raycast = () => {};
-  belt.matrixAutoUpdate = false;
-  scene.add(belt);
+  const asteroidField = createAsteroidField({ orbitScale, pointerElement: renderer.domElement });
+  scene.add(asteroidField.group);
 
   // 1. Initial Load: Load all low-res textures
   const keys = Object.keys(LOW_RES_PLANET_MAPS);
@@ -236,9 +220,11 @@ export async function createSolarSystem(scene, renderer, zodiacNames = [], onPro
     zodiacRing,
     aspectsManager,
     auraManager,
-    updateVisuals: (deltaSeconds) => {
+    asteroidField,
+    updateVisuals: (deltaSeconds, camera, showHeroAsteroids = true) => {
       planetInstances.earth.updateVisuals?.(deltaSeconds);
       planetInstances.sun.updateVisuals?.(deltaSeconds);
+      asteroidField.update(deltaSeconds, camera, showHeroAsteroids);
     },
     preloadHQ: name => textureController.preload(name),
     applyPreparedHQ: name => textureController.apply(name),

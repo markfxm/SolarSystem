@@ -48,7 +48,7 @@
 .solar-system-root .chat-toggle-btn { box-shadow: none; border-color: #ffffff30; width: 44px; height: 44px; }
 .solar-system-root .ai-pulse { border-color: #c9b18c; }
 .top-navigation button:hover, .explorer-panel button:hover { color: #f1cf9c; }
-.solar-system-root button:focus-visible, .solar-system-root select:focus-visible { outline: 2px solid #ddbf90; outline-offset: 4px; }
+.solar-system-root button:focus-visible { outline: 2px solid #ddbf90; outline-offset: 4px; }
 @media (max-width: 1100px) {
   .top-navigation nav { gap: 18px; }
   .navigation-status { gap: 14px; }
