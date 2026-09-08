@@ -57,6 +57,10 @@ function makeBatch(geometry, material, count, random, orbitScale) {
   const orbitalPhases = new Float32Array(count)
   const angularVelocities = new Float32Array(count)
   const inclinations = new Float32Array(count)
+  // Performance Optimization: Pre-calculate static radius * sin(inclination) and radius * cos(inclination)
+  // terms to eliminate 2 trig functions per instance in every 60fps animation frame.
+  const sinIncRadii = new Float32Array(count)
+  const cosIncRadii = new Float32Array(count)
   const pointerOffsets = new Float32Array(count * 3)
   const pointerVelocities = new Float32Array(count * 3)
   const rotationImpulses = new Float32Array(count * 3)
@@ -72,9 +76,14 @@ function makeBatch(geometry, material, count, random, orbitScale) {
     orbitalPhases[i] = angle
     angularVelocities[i] = (0.006 + random() * 0.012) * (radius / orbitScale) ** -0.5
     inclinations[i] = inclination
+    const sinInc = Math.sin(inclination)
+    const cosInc = Math.cos(inclination)
+    sinIncRadii[i] = radius * sinInc
+    cosIncRadii[i] = radius * cosInc
+    const sinAngle = Math.sin(angle)
     positions[offset] = Math.cos(angle) * radius
-    positions[offset + 1] = Math.sin(angle) * radius * Math.sin(inclination)
-    positions[offset + 2] = Math.sin(angle) * radius * Math.cos(inclination)
+    positions[offset + 1] = sinAngle * sinIncRadii[i]
+    positions[offset + 2] = sinAngle * cosIncRadii[i]
 
     rotations[offset] = random() * TAU
     rotations[offset + 1] = random() * TAU
@@ -114,6 +123,8 @@ function makeBatch(geometry, material, count, random, orbitScale) {
     orbitalPhases,
     angularVelocities,
     inclinations,
+    sinIncRadii,
+    cosIncRadii,
     pointerOffsets,
     pointerVelocities,
     rotationImpulses,
@@ -195,7 +206,8 @@ function animateInstances(mesh, deltaSeconds, pointerState, camera) {
     orbitalRadii,
     orbitalPhases,
     angularVelocities,
-    inclinations,
+    sinIncRadii,
+    cosIncRadii,
     pointerOffsets,
     pointerVelocities,
     rotationImpulses,
@@ -203,15 +215,21 @@ function animateInstances(mesh, deltaSeconds, pointerState, camera) {
   } = mesh.userData.animation
   const pointerRadius = 34
 
+  // Performance Optimization: Hoist frame-invariant spring and damping values outside the instance loop.
+  // This eliminates up to 206 Math.exp calls and redundant multiplications per frame.
+  const springDelta = ORBITAL_SPRING * deltaSeconds
+  const damping = pointerOffsets ? Math.exp(-ORBITAL_DAMPING * deltaSeconds) : 0
+
   for (let i = 0; i < mesh.count; i++) {
     const offset = i * 3
     if (orbitalPhases) {
       orbitalPhases[i] += angularVelocities[i] * deltaSeconds
       const phase = orbitalPhases[i]
-      const radius = orbitalRadii[i]
-      positions[offset] = Math.cos(phase) * radius
-      positions[offset + 1] = Math.sin(phase) * radius * Math.sin(inclinations[i])
-      positions[offset + 2] = Math.sin(phase) * radius * Math.cos(inclinations[i])
+      const cosPhase = Math.cos(phase)
+      const sinPhase = Math.sin(phase)
+      positions[offset] = cosPhase * orbitalRadii[i]
+      positions[offset + 1] = sinPhase * sinIncRadii[i]
+      positions[offset + 2] = sinPhase * cosIncRadii[i]
     }
 
     if (pointerOffsets && interactive[i] && pointerState.active) {
@@ -229,19 +247,18 @@ function animateInstances(mesh, deltaSeconds, pointerState, camera) {
           if (distance < 0.001) pointerState.repulsion.copy(pointerState.cameraRight)
           else pointerState.repulsion.multiplyScalar(1 / distance)
           const force = ((pointerRadius - distance) / pointerRadius) ** 2 * 10
-          pointerVelocities[offset] += (pointerState.repulsion.x * force - pointerOffsets[offset]) * ORBITAL_SPRING * deltaSeconds
-          pointerVelocities[offset + 1] += (pointerState.repulsion.y * force - pointerOffsets[offset + 1]) * ORBITAL_SPRING * deltaSeconds
-          pointerVelocities[offset + 2] += (pointerState.repulsion.z * force - pointerOffsets[offset + 2]) * ORBITAL_SPRING * deltaSeconds
+          pointerVelocities[offset] += (pointerState.repulsion.x * force - pointerOffsets[offset]) * springDelta
+          pointerVelocities[offset + 1] += (pointerState.repulsion.y * force - pointerOffsets[offset + 1]) * springDelta
+          pointerVelocities[offset + 2] += (pointerState.repulsion.z * force - pointerOffsets[offset + 2]) * springDelta
           rotationImpulses[offset + 1] += force * pointerState.motion * 0.002
         }
       }
     }
 
     if (pointerOffsets) {
-      const damping = Math.exp(-ORBITAL_DAMPING * deltaSeconds)
-      pointerVelocities[offset] = (pointerVelocities[offset] - pointerOffsets[offset] * ORBITAL_SPRING * deltaSeconds) * damping
-      pointerVelocities[offset + 1] = (pointerVelocities[offset + 1] - pointerOffsets[offset + 1] * ORBITAL_SPRING * deltaSeconds) * damping
-      pointerVelocities[offset + 2] = (pointerVelocities[offset + 2] - pointerOffsets[offset + 2] * ORBITAL_SPRING * deltaSeconds) * damping
+      pointerVelocities[offset] = (pointerVelocities[offset] - pointerOffsets[offset] * springDelta) * damping
+      pointerVelocities[offset + 1] = (pointerVelocities[offset + 1] - pointerOffsets[offset + 1] * springDelta) * damping
+      pointerVelocities[offset + 2] = (pointerVelocities[offset + 2] - pointerOffsets[offset + 2] * springDelta) * damping
       pointerOffsets[offset] += pointerVelocities[offset] * deltaSeconds
       pointerOffsets[offset + 1] += pointerVelocities[offset + 1] * deltaSeconds
       pointerOffsets[offset + 2] += pointerVelocities[offset + 2] * deltaSeconds
@@ -250,13 +267,13 @@ function animateInstances(mesh, deltaSeconds, pointerState, camera) {
       rotationImpulses[offset + 2] *= damping
     }
 
-    rotations[offset] += (rotationSpeeds[offset] + (rotationImpulses?.[offset] ?? 0)) * deltaSeconds
-    rotations[offset + 1] += (rotationSpeeds[offset + 1] + (rotationImpulses?.[offset + 1] ?? 0)) * deltaSeconds
-    rotations[offset + 2] += (rotationSpeeds[offset + 2] + (rotationImpulses?.[offset + 2] ?? 0)) * deltaSeconds
+    rotations[offset] += (rotationSpeeds[offset] + (rotationImpulses ? rotationImpulses[offset] : 0)) * deltaSeconds
+    rotations[offset + 1] += (rotationSpeeds[offset + 1] + (rotationImpulses ? rotationImpulses[offset + 1] : 0)) * deltaSeconds
+    rotations[offset + 2] += (rotationSpeeds[offset + 2] + (rotationImpulses ? rotationImpulses[offset + 2] : 0)) * deltaSeconds
     dummy.position.set(
-      positions[offset] + (pointerOffsets?.[offset] ?? 0),
-      positions[offset + 1] + (pointerOffsets?.[offset + 1] ?? 0),
-      positions[offset + 2] + (pointerOffsets?.[offset + 2] ?? 0)
+      positions[offset] + (pointerOffsets ? pointerOffsets[offset] : 0),
+      positions[offset + 1] + (pointerOffsets ? pointerOffsets[offset + 1] : 0),
+      positions[offset + 2] + (pointerOffsets ? pointerOffsets[offset + 2] : 0)
     )
     dummy.rotation.set(rotations[offset], rotations[offset + 1], rotations[offset + 2])
     dummy.scale.fromArray(scales, offset)
@@ -276,6 +293,10 @@ export function createAsteroidField({ orbitScale = 260, seed = 0x51a7e, pointerE
   const distantPhases = new Float32Array(DISTANT_DEBRIS_COUNT)
   const distantAngularVelocities = new Float32Array(DISTANT_DEBRIS_COUNT)
   const distantInclinations = new Float32Array(DISTANT_DEBRIS_COUNT)
+  // Performance Optimization: Pre-calculate static radius * sin(inclination) and radius * cos(inclination)
+  // for distant debris to eliminate 4,200 dynamic trig calls per 60fps animation update.
+  const distantSinIncRadii = new Float32Array(DISTANT_DEBRIS_COUNT)
+  const distantCosIncRadii = new Float32Array(DISTANT_DEBRIS_COUNT)
   for (let i = 0; i < DISTANT_DEBRIS_COUNT; i++) {
     const angle = random() * TAU
     const radius = clusteredRadius(random, orbitScale)
@@ -284,9 +305,14 @@ export function createAsteroidField({ orbitScale = 260, seed = 0x51a7e, pointerE
     distantPhases[i] = angle
     distantAngularVelocities[i] = (0.003 + random() * 0.006) * (radius / orbitScale) ** -0.5
     distantInclinations[i] = inclination
+    const sinInc = Math.sin(inclination)
+    const cosInc = Math.cos(inclination)
+    distantSinIncRadii[i] = radius * sinInc
+    distantCosIncRadii[i] = radius * cosInc
+    const sinAngle = Math.sin(angle)
     distantPositions[i * 3] = Math.cos(angle) * radius
-    distantPositions[i * 3 + 1] = Math.sin(angle) * radius * Math.sin(inclination)
-    distantPositions[i * 3 + 2] = Math.sin(angle) * radius * Math.cos(inclination)
+    distantPositions[i * 3 + 1] = sinAngle * distantSinIncRadii[i]
+    distantPositions[i * 3 + 2] = sinAngle * distantCosIncRadii[i]
   }
   const distantGeometry = new THREE.BufferGeometry()
   distantGeometry.setAttribute('position', new THREE.BufferAttribute(distantPositions, 3))
@@ -303,7 +329,14 @@ export function createAsteroidField({ orbitScale = 260, seed = 0x51a7e, pointerE
   distantDebris.name = 'asteroid-distant-particles'
   distantDebris.raycast = () => {}
   distantDebris.matrixAutoUpdate = false
-  distantDebris.userData.animation = { distantRadii, distantPhases, distantAngularVelocities, distantInclinations }
+  distantDebris.userData.animation = {
+    distantRadii,
+    distantPhases,
+    distantAngularVelocities,
+    distantInclinations,
+    distantSinIncRadii,
+    distantCosIncRadii
+  }
   group.add(distantDebris)
 
   const baseGeometries = Array.from(
@@ -368,11 +401,12 @@ export function createAsteroidField({ orbitScale = 260, seed = 0x51a7e, pointerE
     for (let i = 0; i < DISTANT_DEBRIS_COUNT; i++) {
       distantPhases[i] += distantAngularVelocities[i] * deltaSeconds
       const phase = distantPhases[i]
-      const radius = distantRadii[i]
+      const cosPhase = Math.cos(phase)
+      const sinPhase = Math.sin(phase)
       const offset = i * 3
-      distantPositions[offset] = Math.cos(phase) * radius
-      distantPositions[offset + 1] = Math.sin(phase) * radius * Math.sin(distantInclinations[i])
-      distantPositions[offset + 2] = Math.sin(phase) * radius * Math.cos(distantInclinations[i])
+      distantPositions[offset] = cosPhase * distantRadii[i]
+      distantPositions[offset + 1] = sinPhase * distantSinIncRadii[i]
+      distantPositions[offset + 2] = sinPhase * distantCosIncRadii[i]
     }
     distantGeometry.getAttribute('position').needsUpdate = true
   }
