@@ -36,7 +36,17 @@ test('findAspect and getMajorAspect use pre-computed priority and typeLower', ()
   assert.notEqual(aspect, null)
   assert.equal(aspect.type, 'CONJUNCTION')
   assert.equal(aspect.typeLower, 'conjunction')
+  assert.equal(aspect.typeId, 0)
   assert.equal(aspect.priority, 1)
+
+  const testChart = AstrologyService.calculateGeocentricChart(new Date())
+  const calculatedAspects = AstrologyService.calculateAspects(testChart)
+  if (calculatedAspects.length > 0) {
+    const item = calculatedAspects[0]
+    assert.equal(typeof item.p1Id, 'number')
+    assert.equal(typeof item.p2Id, 'number')
+    assert.equal(typeof item.aspect.typeId, 'number')
+  }
 
   const aspects = [
     { p1: 'sun', p2: 'moon', aspect: { orb: 2.0, priority: 3, type: 'SQUARE', typeLower: 'square' } },
