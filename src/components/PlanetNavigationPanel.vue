@@ -2,8 +2,8 @@
   <aside id="planet-navigator" class="planet-navigator explorer-panel" :aria-label="title">
     <header><h2>{{ title }}</h2><button @click="$emit('close')">{{ t('explorer.close') }}</button></header>
     <ul class="planet-list">
-      <li v-for="(body, index) in bodies" :key="body.id" :class="{ selected: selectedBody === body.id }">
-        <button class="planet-select" :aria-pressed="selectedBody === body.id" @click="$emit('select', body.id)"><span class="planet-index" aria-hidden="true">{{ String(index + 1).padStart(2, '0') }}</span>{{ body.label }}</button>
+      <li v-for="body in bodies" :key="body.id" :class="{ selected: selectedBody === body.id }">
+        <button class="planet-select" :aria-pressed="selectedBody === body.id" @click="$emit('select', body.id)"><span class="planet-index" aria-hidden="true">{{ body.indexStr }}</span>{{ body.label }}</button>
         <button class="planet-info" @click="$emit('info', body.id)" :aria-label="body.label + ' · ' + showInfoTitle">{{ t('explorer.details') }}</button>
       </li>
     </ul>
@@ -31,16 +31,16 @@ const showInfoTitle = computed(() => t('nav.show_info'))
 // Performance Optimization: Hoist static planet metadata outside the computed property
 // to prevent raw array/object structure allocations on every computed property evaluation.
 const BODIES_METADATA = [
-  { id: 'sun', key: 'planet.sun' },
-  { id: 'mercury', key: 'planet.mercury' },
-  { id: 'venus', key: 'planet.venus' },
-  { id: 'earth', key: 'planet.earth' },
-  { id: 'moon', key: 'planet.moon' },
-  { id: 'mars', key: 'planet.mars' },
-  { id: 'jupiter', key: 'planet.jupiter' },
-  { id: 'saturn', key: 'planet.saturn' },
-  { id: 'uranus', key: 'planet.uranus' },
-  { id: 'neptune', key: 'planet.neptune' }
+  { id: 'sun', key: 'planet.sun', indexStr: '01' },
+  { id: 'mercury', key: 'planet.mercury', indexStr: '02' },
+  { id: 'venus', key: 'planet.venus', indexStr: '03' },
+  { id: 'earth', key: 'planet.earth', indexStr: '04' },
+  { id: 'moon', key: 'planet.moon', indexStr: '05' },
+  { id: 'mars', key: 'planet.mars', indexStr: '06' },
+  { id: 'jupiter', key: 'planet.jupiter', indexStr: '07' },
+  { id: 'saturn', key: 'planet.saturn', indexStr: '08' },
+  { id: 'uranus', key: 'planet.uranus', indexStr: '09' },
+  { id: 'neptune', key: 'planet.neptune', indexStr: '10' }
 ]
 
 const bodies = computed(() => {
@@ -49,6 +49,7 @@ const bodies = computed(() => {
     const item = BODIES_METADATA[i]
     result.push({
       id: item.id,
+      indexStr: item.indexStr,
       label: t(item.key)
     })
   }
