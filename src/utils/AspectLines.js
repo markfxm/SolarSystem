@@ -59,8 +59,8 @@ export class AspectLinesManager {
         for (let i = 0; i < aspects.length; i++) {
             const item = aspects[i];
 
-            // Optimized key generation using bit-shifting of pre-linked body IDs.
-            // This avoids dictionary lookups and constant string concatenation in the 60fps astrology loop.
+            // Prefer pre-linked numeric IDs on calculated aspects; retain the name-based
+            // fallback for callers that provide plain aspect objects.
             const id1 = item.p1Id ?? BODY_TO_ID[item.p1];
             const id2 = item.p2Id ?? BODY_TO_ID[item.p2];
             if (id1 === undefined || id2 === undefined) continue;

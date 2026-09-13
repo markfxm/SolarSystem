@@ -31,6 +31,31 @@ test('aspect dirty checker grows beyond its initial capacity without throwing', 
   assert.equal(checker.hasChanged(aspects), false)
 })
 
+test('aspect dirty checker uses pre-linked IDs without string-key lookups', () => {
+  const checker = createAspectDirtyChecker()
+  const makeAspect = (p1Id, p2Id, typeId) => [{
+    get p1() {
+      throw new Error('p1 lookup should not be needed for pre-linked aspects')
+    },
+    get p2() {
+      throw new Error('p2 lookup should not be needed for pre-linked aspects')
+    },
+    p1Id,
+    p2Id,
+    aspect: {
+      get type() {
+        throw new Error('aspect type lookup should not be needed for pre-linked aspects')
+      },
+      typeId,
+      orb: 1
+    }
+  }]
+
+  assert.equal(checker.hasChanged(makeAspect(0, 1, 2)), true)
+  assert.equal(checker.hasChanged(makeAspect(0, 1, 2)), false)
+  assert.equal(checker.hasChanged(makeAspect(0, 2, 2)), true)
+})
+
 test('findAspect and getMajorAspect use pre-computed priority and typeLower', () => {
   const aspect = AstrologyService.findAspect(0, 0)
   assert.notEqual(aspect, null)
