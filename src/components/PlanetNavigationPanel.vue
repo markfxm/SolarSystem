@@ -28,8 +28,8 @@ const title = computed(() => t('nav_title'))
 // to avoid high-frequency dynamic traversal inside high-frequency template renders.
 const showInfoTitle = computed(() => t('nav.show_info'))
 
-// Performance Optimization: Pre-calculate static index strings ('01'..'10') on metadata
-// to avoid dynamic String(index + 1).padStart(2, '0') allocations on every Vue template render pass.
+// Keep the display index with the static planet metadata so the template renders
+// the preformatted value directly.
 const BODIES_METADATA = [
   { id: 'sun', key: 'planet.sun', indexStr: '01' },
   { id: 'mercury', key: 'planet.mercury', indexStr: '02' },
