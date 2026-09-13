@@ -31,12 +31,47 @@ test('aspect dirty checker grows beyond its initial capacity without throwing', 
   assert.equal(checker.hasChanged(aspects), false)
 })
 
+test('aspect dirty checker uses pre-linked IDs without string-key lookups', () => {
+  const checker = createAspectDirtyChecker()
+  const makeAspect = (p1Id, p2Id, typeId) => [{
+    get p1() {
+      throw new Error('p1 lookup should not be needed for pre-linked aspects')
+    },
+    get p2() {
+      throw new Error('p2 lookup should not be needed for pre-linked aspects')
+    },
+    p1Id,
+    p2Id,
+    aspect: {
+      get type() {
+        throw new Error('aspect type lookup should not be needed for pre-linked aspects')
+      },
+      typeId,
+      orb: 1
+    }
+  }]
+
+  assert.equal(checker.hasChanged(makeAspect(0, 1, 2)), true)
+  assert.equal(checker.hasChanged(makeAspect(0, 1, 2)), false)
+  assert.equal(checker.hasChanged(makeAspect(0, 2, 2)), true)
+})
+
 test('findAspect and getMajorAspect use pre-computed priority and typeLower', () => {
   const aspect = AstrologyService.findAspect(0, 0)
   assert.notEqual(aspect, null)
   assert.equal(aspect.type, 'CONJUNCTION')
   assert.equal(aspect.typeLower, 'conjunction')
+  assert.equal(aspect.typeId, 0)
   assert.equal(aspect.priority, 1)
+
+  const testChart = AstrologyService.calculateGeocentricChart(new Date())
+  const calculatedAspects = AstrologyService.calculateAspects(testChart)
+  if (calculatedAspects.length > 0) {
+    const item = calculatedAspects[0]
+    assert.equal(typeof item.p1Id, 'number')
+    assert.equal(typeof item.p2Id, 'number')
+    assert.equal(typeof item.aspect.typeId, 'number')
+  }
 
   const aspects = [
     { p1: 'sun', p2: 'moon', aspect: { orb: 2.0, priority: 3, type: 'SQUARE', typeLower: 'square' } },

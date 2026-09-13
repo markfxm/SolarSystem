@@ -29,12 +29,13 @@ const ASPECT_PRIORITY = {
     'SEXTILE': 5
 };
 
-// Add pre-formatted color strings, lowercase type, and numeric priorities for O(1) hot loop access
+// Add pre-formatted color strings, lowercase type, numeric type IDs, and numeric priorities for O(1) hot loop access
 const ASPECT_DATA = [];
 for (const key in ASPECT_TYPES) {
     const aspect = ASPECT_TYPES[key];
     aspect.type = key;
     aspect.typeLower = key.toLowerCase();
+    aspect.typeId = ASPECT_TYPE_TO_ID[key] ?? 0;
     aspect.priority = ASPECT_PRIORITY[key] ?? 99;
     aspect.colorStr = '#' + aspect.color.toString(16).padStart(6, '0');
     ASPECT_DATA.push(aspect);
@@ -93,9 +94,9 @@ export function createAspectDirtyChecker(initialCapacity = 64) {
 
             for (let i = 0; i < aspects.length; i++) {
                 const item = aspects[i];
-                const p1Id = BODY_TO_ID[item.p1] ?? 0;
-                const p2Id = BODY_TO_ID[item.p2] ?? 0;
-                const typeId = ASPECT_TYPE_TO_ID[item.aspect.type] ?? 0;
+                const p1Id = item.p1Id ?? (BODY_TO_ID[item.p1] ?? 0);
+                const p2Id = item.p2Id ?? (BODY_TO_ID[item.p2] ?? 0);
+                const typeId = item.aspect.typeId ?? (ASPECT_TYPE_TO_ID[item.aspect.type] ?? 0);
                 const orbMin = Math.round(item.aspect.orb * 60);
                 const key = (p1Id << 20) | (p2Id << 16) | (typeId << 12) | orbMin;
 
@@ -330,6 +331,7 @@ export class AstrologyService {
                 const res = target || {};
                 res.type = data.type;
                 res.typeLower = data.typeLower;
+                res.typeId = data.typeId;
                 res.orb = orb;
                 res.angle = data.angle;
                 res.color = data.color;
@@ -386,6 +388,8 @@ export class AstrologyService {
                     const wrapper = this._wrapperPool[this._wrapperPoolIdx];
                     wrapper.p1 = e1.name;
                     wrapper.p2 = e2.name;
+                    wrapper.p1Id = id1;
+                    wrapper.p2Id = id2;
                     wrapper.aspect = aspect;
                     aspects.push(wrapper);
 
