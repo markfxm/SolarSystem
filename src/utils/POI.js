@@ -151,6 +151,11 @@ export function animatePOIs(group) {
     const poiGroup = children[i];
     const targetScale = poiGroup.userData.isHovered ? 1.5 : 1.0;
     const dot = poiGroup.userData.dot;
+
+    // Performance Optimization: Short-circuit early if scale already matches target scale
+    // to avoid redundant property lookups and floating point comparisons for static POIs in 60fps loops.
+    if (dot.scale.x === targetScale) continue;
+
     const label = poiGroup.userData.label;
 
     // Optimization: Skip Three.js property updates and matrix recalculations
