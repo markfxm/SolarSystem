@@ -242,8 +242,7 @@ function animateInstances(mesh, deltaSeconds, pointerState, camera) {
           .add(pointerState.raycaster.ray.origin)
         pointerState.repulsion.set(positions[offset], positions[offset + 1], positions[offset + 2])
           .sub(pointerState.closestPoint)
-        // Performance Optimization: Use lengthSq() first to avoid Math.sqrt and division for distant asteroids.
-        // Out of 51 interactive asteroids, ~98%+ are far beyond 34 units from the pointer ray.
+        // Check squared distance first; only calculate direction and force inside the interaction radius.
         const distSq = pointerState.repulsion.lengthSq()
         if (distSq < POINTER_RADIUS_SQ) {
           const distance = Math.sqrt(distSq)
