@@ -20,6 +20,14 @@ const planet = computed<PlanetInfo | null>(() => {
   return (langData[props.planetName as keyof typeof langData] as PlanetInfo) || null
 })
 
+// Performance Optimization: Pre-resolve static UI translations in computed properties
+// to avoid inline t() dictionary lookups and path-splitting during component render cycles.
+const radiusLabel = computed(() => t('info.radius'))
+const tempLabel = computed(() => t('info.temp'))
+const orbitLabel = computed(() => t('info.orbit'))
+const didYouKnowTitle = computed(() => t('info.did_you_know'))
+const landBtnLabel = computed(() => t('info.land_btn'))
+
 // Resize Logic
 const panelWidth = ref(280) // default width
 const isResizing = ref(false)
@@ -78,21 +86,21 @@ onUnmounted(() => {
 
         <div class="stats-grid">
           <div class="stat-item">
-            <span class="label">{{ t('info.radius') }}</span>
+            <span class="label">{{ radiusLabel }}</span>
             <span class="value">{{ planet.radius }}</span>
           </div>
           <div class="stat-item">
-            <span class="label">{{ t('info.temp') }}</span>
+            <span class="label">{{ tempLabel }}</span>
             <span class="value">{{ planet.temp }}</span>
           </div>
           <div class="stat-item">
-            <span class="label">{{ t('info.orbit') }}</span>
+            <span class="label">{{ orbitLabel }}</span>
             <span class="value">{{ planet.orbit }}</span>
           </div>
         </div>
 
         <div class="facts-section">
-          <h3>{{ t('info.did_you_know') }}</h3>
+          <h3>{{ didYouKnowTitle }}</h3>
           <ul>
             <li v-for="(fact, index) in planet.facts" :key="index">
               {{ fact }}
@@ -102,7 +110,7 @@ onUnmounted(() => {
 
         <div v-if="planetName === 'mars'" class="actions-section">
           <button class="land-btn" @click="emit('land')">
-            🚀 {{ t('info.land_btn') }}
+            🚀 {{ landBtnLabel }}
           </button>
         </div>
       </div>
