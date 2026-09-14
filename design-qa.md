@@ -14,7 +14,6 @@ Fixed during visual QA:
 - P2: existing detail panel overlapped the new header. Offset it below the header at both breakpoints.
 - P2: desktop camera cropped the Sun on portrait screens. Opening flight and Home now share a responsive target.
 - P2: a bright planet could cross the eyebrow. Added a restrained local contrast backing and text shadows.
-- Removed the remaining purple glow from the compact AI launcher while preserving its function.
 
 ## Verification
 

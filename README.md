@@ -13,7 +13,6 @@
 - **全景太阳系可视化**：以前所未有的细节观察八大行星及其卫星的运行。
 - **红色星球探险 (Mars Surface)**：**这是最令人激动的特性。** 您可以从太空直接降落在火星表面！体验低重力环境下的行走，探索随机生成的火星荒漠，在红色的尘埃中寻找人类留下的痕迹。
 - **实时天体模拟**：精准还原行星轨道，感受宇宙的律动。
-- **星际助理**：内置量子级 AI 助手（Stellar Assistant），随时解答关于宇宙的奥秘。
 - **沉浸式 UI**：富有未来感的全息交互界面，让您如同身处星舰指挥室。
 
 ### 🕹️ 操控指南
@@ -37,7 +36,6 @@
 - **Panoramic Solar System Visualization**: Observe the movements of the eight planets and their moons in unprecedented detail.
 - **Red Planet Expedition (Mars Surface)**: **Our most thrilling feature.** Descend from space directly onto the Martian surface! Experience walking in a low-gravity environment, explore procedurally generated Martian deserts, and search for the remnants of human exploration amidst the red dust.
 - **Real-time Celestial Simulation**: Precision-mapped planetary orbits that let you feel the pulse of the universe.
-- **Stellar Assistant**: A built-in quantum-level AI assistant ready to answer your questions about the mysteries of the cosmos.
 - **Immersive UI**: A futuristic holographic interface that makes you feel as though you are in the command deck of a starship.
 
 ### 🕹️ Control Guide

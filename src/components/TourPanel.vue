@@ -260,21 +260,22 @@ onUnmounted(() => {
 .land-btn {
   width: 100%;
   padding: 12px;
-  background: linear-gradient(135deg, var(--glow-color) 0%, var(--glow-secondary) 100%);
-  border: none;
+  background: #f2ebdf;
+  border: 1px solid #f2ebdf;
   border-radius: 12px;
-  color: white;
+  color: #181715;
   font-weight: 700;
   font-size: 16px;
   cursor: pointer;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 12px rgba(var(--glow-rgb), 0.3);
+  box-shadow: 0 4px 12px rgba(242, 235, 223, 0.16);
 }
 
 .land-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(var(--glow-rgb), 0.5);
-  filter: brightness(1.1);
+  background: #fff;
+  border-color: #fff;
+  box-shadow: 0 6px 20px rgba(242, 235, 223, 0.24);
 }
 
 .land-btn:active {
