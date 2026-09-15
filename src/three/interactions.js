@@ -42,7 +42,8 @@ export function createInteractions({
   let selectedPOI = null
   let isEnabled = true
 
-  // Temp vectors for performance (avoid GC)
+  // Temp vectors and scratch arrays for performance (avoid GC)
+  const EMPTY_HITS = []
   const _trackingDelta = new THREE.Vector3()
   const _tempVec3 = new THREE.Vector3()
   const _tempLookAt = new THREE.Vector3()
@@ -264,7 +265,8 @@ export function createInteractions({
 
     // Optimization: Skip intersection tests if there are no candidates.
     // POIs are on Layer 1, Planets on Layer 0. Raycaster was initialized with both layers enabled.
-    const poiHits = (_poiCandidates.length > 0) ? raycaster.intersectObjects(_poiCandidates, false) : [];
+    // Performance Optimization: Reuse EMPTY_HITS array to avoid temporary empty array allocations when candidate list is empty.
+    const poiHits = (_poiCandidates.length > 0) ? raycaster.intersectObjects(_poiCandidates, false) : EMPTY_HITS;
     if (poiHits.length > 0) {
       // Find the parent POI group
       hitPOI = poiHits[0].object.parent

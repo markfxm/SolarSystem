@@ -203,7 +203,9 @@ const _aspectDirtyChecker = createAspectDirtyChecker()
 const dominantElement = ref('none')
 const showGrid = ref(false)
 const selectedPOI = ref(null)
-const poiDragOffset = ref({ x: 0, y: 0 })
+// Optimization: Use reactive objects for POI drag offset and lander position to mutate properties in-place
+// without creating new { x, y } / { x, y, z } object allocations on high-frequency drag/update paths.
+const poiDragOffset = reactive({ x: 0, y: 0 })
 const isDraggingPoi = ref(false)
 const poiDragStartMouse = { x: 0, y: 0 }
 const poiDragStartOffset = { x: 0, y: 0 }
@@ -224,7 +226,7 @@ const poiUI = reactive({
 const marsPlayerPos = reactive({ x: 0, y: 0, z: 0 })
 const marsPlayerYaw = ref(0)
 const marsPath = shallowRef([])
-const marsLanderPos = ref({ x: 0, z: -10 })
+const marsLanderPos = reactive({ x: 0, y: 0, z: -10 })
 
 const poiPanelStyle = computed(() => {
   return {
@@ -344,8 +346,8 @@ async function onLandOnMars(coords = null) {
     marsSurface.teleport(tx, tz);
   }
   const lPos = marsSurface.getLanderPosition()
-  if (lPos && (marsLanderPos.value.x !== lPos.x || marsLanderPos.value.y !== lPos.y || marsLanderPos.value.z !== lPos.z)) {
-    marsLanderPos.value = { x: lPos.x, y: lPos.y, z: lPos.z }
+  if (lPos && (marsLanderPos.x !== lPos.x || marsLanderPos.y !== lPos.y || marsLanderPos.z !== lPos.z)) {
+    marsLanderPos.x = lPos.x; marsLanderPos.y = lPos.y; marsLanderPos.z = lPos.z
   }
 
   viewMode.value = 'mars'
@@ -502,8 +504,8 @@ function handlePoiDragStart(event) {
   isDraggingPoi.value = true
   poiDragStartMouse.x = event.clientX
   poiDragStartMouse.y = event.clientY
-  poiDragStartOffset.x = poiDragOffset.value.x
-  poiDragStartOffset.y = poiDragOffset.value.y
+  poiDragStartOffset.x = poiDragOffset.x
+  poiDragStartOffset.y = poiDragOffset.y
 
   window.addEventListener('mousemove', handlePoiDragMove)
   window.addEventListener('mouseup', handlePoiDragEnd)
@@ -513,10 +515,8 @@ function handlePoiDragMove(event) {
   if (!isDraggingPoi.value) return
   const dx = event.clientX - poiDragStartMouse.x
   const dy = event.clientY - poiDragStartMouse.y
-  poiDragOffset.value = {
-    x: poiDragStartOffset.x + dx,
-    y: poiDragStartOffset.y + dy
-  }
+  poiDragOffset.x = poiDragStartOffset.x + dx
+  poiDragOffset.y = poiDragStartOffset.y + dy
 }
 
 function handlePoiDragEnd() {
@@ -774,7 +774,7 @@ onMounted(async () => {
     },
     onPOISelect: poi => {
       if (selectedPOI.value?.poiId !== poi?.poiId) {
-        poiDragOffset.value = { x: 0, y: 0 }
+        poiDragOffset.x = 0; poiDragOffset.y = 0;
 
         // Determine initial side
         if (poi && engine) {
@@ -854,8 +854,8 @@ onMounted(async () => {
               let panelY = y + marginY;
 
               // Apply drag offset
-              panelX += poiDragOffset.value.x;
-              panelY += poiDragOffset.value.y;
+              panelX += poiDragOffset.x;
+              panelY += poiDragOffset.y;
 
               // Flip side if dragged across the POI
               const currentSide = (panelX + panelWidth / 2 < x) ? 'left' : 'right';
@@ -915,8 +915,8 @@ onMounted(async () => {
       }
 
       const lPos = marsSurface.getLanderPosition()
-      if (lPos && (marsLanderPos.value.x !== lPos.x || marsLanderPos.value.y !== lPos.y || marsLanderPos.value.z !== lPos.z)) {
-        marsLanderPos.value = { x: lPos.x, y: lPos.y, z: lPos.z }
+      if (lPos && (marsLanderPos.x !== lPos.x || marsLanderPos.y !== lPos.y || marsLanderPos.z !== lPos.z)) {
+        marsLanderPos.x = lPos.x; marsLanderPos.y = lPos.y; marsLanderPos.z = lPos.z
       }
     }
 
