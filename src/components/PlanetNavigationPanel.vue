@@ -1,10 +1,10 @@
 <template>
   <aside id="planet-navigator" class="planet-navigator explorer-panel" :aria-label="title">
-    <header><h2>{{ title }}</h2><button @click="$emit('close')">{{ t('explorer.close') }}</button></header>
+    <header><h2>{{ title }}</h2><button @click="$emit('close')">{{ closeLabel }}</button></header>
     <ul class="planet-list">
       <li v-for="body in bodies" :key="body.id" :class="{ selected: selectedBody === body.id }">
         <button class="planet-select" :aria-pressed="selectedBody === body.id" @click="$emit('select', body.id)"><span class="planet-index" aria-hidden="true">{{ body.indexStr }}</span>{{ body.label }}</button>
-        <button class="planet-info" @click="$emit('info', body.id)" :aria-label="body.label + ' · ' + showInfoTitle">{{ t('explorer.details') }}</button>
+        <button class="planet-info" @click="$emit('info', body.id)" :aria-label="body.label + ' · ' + showInfoTitle">{{ detailsLabel }}</button>
       </li>
     </ul>
   </aside>
@@ -23,6 +23,8 @@ defineEmits(['select', 'info', 'close'])
 
 
 const title = computed(() => t('nav_title'))
+const closeLabel = computed(() => t('explorer.close'))
+const detailsLabel = computed(() => t('explorer.details'))
 
 // Performance Optimization: Cache translation keys for the template
 // to avoid high-frequency dynamic traversal inside high-frequency template renders.
