@@ -258,25 +258,59 @@ function animateInstances(mesh, deltaSeconds, pointerState, camera) {
       }
     }
 
+    // Performance Optimization: Short-circuit spring physics and dampening math
+    // when an asteroid's pointer velocity, offset, and rotation impulse are all zero.
+    // For ~99% of asteroids unaffected by mouse interaction, this bypasses 9 floating-point
+    // multiplications and array updates per frame in 60fps animation loops.
+    let offX = 0, offY = 0, offZ = 0
+    let impX = 0, impY = 0, impZ = 0
+
     if (pointerOffsets) {
-      pointerVelocities[offset] = (pointerVelocities[offset] - pointerOffsets[offset] * springDelta) * damping
-      pointerVelocities[offset + 1] = (pointerVelocities[offset + 1] - pointerOffsets[offset + 1] * springDelta) * damping
-      pointerVelocities[offset + 2] = (pointerVelocities[offset + 2] - pointerOffsets[offset + 2] * springDelta) * damping
-      pointerOffsets[offset] += pointerVelocities[offset] * deltaSeconds
-      pointerOffsets[offset + 1] += pointerVelocities[offset + 1] * deltaSeconds
-      pointerOffsets[offset + 2] += pointerVelocities[offset + 2] * deltaSeconds
-      rotationImpulses[offset] *= damping
-      rotationImpulses[offset + 1] *= damping
-      rotationImpulses[offset + 2] *= damping
+      const vx = pointerVelocities[offset]
+      const vy = pointerVelocities[offset + 1]
+      const vz = pointerVelocities[offset + 2]
+      const ox = pointerOffsets[offset]
+      const oy = pointerOffsets[offset + 1]
+      const oz = pointerOffsets[offset + 2]
+      const rx = rotationImpulses[offset]
+      const ry = rotationImpulses[offset + 1]
+      const rz = rotationImpulses[offset + 2]
+
+      if (vx !== 0 || vy !== 0 || vz !== 0 || ox !== 0 || oy !== 0 || oz !== 0 || rx !== 0 || ry !== 0 || rz !== 0) {
+        const nvx = (vx - ox * springDelta) * damping
+        const nvy = (vy - oy * springDelta) * damping
+        const nvz = (vz - oz * springDelta) * damping
+        const nox = ox + nvx * deltaSeconds
+        const noy = oy + nvy * deltaSeconds
+        const noz = oz + nvz * deltaSeconds
+        const nrx = rx * damping
+        const nry = ry * damping
+        const nrz = rz * damping
+
+        // Snap residual spring oscillations back to zero once motion settles
+        if (Math.abs(nvx) < 1e-5 && Math.abs(nvy) < 1e-5 && Math.abs(nvz) < 1e-5 &&
+            Math.abs(nox) < 1e-5 && Math.abs(noy) < 1e-5 && Math.abs(noz) < 1e-5 &&
+            Math.abs(nrx) < 1e-5 && Math.abs(nry) < 1e-5 && Math.abs(nrz) < 1e-5) {
+          pointerVelocities[offset] = 0; pointerVelocities[offset + 1] = 0; pointerVelocities[offset + 2] = 0
+          pointerOffsets[offset] = 0; pointerOffsets[offset + 1] = 0; pointerOffsets[offset + 2] = 0
+          rotationImpulses[offset] = 0; rotationImpulses[offset + 1] = 0; rotationImpulses[offset + 2] = 0
+        } else {
+          pointerVelocities[offset] = nvx; pointerVelocities[offset + 1] = nvy; pointerVelocities[offset + 2] = nvz
+          pointerOffsets[offset] = nox; pointerOffsets[offset + 1] = noy; pointerOffsets[offset + 2] = noz
+          rotationImpulses[offset] = nrx; rotationImpulses[offset + 1] = nry; rotationImpulses[offset + 2] = nrz
+          offX = nox; offY = noy; offZ = noz
+          impX = nrx; impY = nry; impZ = nrz
+        }
+      }
     }
 
-    rotations[offset] += (rotationSpeeds[offset] + (rotationImpulses ? rotationImpulses[offset] : 0)) * deltaSeconds
-    rotations[offset + 1] += (rotationSpeeds[offset + 1] + (rotationImpulses ? rotationImpulses[offset + 1] : 0)) * deltaSeconds
-    rotations[offset + 2] += (rotationSpeeds[offset + 2] + (rotationImpulses ? rotationImpulses[offset + 2] : 0)) * deltaSeconds
+    rotations[offset] += (rotationSpeeds[offset] + impX) * deltaSeconds
+    rotations[offset + 1] += (rotationSpeeds[offset + 1] + impY) * deltaSeconds
+    rotations[offset + 2] += (rotationSpeeds[offset + 2] + impZ) * deltaSeconds
     dummy.position.set(
-      positions[offset] + (pointerOffsets ? pointerOffsets[offset] : 0),
-      positions[offset + 1] + (pointerOffsets ? pointerOffsets[offset + 1] : 0),
-      positions[offset + 2] + (pointerOffsets ? pointerOffsets[offset + 2] : 0)
+      positions[offset] + offX,
+      positions[offset + 1] + offY,
+      positions[offset + 2] + offZ
     )
     dummy.rotation.set(rotations[offset], rotations[offset + 1], rotations[offset + 2])
     dummy.scale.fromArray(scales, offset)
