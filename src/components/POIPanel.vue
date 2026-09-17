@@ -37,16 +37,17 @@ const props = defineProps({
 
 defineEmits(['close', 'land', 'drag-start']);
 
+// Optimization: Reuse pre-attached translationKey on props.poi if available
 const name = computed(() => {
   if (!props.poi) return '';
-  const planet = props.poi.planetName;
-  return t(`${planet}.pois.${props.poi.poiId}`);
+  const key = props.poi.translationKey || `${props.poi.planetName}.pois.${props.poi.poiId}`;
+  return t(key);
 });
 
 const description = computed(() => {
   if (!props.poi) return '';
-  const planet = props.poi.planetName;
-  return t(`${planet}.pois.${props.poi.poiId}_desc`);
+  const key = props.poi.translationKey || `${props.poi.planetName}.pois.${props.poi.poiId}`;
+  return t(`${key}_desc`);
 });
 </script>
 
