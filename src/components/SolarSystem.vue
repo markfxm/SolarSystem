@@ -742,10 +742,10 @@ onMounted(async () => {
     }
   }
 
-  // Pre-cache planets that have POIs to avoid Object.entries() in the render loop
+  // Pre-cache planets and POI groups to avoid Object.entries() and property lookups in the render loop
   planetsWithPOIs = Object.entries(solar.planetObjects)
     .filter(([name, mesh]) => mesh.userData.pois)
-    .map(([name, mesh]) => ({ name, mesh }));
+    .map(([name, mesh]) => ({ name, mesh, pois: mesh.userData.pois }));
 
   // pass the sun mesh as an extra rotating object so it spins with real speed
   timeController = createTimeController(
@@ -825,8 +825,9 @@ onMounted(async () => {
           // Optimization: Reuse mesh.position as world position since planets are direct children of the scene
           _planetWorldPos.copy(planetMesh.position);
 
-          // Occlusion check
-          _normal.copy(_poiWorldPos).sub(_planetWorldPos).normalize();
+          // Performance Optimization: Direct surface normal from planet rotation and local POI position
+          // avoids _planetWorldPos vector copy and subtraction operations.
+          _normal.copy(poi.dot.position).applyQuaternion(planetMesh.quaternion).normalize();
           _viewDir.copy(engine.camera.position).sub(_poiWorldPos).normalize();
           const isFacing = _normal.dot(_viewDir) > 0.05;
 
@@ -888,7 +889,7 @@ onMounted(async () => {
       if (frameCount % 10 === 0 && planetsWithPOIs.length > 0) {
         for (let i = 0; i < planetsWithPOIs.length; i++) {
           const p = planetsWithPOIs[i];
-          updatePOIVisibility(p.mesh.userData.pois, engine.camera, p.mesh.position);
+          updatePOIVisibility(p.pois, engine.camera, p.mesh.position);
         }
       }
 
@@ -897,7 +898,7 @@ onMounted(async () => {
       if (planetsWithPOIs.length > 0) {
         for (let i = 0; i < planetsWithPOIs.length; i++) {
           const p = planetsWithPOIs[i];
-          animatePOIs(p.mesh.userData.pois);
+          animatePOIs(p.pois);
         }
       }
     } else if (viewMode.value === 'mars' && marsSurface) {
