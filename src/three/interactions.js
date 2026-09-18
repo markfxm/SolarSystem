@@ -42,6 +42,11 @@ export function createInteractions({
   let selectedPOI = null
   let isEnabled = true
 
+  // Performance Optimization: Pre-index planets into a Set and Map for O(1) lookups
+  // during raycast parent traversal and planet focus lookups.
+  const planetsSet = new Set(planets)
+  const planetsByName = new Map(planets.map(p => [p.userData?.name, p]))
+
   // Temp vectors and scratch arrays for performance (avoid GC)
   const EMPTY_HITS = []
   const _trackingDelta = new THREE.Vector3()
@@ -303,7 +308,7 @@ export function createInteractions({
     if (hits.length > 0) {
       // Find the top-level planet object from the hit (could be a child mesh of a GLB)
       let current = hits[0].object
-      while (current && !planets.includes(current)) {
+      while (current && !planetsSet.has(current)) {
         current = current.parent
       }
 
@@ -357,9 +362,7 @@ export function createInteractions({
   ───────────────────────────── */
 
   function focusPlanetById(id, onArrive = null) {
-    const target = planets.find(
-      p => p.userData.name === id
-    )
+    const target = planetsByName.get(id)
     if (!target) return
 
     startFlyTo(target, onArrive)
