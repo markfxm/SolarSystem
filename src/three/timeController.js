@@ -91,7 +91,8 @@ export function createTimeController(planetObjects, orbitScale, extraRotating = 
   function updatePositions(d, deltaSeconds = 0) {
     // Use pre-filtered activePlanets to eliminate string comparisons and property lookups in the hot path
     for (let i = 0; i < activePlanets.length; i++) {
-      const { name, data, mesh, rotCache, scratch } = activePlanets[i];
+      const entry = activePlanets[i];
+      const { name, data, mesh, rotCache, scratch } = entry;
 
       // Optimized: Use pre-linked data object and per-planet scratch
       // This eliminates string hashing/lookups and array indexing in the hot path.
@@ -111,9 +112,9 @@ export function createTimeController(planetObjects, orbitScale, extraRotating = 
       // Performance Optimization: Skip redundant rotation updates and quaternion equality checks
       // by comparing the entry's last apply timestamp with the rotation cache's update timestamp.
       const quat = computePlanetQuaternion(name, d, rotCache);
-      if (activePlanets[i].lastQuatD !== rotCache.cache.lastD) {
+      if (entry.lastQuatD !== rotCache.cache.lastD) {
         mesh.setRotationFromQuaternion(quat);
-        activePlanets[i].lastQuatD = rotCache.cache.lastD;
+        entry.lastQuatD = rotCache.cache.lastD;
         changed = true;
       }
 
