@@ -1,8 +1,9 @@
 <script setup>
-import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
+import { ref, onUnmounted, computed, watch } from 'vue';
 
 const props = defineProps({
   isVisible: Boolean,
+  signalPos: { type: Object, default: () => ({ x: 80, z: -180 }) },
   planetId: String,
   planetName: String,
   playerPos: {
@@ -25,9 +26,14 @@ const props = defineProps({
 
 import { t } from '../../utils/i18n'
 
-const emit = defineEmits(['exit', 'clear-path'])
+const emit = defineEmits(['exit', 'clear-path', 'continue'])
 
 const isExpanded = ref(false)
+const targetDistance = computed(() => Math.round(Math.hypot(props.signalPos.x - props.playerPos.x, props.signalPos.z - props.playerPos.z)))
+const handleMapKey = (event) => {
+  if (props.isVisible && event.key.toLowerCase() === 'm') toggleExpand()
+}
+window.addEventListener('keydown', handleMapKey)
 
 const MARS_RADIUS = 3389500; // meters
 const DEG_PER_METER = 180 / (Math.PI * MARS_RADIUS);
@@ -47,7 +53,7 @@ const currentLon = computed(() => {
   return `${lon.toFixed(4)}° E`;
 })
 
-const zoomLevel = ref(1) // Base zoom
+const zoomLevel = ref(0.4) // Base zoom
 const canvasRef = ref(null)
 
 // i18n Caching: Pre-translate static labels to avoid lookup overhead in the 60fps loop
@@ -66,7 +72,7 @@ const labels = computed(() => ({
   mapHintCollapsed: t('mars.map_hint_collapsed')
 }))
 
-const MAP_SIZE = 180
+const MAP_SIZE = 220
 const EXPANDED_MAP_SIZE = 500
 
 const toggleExpand = () => {
@@ -197,6 +203,14 @@ const drawMap = (force = false) => {
   ctx.textAlign = 'left'
   ctx.fillText(labels.value.start, startPosMX + 6, startPosMY + 4)
 
+  const signalX = Math.max(18, Math.min(size - 18, centerX + (props.signalPos.x - px) * zoom))
+  const signalY = Math.max(25, Math.min(size - 25, centerY + (props.signalPos.z - pz) * zoom))
+  ctx.strokeStyle = '#91dcff'
+  ctx.lineWidth = 2
+  ctx.beginPath()
+  ctx.arc(signalX, signalY, 6, 0, Math.PI * 2)
+  ctx.stroke()
+
   // Draw Player Marker (Always at center because we are centering on player)
   ctx.save()
   ctx.translate(centerX, centerY)
@@ -257,6 +271,7 @@ watch(() => props.isVisible, (visible) => {
 
 onUnmounted(() => {
   stopLoop()
+  window.removeEventListener('keydown', handleMapKey)
 })
 </script>
 
@@ -272,8 +287,21 @@ onUnmounted(() => {
             {{ labels.lat }}: {{ currentLat }} | {{ labels.lon }}: {{ currentLon }}
           </div>
 
+          <section class="mission-section">
+            <div class="label">{{ t('mars.mission') }}</div>
+            <h2>{{ targetDistance < 15 ? t('mars.signal_found') : t('mars.investigate') }}</h2>
+            <p>{{ t('mars.mission_desc') }}</p>
+          </section>
+          <section class="suit-section">
+            <div class="label">{{ t('mars.suit_status') }}</div>
+            <div class="telemetry"><span>O₂</span><span>98%<meter min="0" max="100" value="98" /></span></div>
+            <div class="telemetry"><span>{{ t('mars.pressure') }}</span><span>0.98 atm<meter min="0" max="1" value="0.98" /></span></div>
+            <div class="telemetry"><span>{{ t('mars.radiation') }}</span><span>0.12 mSv/h<meter min="0" max="1" value="0.12" /></span></div>
+            <div class="telemetry"><span>{{ t('mars.temperature') }}</span><span>−52°C</span></div>
+          </section>
+          <div class="target-distance">{{ t('mars.target_distance') }} <strong>{{ targetDistance }} m</strong></div>
           <div v-if="planetId === 'mars'" class="history-actions">
-            <button class="clear-btn" @click="$emit('clear-path')">📍 {{ labels.resetPath }}</button>
+            <button class="clear-btn" @click="$emit('clear-path')">{{ labels.resetPath }}</button>
           </div>
         </div>
       </div>
@@ -286,6 +314,12 @@ onUnmounted(() => {
       >
         <div
           class="minimap-container"
+          role="button"
+          tabindex="0"
+          :aria-label="labels.mapHintCollapsed"
+          :aria-expanded="isExpanded"
+          @keydown.enter="toggleExpand"
+          @keydown.space.prevent="toggleExpand"
           @click="toggleExpand"
           @wheel.prevent="handleWheel"
         >
@@ -294,6 +328,14 @@ onUnmounted(() => {
         <div class="map-hint">{{ isExpanded ? labels.mapHintExpanded : labels.mapHintCollapsed }}</div>
       </div>
 
+      <div class="crosshair" aria-hidden="true">·</div>
+      <div class="expedition-actions">
+        <div class="control-hint">{{ t('mars.controls') }}</div>
+        <div class="action-row">
+          <button class="continue-button" @click="emit('continue')">{{ t('mars.continue') }} <span aria-hidden="true">→</span></button>
+          <button @click="emit('exit')">{{ t('mars.return_orbit') }}</button>
+        </div>
+      </div>
       <!-- Scanline / Sci-fi Overlay Effect -->
       <div class="scanlines"></div>
       <div class="vignette"></div>
@@ -318,8 +360,8 @@ onUnmounted(() => {
 /* Container to handle hover state for the partial-hidden panel */
 .location-drawer-container {
   position: absolute;
-  top: 145px; /* Directly below Zodiac toggle */
-  left: 0; /* Align to screen edge */
+  top: 48px; /* Directly below Zodiac toggle */
+  left: 24px; /* Align to screen edge */
   pointer-events: auto; /* Allow hovering */
   display: flex;
   align-items: center;
@@ -462,4 +504,45 @@ onUnmounted(() => {
 .fade-leave-to {
   opacity: 0;
 }
+</style>
+
+<style scoped>
+.location-panel { width: 276px; padding: 22px; border-left: 3px solid #f08045; border-radius: 12px; background: rgba(19, 24, 28, .78); box-sizing: border-box; }
+.location-panel .label { color: #a8c5d5; opacity: 1; font-size: 10px; letter-spacing: 1.6px; }
+.location-panel .value { font-size: 19px; margin: 9px 0; }
+.location-panel .coords { font-size: 10px; opacity: .8; white-space: normal; line-height: 1.7; }
+.mission-section, .suit-section { border-top: 1px solid #ffffff30; margin-top: 21px; padding-top: 20px; }
+h2 { font-size: 16px; font-weight: 500; margin: 12px 0 8px; color: #e4f5ff; }
+.mission-section p { font-size: 12px; line-height: 1.65; color: #b7c4cc; margin: 0; }
+.telemetry { display: flex; justify-content: space-between; font-size: 12px; margin-top: 16px; gap: 16px; }
+.telemetry > span:last-child { width: 90px; }
+meter { display: block; width: 100%; height: 7px; margin-top: 5px; }
+meter::-webkit-meter-bar { background: #405566; border: 0; }
+meter::-webkit-meter-optimum-value { background: #8dd9ff; }
+.target-distance { display: flex; justify-content: space-between; border-top: 1px solid #ffffff30; margin-top: 20px; padding-top: 18px; font-size: 12px; }
+.clear-btn { border: 0; color: #9aaebc; background: transparent; padding: 0; font-size: 10px; }
+.crosshair { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); border: 1px solid #d4efffa0; border-radius: 50%; width: 34px; height: 34px; text-align: center; line-height: 30px; color: white; }
+.expedition-actions { position: absolute; bottom: 32px; left: 50%; transform: translateX(-50%); text-align: center; }
+.control-hint { color: #d0d9dd; font-size: 10px; letter-spacing: 1px; margin-bottom: 14px; text-shadow: 0 2px 5px #000; }
+.action-row { display: flex; gap: 12px; }
+.action-row button { pointer-events: auto; border: 1px solid #8196a9; border-radius: 30px; background: #172332dc; color: #edf7ff; padding: 14px 24px; font: inherit; font-size: 14px; white-space: nowrap; cursor: pointer; }
+.action-row .continue-button { border-color: #8bd8ff; box-shadow: inset 0 0 18px #277ead30, 0 0 20px #0005; }
+.action-row button:hover { background: #284d65; }
+button:focus-visible, [role=button]:focus-visible { outline: 2px solid #a9e4ff; outline-offset: 4px; }
+.minimap-container { border-width: 1px; border-radius: 14px; }
+.minimap-container canvas { display: block; max-width: min(500px, 85vw); max-height: 70vh; }
+@media (max-width: 700px) {
+  .location-drawer-container { top: 18px; left: 12px; }
+  .location-panel { width: 205px; padding: 14px; }
+  .location-panel .value { font-size: 15px; }
+  .mission-section, .suit-section { margin-top: 12px; padding-top: 12px; }
+  .telemetry { margin-top: 10px; font-size: 11px; }
+  .minimap-wrapper:not(.expanded) { top: 65px; right: 12px; }
+  .minimap-wrapper:not(.expanded) canvas { width: 115px; height: 115px; }
+  .map-hint { max-width: 120px; white-space: normal; text-align: center; }
+  .expedition-actions { bottom: 20px; width: 95%; }
+  .action-row { justify-content: center; gap: 8px; }
+  .action-row button { padding: 12px 14px; font-size: 12px; }
+}
+@media (max-height: 600px) { .suit-section { display: none; } .location-panel { padding: 14px; } }
 </style>

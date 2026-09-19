@@ -1,4 +1,6 @@
 import * as THREE from 'three'
+import { createMarsExpedition } from './MarsExpedition.js'
+import { createMarsLandscape, createRockGeometry, makeSurfaceTexture, marsRandom } from './MarsEnvironment.js'
 
 // Pre-calculated lookup table for the Perlin fade function (quintic polynomial: 6t^5 - 15t^4 + 10t^3)
 // 4096 entries provide sufficient precision for procedural terrain while eliminating
@@ -88,6 +90,10 @@ class Noise {
 const perlin = new Noise();
 
 export function createMarsSurface(renderer, options = {}) {
+  const previousToneMapping = renderer.toneMapping
+  const previousExposure = renderer.toneMappingExposure
+  renderer.toneMapping = THREE.ACESFilmicToneMapping
+  renderer.toneMappingExposure = 1.08
   const scene = new THREE.Scene()
   scene.background = new THREE.Color(0x8a4b38)
 
@@ -136,7 +142,7 @@ export function createMarsSurface(renderer, options = {}) {
     localStorage.removeItem(STORAGE_KEY)
     lastPosition.set(camera.position.x, 0, camera.position.z)
   }
-  scene.fog = new THREE.FogExp2(0x8a4b38, 0.01)
+  scene.fog = new THREE.FogExp2(0xb67e61, 0.00155)
 
   const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 5000)
   // Optimization: Enable Layer 1 so decorative/interactive elements (POIs, etc.) remain visible
@@ -200,15 +206,15 @@ export function createMarsSurface(renderer, options = {}) {
     osc.stop(ctx.currentTime + 0.1)
   }
 
-  const ambientLight = new THREE.AmbientLight(0xffffff, 0.2)
+  const ambientLight = new THREE.HemisphereLight(0xb7c9dc, 0x78472e, 1.7)
   scene.add(ambientLight)
 
   // Sky Dome
   const skyGeo = new THREE.SphereGeometry(4000, 32, 32)
   const skyMat = new THREE.ShaderMaterial({
     uniforms: {
-      topColor: { value: new THREE.Color(0x8a4b38) },
-      bottomColor: { value: new THREE.Color(0xffccaa) },
+      topColor: { value: new THREE.Color(0x352e37) },
+      bottomColor: { value: new THREE.Color(0xc57343) },
     },
     vertexShader: `
       varying vec3 vWorldPosition;
@@ -222,47 +228,73 @@ export function createMarsSurface(renderer, options = {}) {
       uniform vec3 topColor;
       uniform vec3 bottomColor;
       varying vec3 vWorldPosition;
+      float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      float noise(vec2 p) {
+        vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+        return mix(mix(hash(i), hash(i+vec2(1.,0.)), f.x), mix(hash(i+vec2(0.,1.)), hash(i+vec2(1.,1.)), f.x), f.y);
+      }
       void main() {
-        float h = normalize(vWorldPosition).y;
-        float mixValue = clamp((h + 0.2) * 1.5, 0.0, 1.0);
-        gl_FragColor = vec4(mix(bottomColor, topColor, mixValue), 1.0);
+        vec3 dir = normalize(vWorldPosition - cameraPosition);
+        float h = max(dir.y, 0.0);
+        vec3 color = mix(bottomColor, topColor, smoothstep(0.0, 0.85, h));
+        float lightAngle = max(dot(dir, normalize(vec3(-0.12, 0.16, -0.9))), 0.0);
+        color += vec3(0.6, 0.25, 0.06) * pow(lightAngle, 16.0);
+        color += vec3(0.9, 0.5, 0.17) * pow(lightAngle, 180.0);
+        vec2 cloudUv = dir.xz / max(dir.y + 0.35, 0.08);
+        float clouds = noise(cloudUv * 4.0) * 0.55 + noise(cloudUv * 12.0) * 0.3 + noise(cloudUv * 32.0) * 0.15;
+        color = mix(color, color * vec3(0.65,0.66,0.7), smoothstep(0.48,0.8,clouds) * smoothstep(0.01,0.3,h) * 0.48);
+        gl_FragColor = vec4(color, 1.0);
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
       }
     `,
     side: THREE.BackSide
   })
   const sky = new THREE.Mesh(skyGeo, skyMat)
   scene.add(sky)
+  const environmentScene = new THREE.Scene()
+  environmentScene.add(new THREE.Mesh(skyGeo, skyMat))
+  const pmrem = new THREE.PMREMGenerator(renderer)
+  const environment = pmrem.fromScene(environmentScene, 0, 0.1, 5000)
+  scene.environment = environment.texture
+  scene.environmentIntensity = 0.45
+  pmrem.dispose()
 
-  const sunLight = new THREE.DirectionalLight(0xffccaa, 1.5)
+  const sunLight = new THREE.DirectionalLight(0xffc38d, 3.3)
   sunLight.position.set(100, 200, 100)
   sunLight.castShadow = true
   sunLight.shadow.mapSize.width = 2048
   sunLight.shadow.mapSize.height = 2048
   // Improve shadow frustum for better near-player details
-  sunLight.shadow.camera.left = -200
-  sunLight.shadow.camera.right = 200
-  sunLight.shadow.camera.top = 200
-  sunLight.shadow.camera.bottom = -200
+  sunLight.shadow.camera.left = -65
+  sunLight.shadow.camera.right = 65
+  sunLight.shadow.camera.top = 65
+  sunLight.shadow.camera.bottom = -65
   sunLight.shadow.camera.far = 1000
+  sunLight.shadow.normalBias = 0.035
+  sunLight.shadow.bias = -0.00015
+  sunLight.shadow.radius = 3
   scene.add(sunLight)
+  scene.add(sunLight.target)
 
   const textureLoader = new THREE.TextureLoader()
-  const marsTex = textureLoader.load('/hq/8k_mars.jpg')
-  marsTex.wrapS = marsTex.wrapT = THREE.RepeatWrapping
-  marsTex.repeat.set(10, 10) // Tile slightly for more detail per chunk
-  marsTex.anisotropy = renderer.capabilities.getMaxAnisotropy()
-
-  // Optimization: Share materials and pool meshes to avoid GC pressure and redundant GPU state changes
+  const groundTextures = ['diffuse', 'nor_gl', 'rough'].map(name => {
+    const texture = textureLoader.load(`/mars/${name}.jpg`)
+    texture.wrapS = texture.wrapT = THREE.RepeatWrapping
+    texture.repeat.set(80, 80)
+    texture.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy())
+    if (name === 'diffuse') texture.colorSpace = THREE.SRGBColorSpace
+    return texture
+  })
   const terrainMaterial = new THREE.MeshStandardMaterial({
-    map: marsTex,
-    roughness: 0.8,
-    metalness: 0.1,
+    map: groundTextures[0], normalMap: groundTextures[1], roughnessMap: groundTextures[2],
+    normalScale: new THREE.Vector2(0.85, 0.85), color: 0xc58b65, roughness: 1, metalness: 0,
   })
 
   const chunkMeshPool = []
   const _dummy = new THREE.Object3D()
 
-  const getH = (x, z) => {
+  const naturalHeight = (x, z) => {
     // Apply global offsets for a better starting location (high and open)
     const ox = x + 2500;
     const oz = z + 2500;
@@ -283,6 +315,21 @@ export function createMarsSurface(renderer, options = {}) {
     return h;
   }
 
+  // A level landing apron blends back into the surrounding procedural hills.
+  let landingHeight = naturalHeight(spawnX, spawnZ)
+  const getH = (x, z) => {
+    const dx = x - spawnX, dz = z - spawnZ
+    const distance = Math.hypot(dx, dz)
+    const bumps = perlin.noise2D(dx * 0.025 + 7, dz * 0.025 + 3) * 5
+    const dunes = Math.sin(dx * 0.017 + dz * 0.01) * 5 + perlin.noise2D(dx * 0.008, dz * 0.008) * 14
+    const outsideCamp = THREE.MathUtils.smoothstep(distance, 38, 100)
+    let local = landingHeight + bumps * outsideCamp + dunes * THREE.MathUtils.smoothstep(distance, 80, 200)
+    const signalHill = Math.exp(-((dx - 26) ** 2 + (dz + 112) ** 2) / 800)
+    local = THREE.MathUtils.lerp(local, landingHeight + 7, signalHill)
+    const blend = THREE.MathUtils.smoothstep(distance, 450, 900)
+    return THREE.MathUtils.lerp(local, naturalHeight(x, z), blend)
+  }
+
   // Performance Optimization: Cache ground height for the player to avoid redundant Perlin calls
   // when stationary or moving sub-millimeter distances.
   const _groundCache = { x: Infinity, z: Infinity, h: 0 };
@@ -298,17 +345,37 @@ export function createMarsSurface(renderer, options = {}) {
 
   // Terrain Chunks
   const chunkSize = 400
-  const chunkRes = 64
+  const chunkRes = 96
   const chunks = new Map()
   const renderDistance = 2 // 5x5 chunks
 
   // Rock Geometry
-  const rockGeo = new THREE.DodecahedronGeometry(1, 0)
-  const rockMat = new THREE.MeshStandardMaterial({
-    map: marsTex, // Reuse texture
-    color: 0x888888,
-    roughness: 1.0,
+  const rockGeo = createRockGeometry(2, 3)
+  const rockTextures = ['diffuse', 'nor_gl', 'rough'].map(name => {
+    const texture = textureLoader.load(`/mars/${name}.jpg`)
+    texture.wrapS = texture.wrapT = THREE.RepeatWrapping
+    texture.repeat.set(1.5, 1.5)
+    texture.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy())
+    if (name === 'diffuse') texture.colorSpace = THREE.SRGBColorSpace
+    return texture
   })
+  const rockMat = new THREE.MeshStandardMaterial({
+    map: rockTextures[0], normalMap: rockTextures[1], roughnessMap: rockTextures[2],
+    color: 0xa17659, normalScale: new THREE.Vector2(1.2, 1.2), roughness: 1, vertexColors: true,
+  })
+
+  for (const material of [terrainMaterial, rockMat]) {
+    material.onBeforeCompile = shader => {
+      shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', `
+        #ifdef USE_MAP
+          vec4 sampledDiffuseColor = texture2D(map, vMapUv);
+          float mineral = dot(sampledDiffuseColor.rgb, vec3(0.299, 0.587, 0.114));
+          diffuseColor *= vec4(vec3(mineral), sampledDiffuseColor.a);
+        #endif
+      `)
+    }
+    material.customProgramCacheKey = () => 'mars-mineral-albedo'
+  }
 
   // Dust Particles
   const particleCount = 1000
@@ -323,11 +390,14 @@ export function createMarsSurface(renderer, options = {}) {
   }
   particleGeo.setAttribute('position', new THREE.BufferAttribute(particlePos, 3))
 
+  const dustTexture = makeSurfaceTexture('glow')
   const particleMat = new THREE.PointsMaterial({
-    color: 0xffffff,
-    size: 0.2,
+    map: dustTexture,
+    color: 0xe1b591,
+    size: 0.065,
     transparent: true,
-    opacity: 0.6,
+    opacity: 0.25,
+    depthWrite: false,
     sizeAttenuation: true
   })
   const particleVelocities = new Float32Array(particleCount * 3)
@@ -421,7 +491,7 @@ export function createMarsSurface(renderer, options = {}) {
       mesh.receiveShadow = true
 
       // Add Rocks (Instanced)
-      const rockCount = 50
+      const rockCount = 350
       instancedRocks = new THREE.InstancedMesh(rockGeo, rockMat, rockCount)
       instancedRocks.castShadow = true
       instancedRocks.receiveShadow = true
@@ -445,17 +515,19 @@ export function createMarsSurface(renderer, options = {}) {
     mesh.userData.cz = cz
     scene.add(mesh)
 
+    const random = marsRandom((cx * 73856093) ^ (cz * 19349663))
     // Update rock positions for the recycled/new chunk
     const rockCount = instancedRocks.count
     for (let i = 0; i < rockCount; i++) {
-      const rx = (Math.random() - 0.5) * chunkSize + ox
-      const rz = (Math.random() - 0.5) * chunkSize + oz
+      const rx = (random() - 0.5) * chunkSize + ox
+      const rz = (random() - 0.5) * chunkSize + oz
       const ry = getH(rx, rz)
 
       _dummy.position.set(rx - ox, ry, rz - oz)
-      _dummy.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI)
-      const scale = 0.5 + Math.random() * 2
-      _dummy.scale.set(scale, scale, scale)
+      _dummy.rotation.set(random() * Math.PI, random() * Math.PI, random() * Math.PI)
+      const inCamp = Math.hypot(rx - spawnX, rz - spawnZ) < 72
+      const scale = inCamp ? 0 : 0.2 + random() ** 3 * 2.6
+      _dummy.scale.set(scale * (0.8 + random()), scale, scale * (1 + random()))
       _dummy.updateMatrix()
       instancedRocks.setMatrixAt(i, _dummy.matrix)
     }
@@ -536,58 +608,13 @@ export function createMarsSurface(renderer, options = {}) {
 
   updateChunks()
 
-  // Keep track of lander resources to avoid memory leaks
-  const landerGeometries = []
-  const landerMaterials = []
-
-  // Lander
-  const landerPos = { x: camera.position.x, z: camera.position.z - 10 }
-  function createLander() {
-    const group = new THREE.Group()
-
-    const bodyGeo = new THREE.CylinderGeometry(1.5, 2, 2, 6)
-    const bodyMat = new THREE.MeshStandardMaterial({ color: 0xdddddd, metalness: 0.8, roughness: 0.2 })
-    landerGeometries.push(bodyGeo)
-    landerMaterials.push(bodyMat)
-
-    const body = new THREE.Mesh(bodyGeo, bodyMat)
-    body.position.y = 2
-    body.castShadow = true
-    group.add(body)
-
-    const legGeo = new THREE.CylinderGeometry(0.1, 0.1, 3)
-    const legMat = new THREE.MeshStandardMaterial({ color: 0x888888, metalness: 0.9 })
-    landerGeometries.push(legGeo)
-    landerMaterials.push(legMat)
-
-    for (let i = 0; i < 4; i++) {
-      const leg = new THREE.Mesh(legGeo, legMat)
-      const angle = (i / 4) * Math.PI * 2
-      leg.position.set(Math.cos(angle) * 2, 1, Math.sin(angle) * 2)
-      leg.rotation.x = Math.sin(angle) * 0.5
-      leg.rotation.z = -Math.cos(angle) * 0.5
-      leg.castShadow = true
-      group.add(leg)
-    }
-
-    const dishGeo = new THREE.SphereGeometry(0.8, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2)
-    const dishMat = new THREE.MeshStandardMaterial({ color: 0xffffff, side: THREE.DoubleSide })
-    landerGeometries.push(dishGeo)
-    landerMaterials.push(dishMat)
-
-    const dish = new THREE.Mesh(dishGeo, dishMat)
-    dish.position.set(0, 3, 0)
-    dish.rotation.x = -Math.PI / 4
-    dish.castShadow = true
-    group.add(dish)
-
-    const lx = landerPos.x
-    const lz = landerPos.z
-    group.position.set(lx, getH(lx, lz), lz)
-    scene.add(group)
-    return group
-  }
-  const lander = createLander()
+  const landerPos = { x: spawnX - 9, z: spawnZ - 28 }
+  let expedition = createMarsExpedition(scene, camera, getH, spawnX, spawnZ)
+  let landscape = createMarsLandscape(scene, getH, spawnX, spawnZ, rockMat)
+  camera.position.y = getH(spawnX, spawnZ) + 1.7
+  let elapsed = 0
+  const sun = new THREE.Mesh(new THREE.SphereGeometry(18, 32, 16), new THREE.MeshBasicMaterial({ color: new THREE.Color(4, 2, 0.8), fog: false, toneMapped: false }))
+  scene.add(sun)
 
   // Controls state
   const keys = { w: false, a: false, s: false, d: false }
@@ -603,6 +630,10 @@ export function createMarsSurface(renderer, options = {}) {
 
   let stepTimer = 0
   function update(delta) {
+    elapsed += delta
+    expedition.update(elapsed)
+    landscape.update(elapsed)
+    sun.position.set(camera.position.x - 120, camera.position.y + 160, camera.position.z - 900)
     if (!wind.isPlaying) {
       wind.play()
     }
@@ -618,7 +649,7 @@ export function createMarsSurface(renderer, options = {}) {
     camera.rotation.y = yaw
     camera.rotation.x = pitch
 
-    const speed = 20.0
+    const speed = 8.0
     const moveZ = Number(keys.w) - Number(keys.s)
     const moveX = Number(keys.d) - Number(keys.a)
 
@@ -664,7 +695,7 @@ export function createMarsSurface(renderer, options = {}) {
     updateChunks()
     updateParticles(delta)
     sky.position.copy(camera.position)
-    sunLight.position.set(camera.position.x + 100, camera.position.y + 200, camera.position.z + 100)
+    sunLight.position.set(camera.position.x - 27, camera.position.y + 35, camera.position.z - 200)
     sunLight.target.position.copy(camera.position)
     sunLight.target.updateMatrixWorld()
   }
@@ -680,6 +711,7 @@ export function createMarsSurface(renderer, options = {}) {
   }
 
   function onMouseMove(e) {
+    if (document.pointerLockElement !== renderer.domElement) return
     const sensitivity = 0.002
     yaw -= (e.movementX || 0) * sensitivity
     pitch -= (e.movementY || 0) * sensitivity
@@ -687,7 +719,7 @@ export function createMarsSurface(renderer, options = {}) {
   }
 
   function requestPointerLock() {
-    renderer.domElement.requestPointerLock()
+    renderer.domElement.requestPointerLock()?.catch(() => {})
   }
 
   return {
@@ -700,12 +732,21 @@ export function createMarsSurface(renderer, options = {}) {
     requestPointerLock,
     getExplorationPath: () => explorationPath,
     getLanderPosition: () => landerPos,
+    getSignalPosition: () => expedition.signal,
     clearPath,
     teleport: (x, z) => {
-      camera.position.set(x, 5, z);
-      landerPos.x = x;
-      landerPos.z = z - 10;
-      lander.position.set(landerPos.x, getH(landerPos.x, landerPos.z), landerPos.z);
+      spawnX = x; spawnZ = z; landingHeight = naturalHeight(x, z);
+      camera.position.set(x, getH(x, z) + 1.7, z);
+      expedition.dispose();
+      expedition = createMarsExpedition(scene, camera, getH, x, z);
+      landscape.dispose();
+      landscape = createMarsLandscape(scene, getH, x, z, rockMat);
+      for (const chunk of chunks.values()) { scene.remove(chunk); chunkMeshPool.push(chunk) }
+      chunks.clear();
+      lastCamX = Infinity; lastCamZ = Infinity;
+      _groundCache.x = Infinity;
+      landerPos.x = x - 9;
+      landerPos.z = z - 28;
       // Clear path when teleporting to a new POI
       explorationPath = [];
       localStorage.removeItem(STORAGE_KEY);
@@ -713,6 +754,15 @@ export function createMarsSurface(renderer, options = {}) {
       updateChunks();
     },
     dispose: () => {
+      expedition.dispose()
+      landscape.dispose()
+      environment.dispose()
+      dustTexture.dispose()
+      sunLight.shadow.dispose()
+      renderer.toneMapping = previousToneMapping
+      renderer.toneMappingExposure = previousExposure
+      sun.geometry.dispose()
+      sun.material.dispose()
       if (wind.isPlaying) wind.stop()
       if (saveTimeout) {
         clearTimeout(saveTimeout)
@@ -720,18 +770,13 @@ export function createMarsSurface(renderer, options = {}) {
       }
       // Dispose active chunks
       for (const chunk of chunks.values()) {
+        chunk.children[0].dispose()
         chunk.geometry.dispose()
       }
       // Dispose pooled chunks
       for (const chunk of chunkMeshPool) {
+        chunk.children[0].dispose()
         chunk.geometry.dispose()
-      }
-      // Dispose lander assets
-      for (let i = 0; i < landerGeometries.length; i++) {
-        landerGeometries[i].dispose()
-      }
-      for (let i = 0; i < landerMaterials.length; i++) {
-        landerMaterials[i].dispose()
       }
       // Dispose shared assets
       rockGeo.dispose()
@@ -741,7 +786,8 @@ export function createMarsSurface(renderer, options = {}) {
       skyGeo.dispose()
       skyMat.dispose()
       terrainMaterial.dispose()
-      marsTex.dispose()
+      groundTextures.forEach(texture => texture.dispose())
+      rockTextures.forEach(texture => texture.dispose())
     }
   }
 }

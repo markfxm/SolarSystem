@@ -96,13 +96,6 @@
       </div>
     </div>
 
-    <!-- Mars Surface UI -->
-    <div v-if="viewMode === 'mars'" class="mars-ui">
-      <button class="return-btn" @click="returnToOrbit">
-        🛸 {{ t('mars.return_orbit') }}
-      </button>
-    </div>
-
     <TransitPanel
       :visible="showTransitPanel"
       :chart="currentChart"
@@ -121,6 +114,8 @@
       :playerYaw="marsPlayerYaw"
       :explorationPath="marsPath"
       :landerPos="marsLanderPos"
+      :signalPos="marsSignalPos"
+      @continue="marsSurface?.requestPointerLock()"
       @exit="returnToOrbit"
       @clear-path="onClearMarsPath"
     />
@@ -225,6 +220,7 @@ const poiUI = reactive({
 // Optimization: Use reactive for position to avoid 60 object allocations per second
 const marsPlayerPos = reactive({ x: 0, y: 0, z: 0 })
 const marsPlayerYaw = ref(0)
+const marsSignalPos = reactive({ x: 0, z: 0 })
 const marsPath = shallowRef([])
 const marsLanderPos = reactive({ x: 0, y: 0, z: -10 })
 
@@ -902,6 +898,7 @@ onMounted(async () => {
       }
     } else if (viewMode.value === 'mars' && marsSurface) {
       marsSurface.update(delta)
+      Object.assign(marsSignalPos, marsSurface.getSignalPosition())
       const pPos = marsSurface.camera.position
       // Optimization: Mutate reactive properties directly
       marsPlayerPos.x = pPos.x
