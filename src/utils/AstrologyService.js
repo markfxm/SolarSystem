@@ -40,6 +40,7 @@ for (const key in ASPECT_TYPES) {
     aspect.colorStr = '#' + aspect.color.toString(16).padStart(6, '0');
     ASPECT_DATA.push(aspect);
 }
+const ASPECT_DATA_LEN = ASPECT_DATA.length;
 const HELIOCENTRIC_PLANETS = ['mercury', 'venus', 'earth', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune'];
 export const GEOCENTRIC_PLANETS = ['sun', 'moon', 'mercury', 'venus', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune'];
 export const GEOCENTRIC_PLANET_SET = new Set(GEOCENTRIC_PLANETS);
@@ -117,6 +118,7 @@ const ALL_BODY_ENTRIES = ALL_BODIES.map(name => ({
     name,
     id: BODY_TO_ID[name]
 }));
+const ENTRIES_LEN = ALL_BODY_ENTRIES.length;
 
 export const ZODIAC_ELEMENTS = {
     aries: 'fire', leo: 'fire', sagittarius: 'fire',
@@ -356,48 +358,68 @@ export class AstrologyService {
     static calculateAspects(chart) {
         const aspects = this._aspectsResult;
         aspects.length = 0;
-        this._aspectPoolIdx = 0;
-        this._wrapperPoolIdx = 0;
-        const entries = ALL_BODY_ENTRIES;
+        let aspectPoolIdx = 0;
+        let wrapperPoolIdx = 0;
 
-        // Pre-calculate longitudes to avoid redundant math and object lookups in inner loop
+        // Performance Optimization: Populate longitudes directly for celestial bodies
         _longitudes.fill(-1);
-        for (let i = 0; i < entries.length; i++) {
-            const entry = entries[i];
+        for (let i = 0; i < ENTRIES_LEN; i++) {
+            const entry = ALL_BODY_ENTRIES[i];
             const c = chart[entry.name];
             if (c) {
-                // Performance Optimization: Use pre-calculated calibrated longitude and pre-resolved numeric id
                 _longitudes[entry.id] = c.longitude;
             }
         }
 
-        for (let i = 0; i < entries.length; i++) {
-            const e1 = entries[i];
+        // Performance Optimization: Inline aspect evaluation and replace modulo pool resets with fast branch checks
+        // to eliminate 45 static method calls and modulo arithmetic per chart evaluation.
+        for (let i = 0; i < ENTRIES_LEN; i++) {
+            const e1 = ALL_BODY_ENTRIES[i];
             const id1 = e1.id;
             const long1 = _longitudes[id1];
             if (long1 === -1) continue;
 
-            for (let j = i + 1; j < entries.length; j++) {
-                const e2 = entries[j];
+            for (let j = i + 1; j < ENTRIES_LEN; j++) {
+                const e2 = ALL_BODY_ENTRIES[j];
                 const id2 = e2.id;
                 const long2 = _longitudes[id2];
                 if (long2 === -1) continue;
 
-                const aspect = this.findAspect(long1, long2, this._aspectPool[this._aspectPoolIdx]);
-                if (aspect) {
-                    const wrapper = this._wrapperPool[this._wrapperPoolIdx];
-                    wrapper.p1 = e1.name;
-                    wrapper.p2 = e2.name;
-                    wrapper.p1Id = id1;
-                    wrapper.p2Id = id2;
-                    wrapper.aspect = aspect;
-                    aspects.push(wrapper);
+                let diff = Math.abs(long1 - long2);
+                if (diff > 180) diff = 360 - diff;
 
-                    this._aspectPoolIdx = (this._aspectPoolIdx + 1) % this._aspectPool.length;
-                    this._wrapperPoolIdx = (this._wrapperPoolIdx + 1) % this._wrapperPool.length;
+                for (let k = 0; k < ASPECT_DATA_LEN; k++) {
+                    const data = ASPECT_DATA[k];
+                    const orb = Math.abs(diff - data.angle);
+                    if (orb <= data.orb) {
+                        const aspect = this._aspectPool[aspectPoolIdx];
+                        aspect.type = data.type;
+                        aspect.typeLower = data.typeLower;
+                        aspect.typeId = data.typeId;
+                        aspect.orb = orb;
+                        aspect.angle = data.angle;
+                        aspect.color = data.color;
+                        aspect.label = data.label;
+                        aspect.colorStr = data.colorStr;
+                        aspect.priority = data.priority;
+
+                        const wrapper = this._wrapperPool[wrapperPoolIdx];
+                        wrapper.p1 = e1.name;
+                        wrapper.p2 = e2.name;
+                        wrapper.p1Id = id1;
+                        wrapper.p2Id = id2;
+                        wrapper.aspect = aspect;
+                        aspects.push(wrapper);
+
+                        aspectPoolIdx = aspectPoolIdx + 1 < 100 ? aspectPoolIdx + 1 : 0;
+                        wrapperPoolIdx = wrapperPoolIdx + 1 < 100 ? wrapperPoolIdx + 1 : 0;
+                        break;
+                    }
                 }
             }
         }
+        this._aspectPoolIdx = aspectPoolIdx;
+        this._wrapperPoolIdx = wrapperPoolIdx;
         return aspects;
     }
 
