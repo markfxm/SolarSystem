@@ -1,4 +1,9 @@
 import * as THREE from 'three'
+import { createMarsVehicle } from './MarsVehicle.js'
+import { createMarsControls } from './MarsControls.js'
+import { createMarsExplorationPath } from './MarsExplorationPath.js'
+import { createPlayerCollision } from './PlayerCollision.js'
+import { createMarsMission, createMarsMissionDefinitions } from './MarsMission.js'
 import { createMarsExpedition } from './MarsExpedition.js'
 import { createMarsLandscape, createRockGeometry, makeSurfaceTexture, marsRandom } from './MarsEnvironment.js'
 
@@ -94,54 +99,12 @@ export function createMarsSurface(renderer, options = {}) {
   const previousExposure = renderer.toneMappingExposure
   renderer.toneMapping = THREE.ACESFilmicToneMapping
   renderer.toneMappingExposure = 1.08
+  const collision = createPlayerCollision()
   const scene = new THREE.Scene()
   scene.background = new THREE.Color(0x8a4b38)
 
-  // Path persistence
-  const STORAGE_KEY = 'mars_exploration_path'
-  let explorationPath = []
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY)
-    if (saved) explorationPath = JSON.parse(saved)
-  } catch (e) {
-    console.warn('Failed to load exploration path', e)
-  }
-
-  const lastPosition = new THREE.Vector3()
-  if (explorationPath.length > 0) {
-    const last = explorationPath[explorationPath.length - 1]
-    lastPosition.set(last.x, 0, last.z)
-  }
-
-  let saveTimeout = null
-  const saveToStorage = () => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(explorationPath))
-    } catch (e) {
-      console.warn('Failed to save exploration path', e)
-    }
-    saveTimeout = null
-  }
-
-  const recordPoint = (pos) => {
-    explorationPath.push({ x: Math.round(pos.x), z: Math.round(pos.z) })
-    lastPosition.set(pos.x, 0, pos.z)
-
-    // Throttled localStorage writes (every 2 seconds or on trailing edge)
-    if (!saveTimeout) {
-      saveTimeout = setTimeout(saveToStorage, 2000)
-    }
-  }
-
-  const clearPath = () => {
-    explorationPath = []
-    if (saveTimeout) {
-      clearTimeout(saveTimeout)
-      saveTimeout = null
-    }
-    localStorage.removeItem(STORAGE_KEY)
-    lastPosition.set(camera.position.x, 0, camera.position.z)
-  }
+  const explorationPath = createMarsExplorationPath(localStorage)
+  const clearPath = () => explorationPath.clear(getPlayerPosition())
   scene.fog = new THREE.FogExp2(0xb67e61, 0.00155)
 
   const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 5000)
@@ -153,7 +116,12 @@ export function createMarsSurface(renderer, options = {}) {
   let spawnX = options.spawnX !== undefined ? options.spawnX : (Math.random() - 0.5) * 5000;
   let spawnZ = options.spawnZ !== undefined ? options.spawnZ : (Math.random() - 0.5) * 5000;
 
-  camera.position.set(spawnX, 5, spawnZ)
+  const chunkSize = 400
+  const origin = new THREE.Vector3(Math.round(spawnX / chunkSize) * chunkSize, 0, Math.round(spawnZ / chunkSize) * chunkSize)
+  const playerPosition = new THREE.Vector3()
+  let vehicle = null
+  const getPlayerPosition = () => playerPosition.copy(vehicle?.state.mode === 'IN_VEHICLE' ? vehicle.getPosition() : camera.position).add(origin)
+  camera.position.set(spawnX - origin.x, 5, spawnZ - origin.z)
 
   // Audio
   const listener = new THREE.AudioListener()
@@ -183,6 +151,7 @@ export function createMarsSurface(renderer, options = {}) {
   wind.setFilter(windFilter)
 
   // Footsteps (Simple procedural "thump")
+  const footsteps = new Set()
   function playFootstep() {
     const osc = ctx.createOscillator()
     const gain = ctx.createGain()
@@ -201,6 +170,9 @@ export function createMarsSurface(renderer, options = {}) {
     osc.connect(gain)
     gain.connect(filter)
     filter.connect(ctx.destination)
+    const stop = () => { osc.stop(); osc.disconnect(); gain.disconnect(); filter.disconnect(); footsteps.delete(stop) }
+    footsteps.add(stop)
+    osc.onended = () => { osc.disconnect(); gain.disconnect(); filter.disconnect(); footsteps.delete(stop) }
 
     osc.start()
     osc.stop(ctx.currentTime + 0.1)
@@ -288,7 +260,7 @@ export function createMarsSurface(renderer, options = {}) {
   })
   const terrainMaterial = new THREE.MeshStandardMaterial({
     map: groundTextures[0], normalMap: groundTextures[1], roughnessMap: groundTextures[2],
-    normalScale: new THREE.Vector2(0.85, 0.85), color: 0xc58b65, roughness: 1, metalness: 0,
+    normalScale: new THREE.Vector2(0.85, 0.85), color: 0xd57550, roughness: 1, metalness: 0,
   })
 
   const chunkMeshPool = []
@@ -329,6 +301,7 @@ export function createMarsSurface(renderer, options = {}) {
     const blend = THREE.MathUtils.smoothstep(distance, 450, 900)
     return THREE.MathUtils.lerp(local, naturalHeight(x, z), blend)
   }
+  const getLocalH = (x, z) => getH(x + origin.x, z + origin.z)
 
   // Performance Optimization: Cache ground height for the player to avoid redundant Perlin calls
   // when stationary or moving sub-millimeter distances.
@@ -338,13 +311,12 @@ export function createMarsSurface(renderer, options = {}) {
     if (Math.abs(x - _groundCache.x) > 0.01 || Math.abs(z - _groundCache.z) > 0.01) {
       _groundCache.x = x;
       _groundCache.z = z;
-      _groundCache.h = getH(x, z);
+      _groundCache.h = getLocalH(x, z);
     }
     return _groundCache.h;
   }
 
   // Terrain Chunks
-  const chunkSize = 400
   const chunkRes = 96
   const chunks = new Map()
   const renderDistance = 2 // 5x5 chunks
@@ -361,7 +333,7 @@ export function createMarsSurface(renderer, options = {}) {
   })
   const rockMat = new THREE.MeshStandardMaterial({
     map: rockTextures[0], normalMap: rockTextures[1], roughnessMap: rockTextures[2],
-    color: 0xa17659, normalScale: new THREE.Vector2(1.2, 1.2), roughness: 1, vertexColors: true,
+    color: 0x444447, normalScale: new THREE.Vector2(1.2, 1.2), roughness: 1, vertexColors: true,
   })
 
   for (const material of [terrainMaterial, rockMat]) {
@@ -410,7 +382,7 @@ export function createMarsSurface(renderer, options = {}) {
   const dustParticles = new THREE.Points(particleGeo, particleMat)
   // Prevent particles from disappearing when moving far from the origin
   dustParticles.frustumCulled = false
-  // Keep the points object at world origin so particles are in world space
+  // Particle buffers use the same local frame as the camera.
   scene.add(dustParticles)
 
   // Scratch variables for particle update optimization
@@ -491,7 +463,7 @@ export function createMarsSurface(renderer, options = {}) {
       mesh.receiveShadow = true
 
       // Add Rocks (Instanced)
-      const rockCount = 350
+      const rockCount = 140
       instancedRocks = new THREE.InstancedMesh(rockGeo, rockMat, rockCount)
       instancedRocks.castShadow = true
       instancedRocks.receiveShadow = true
@@ -510,12 +482,14 @@ export function createMarsSurface(renderer, options = {}) {
     pos.needsUpdate = true
     geometry.computeVertexNormals()
 
-    mesh.position.set(ox, 0, oz)
+    mesh.position.set(ox - origin.x, 0, oz - origin.z)
     mesh.userData.cx = cx
     mesh.userData.cz = cz
     scene.add(mesh)
 
     const random = marsRandom((cx * 73856093) ^ (cz * 19349663))
+    mesh.userData.removeColliders?.forEach(remove => remove())
+    mesh.userData.removeColliders = []
     // Update rock positions for the recycled/new chunk
     const rockCount = instancedRocks.count
     for (let i = 0; i < rockCount; i++) {
@@ -530,6 +504,15 @@ export function createMarsSurface(renderer, options = {}) {
       _dummy.scale.set(scale * (0.8 + random()), scale, scale * (1 + random()))
       _dummy.updateMatrix()
       instancedRocks.setMatrixAt(i, _dummy.matrix)
+      if (scale >= 0.5) {
+        if (!rockGeo.boundingBox) rockGeo.computeBoundingBox()
+        const bounds = rockGeo.boundingBox.clone().applyMatrix4(_dummy.matrix).translate(mesh.position)
+        // Only low, narrow rocks are traversable by NOMAD; walking keeps its
+        // existing collisions, and camp equipment is never tagged passable.
+        const vehiclePassable = bounds.max.y - ry <= 0.8 &&
+          Math.max(bounds.max.x - bounds.min.x, bounds.max.z - bounds.min.z) <= 1.6
+        mesh.userData.removeColliders.push(collision.addBox(bounds.min, bounds.max, { vehiclePassable }))
+      }
     }
     instancedRocks.instanceMatrix.needsUpdate = true
 
@@ -541,8 +524,9 @@ export function createMarsSurface(renderer, options = {}) {
   const chunkQueue = [];
 
   function updateChunks() {
-    const camX = Math.round(camera.position.x / chunkSize)
-    const camZ = Math.round(camera.position.z / chunkSize)
+    const globalPlayer = getPlayerPosition()
+    const camX = Math.round(globalPlayer.x / chunkSize)
+    const camZ = Math.round(globalPlayer.z / chunkSize)
 
     // Optimized: Only update queue if the camera has moved to a different chunk
     if (camX !== lastCamX || camZ !== lastCamZ) {
@@ -594,6 +578,7 @@ export function createMarsSurface(renderer, options = {}) {
         const x = chunk.userData.cx
         const z = chunk.userData.cz
         if (Math.abs(x - camX) > renderDistance + 1 || Math.abs(z - camZ) > renderDistance + 1) {
+          chunk.userData.removeColliders?.forEach(remove => remove())
           scene.remove(chunk)
           // Optimized: Recycle instead of dispose to avoid GC and redundant reallocations
           chunkMeshPool.push(chunk)
@@ -608,13 +593,70 @@ export function createMarsSurface(renderer, options = {}) {
 
   updateChunks()
 
-  const landerPos = { x: spawnX - 9, z: spawnZ - 28 }
-  let expedition = createMarsExpedition(scene, camera, getH, spawnX, spawnZ)
-  let landscape = createMarsLandscape(scene, getH, spawnX, spawnZ, rockMat)
-  camera.position.y = getH(spawnX, spawnZ) + 1.7
+  let expedition = createMarsExpedition(scene, camera, getH, spawnX, spawnZ, collision, origin)
+  vehicle = createMarsVehicle(expedition.rover, camera, collision, getLocalH, expedition.scanner)
+  let landscape = createMarsLandscape(scene, getH, spawnX, spawnZ, rockMat, collision, origin)
+  const landerPos = expedition.baseTarget.clone()
+  camera.position.set(landerPos.x + 10 - origin.x, getH(landerPos.x + 10, landerPos.z) + 1.7, landerPos.z - origin.z)
+  let mission = createMarsMission(createMarsMissionDefinitions(expedition.signals, landerPos))
+  let scanTone = null
+  function stopScanTone() {
+    if (!scanTone) return
+    scanTone.oscillator.stop()
+    scanTone.oscillator.disconnect()
+    scanTone.gain.disconnect()
+    scanTone = null
+  }
+  function interact() {
+    if (controls.mode !== 'explore') return
+    if (vehicle.interact()) {
+      clearKeys()
+      yaw = vehicle.state.mode === 'ON_FOOT' ? expedition.rover.rotation.y + Math.PI : yaw
+      pitch = 0
+      return
+    }
+    if (!mission.interact(getPlayerPosition())) return
+    ctx.resume().catch(() => {})
+  }
+  function updateScanTone(active) {
+    if (!active) { stopScanTone(); return }
+    if (!scanTone) {
+      const oscillator = ctx.createOscillator(), gain = ctx.createGain()
+      gain.gain.value = 0.025
+      oscillator.connect(gain); gain.connect(listener.getInput())
+      oscillator.start()
+      scanTone = { oscillator, gain }
+    }
+    scanTone.oscillator.frequency.setTargetAtTime(320 + mission.state.progress * 700, ctx.currentTime, 0.08)
+  }
   let elapsed = 0
   const sun = new THREE.Mesh(new THREE.SphereGeometry(18, 32, 16), new THREE.MeshBasicMaterial({ color: new THREE.Color(4, 2, 0.8), fog: false, toneMapped: false }))
   scene.add(sun)
+
+  // Only translate the local frame. Global chunk keys, terrain samples and mission
+  // anchors are unchanged, so rebasing never reloads terrain or restarts a mission.
+  function rebaseOrigin() {
+    if (Math.max(Math.abs(camera.position.x), Math.abs(camera.position.z)) <= 2000) return
+    const dx = Math.round(camera.position.x / chunkSize) * chunkSize
+    const dz = Math.round(camera.position.z / chunkSize) * chunkSize
+    origin.x += dx; origin.z += dz
+    camera.position.x -= dx; camera.position.z -= dz
+    for (const chunk of chunks.values()) {
+      chunk.position.x -= dx; chunk.position.z -= dz
+    }
+    expedition.shiftOrigin(dx, dz)
+    landscape.shiftOrigin(dx, dz)
+    collision.shiftOrigin(dx, dz)
+    for (let i = 0; i < particlePos.length; i += 3) {
+      particlePos[i] -= dx; particlePos[i + 2] -= dz
+    }
+    particleGeo.attributes.position.needsUpdate = true
+    _lastPartCamPos.x -= dx; _lastPartCamPos.z -= dz
+    _groundCache.x = Infinity
+    for (const object of [sky, sun, sunLight, sunLight.target]) {
+      object.position.x -= dx; object.position.z -= dz
+    }
+  }
 
   // Controls state
   const keys = { w: false, a: false, s: false, d: false }
@@ -629,26 +671,37 @@ export function createMarsSurface(renderer, options = {}) {
   const _vAxisY = new THREE.Vector3(0, 1, 0);
 
   let stepTimer = 0
+  const controls = createMarsControls(renderer.domElement, mode => {
+    clearKeys()
+    stepTimer = 0
+    mission.state.paused = mode === 'paused'
+    if (mode === 'paused') {
+      stopScanTone()
+      for (const stop of footsteps) stop()
+      if (wind.isPlaying) wind.stop()
+    }
+    options.onControlModeChange?.(mode)
+  })
   function update(delta) {
+    if (controls.mode === 'paused') return
     elapsed += delta
-    expedition.update(elapsed)
+    expedition.update(elapsed, mission.state)
     landscape.update(elapsed)
     sun.position.set(camera.position.x - 120, camera.position.y + 160, camera.position.z - 900)
     if (!wind.isPlaying) {
       wind.play()
     }
 
-    // Path recording
-    // Performance Optimization: Use squared distance to avoid Math.sqrt in the hot path
-    const distSq = camera.position.distanceToSquared(lastPosition)
-    if (distSq > 25) { // 5^2
-      recordPoint(camera.position)
-    }
+    explorationPath.record(getPlayerPosition())
 
+    vehicle.update(delta, keys, controls.mode === 'explore')
+    const onFoot = vehicle.state.mode === 'ON_FOOT'
+    if (onFoot) {
     camera.rotation.order = 'YXZ'
     camera.rotation.y = yaw
     camera.rotation.x = pitch
 
+    if (controls.mode !== 'explore') clearKeys()
     const speed = 8.0
     const moveZ = Number(keys.w) - Number(keys.s)
     const moveX = Number(keys.d) - Number(keys.a)
@@ -664,7 +717,7 @@ export function createMarsSurface(renderer, options = {}) {
       _vMove.addScaledVector(_vRight, moveX)
       _vMove.normalize().multiplyScalar(speed * delta)
 
-      camera.position.add(_vMove)
+      collision.move(camera.position, _vMove, getLocalH)
 
       stepTimer += delta
       if (stepTimer > 10.0 / speed) { // Adjusted frequency for higher speed
@@ -692,6 +745,10 @@ export function createMarsSurface(renderer, options = {}) {
       camera.position.y += Math.sin(Date.now() * 0.01) * 0.05
     }
 
+    }
+    rebaseOrigin()
+    mission.update(delta, getPlayerPosition(), onFoot)
+    updateScanTone(mission.state.stage === 'scanning')
     updateChunks()
     updateParticles(delta)
     sky.position.copy(camera.position)
@@ -700,18 +757,30 @@ export function createMarsSurface(renderer, options = {}) {
     sunLight.target.updateMatrixWorld()
   }
 
+  function clearKeys() {
+    vehicle?.clearInput()
+    for (const key of Object.keys(keys)) keys[key] = false
+  }
   function onKeyDown(e) {
-    const key = e.key.toLowerCase()
+    if (e.key === 'Escape') { controls.pause(); return }
+    if (controls.mode !== 'explore' || e.target?.closest?.('input, textarea, select, [contenteditable="true"]')) return
+    if (e.key.toLowerCase() === 'e' && !e.repeat) interact()
+    const key = ({ ArrowUp: 'w', ArrowDown: 's', ArrowLeft: 'a', ArrowRight: 'd' })[e.key] || e.key.toLowerCase()
+    if (e.key.startsWith('Arrow')) e.preventDefault()
     if (keys.hasOwnProperty(key)) keys[key] = true
   }
 
   function onKeyUp(e) {
-    const key = e.key.toLowerCase()
+    const key = ({ ArrowUp: 'w', ArrowDown: 's', ArrowLeft: 'a', ArrowRight: 'd' })[e.key] || e.key.toLowerCase()
     if (keys.hasOwnProperty(key)) keys[key] = false
   }
 
   function onMouseMove(e) {
-    if (document.pointerLockElement !== renderer.domElement) return
+    if (controls.mode !== 'explore') return
+    if (vehicle.state.mode === 'IN_VEHICLE') {
+      vehicle.steerMouse(e.movementX || 0)
+      return
+    }
     const sensitivity = 0.002
     yaw -= (e.movementX || 0) * sensitivity
     pitch -= (e.movementY || 0) * sensitivity
@@ -719,41 +788,83 @@ export function createMarsSurface(renderer, options = {}) {
   }
 
   function requestPointerLock() {
-    renderer.domElement.requestPointerLock()?.catch(() => {})
+    ctx.resume().catch(() => {})
+    controls.requestExplore()
+  }
+
+  const markerPosition = new THREE.Vector3()
+  const baseMarker = { x: 0, y: 0, visible: false }
+  function getBaseMarker() {
+    camera.updateMatrixWorld()
+    markerPosition.copy(mission.state.activeTarget?.position || landerPos).sub(origin)
+    markerPosition.y += 2.2
+    markerPosition.project(camera)
+    baseMarker.visible = (mission.state.stage === 'return' || mission.state.stage === 'upload') && markerPosition.z > -1 && markerPosition.z < 1 && Math.abs(markerPosition.x) < 1 && Math.abs(markerPosition.y) < 1
+    baseMarker.x = (markerPosition.x + 1) * 50
+    baseMarker.y = (1 - markerPosition.y) * 50
+    return baseMarker
   }
 
   return {
     scene,
     camera,
+    getVehicleState: () => vehicle.state,
+    getPlayerYaw: () => vehicle.state.mode === 'IN_VEHICLE' ? expedition.rover.rotation.y + Math.PI : yaw,
     update,
     onKeyDown,
     onKeyUp,
     onMouseMove,
     requestPointerLock,
-    getExplorationPath: () => explorationPath,
+    enterUi: controls.enterUi,
+    pause: controls.pause,
+    getExplorationPath: () => explorationPath.points,
+    getPlayerPosition,
     getLanderPosition: () => landerPos,
-    getSignalPosition: () => expedition.signal,
+    getSignalPosition: () => mission.state.scanTarget.position,
+    getMissionState: () => mission.state,
+    getBaseMarker,
+    interact,
     clearPath,
     teleport: (x, z) => {
       spawnX = x; spawnZ = z; landingHeight = naturalHeight(x, z);
-      camera.position.set(x, getH(x, z) + 1.7, z);
+      origin.set(Math.round(x / chunkSize) * chunkSize, 0, Math.round(z / chunkSize) * chunkSize);
+      camera.position.set(x - origin.x, getH(x, z) + 1.7, z - origin.z);
+      vehicle.dispose();
       expedition.dispose();
-      expedition = createMarsExpedition(scene, camera, getH, x, z);
+      expedition = createMarsExpedition(scene, camera, getH, x, z, collision, origin);
+      vehicle = createMarsVehicle(expedition.rover, camera, collision, getLocalH, expedition.scanner);
       landscape.dispose();
-      landscape = createMarsLandscape(scene, getH, x, z, rockMat);
-      for (const chunk of chunks.values()) { scene.remove(chunk); chunkMeshPool.push(chunk) }
+      landscape = createMarsLandscape(scene, getH, x, z, rockMat, collision, origin);
+      for (const chunk of chunks.values()) { chunk.userData.removeColliders?.forEach(remove => remove()); scene.remove(chunk); chunkMeshPool.push(chunk) }
       chunks.clear();
       lastCamX = Infinity; lastCamZ = Infinity;
+      lastCleanupX = Infinity; lastCleanupZ = Infinity;
       _groundCache.x = Infinity;
-      landerPos.x = x - 9;
-      landerPos.z = z - 28;
+      landerPos.copy(expedition.baseTarget);
+      camera.position.set(landerPos.x + 10 - origin.x, getH(landerPos.x + 10, landerPos.z) + 1.7, landerPos.z - origin.z);
+      // A new landing uses a new frame; keep dust near the new camera immediately.
+      for (let i = 0; i < particlePos.length; i += 3) {
+        particlePos[i] = camera.position.x + (Math.random() - 0.5) * initialRange;
+        particlePos[i + 1] = camera.position.y + (Math.random() - 0.5) * initialRange;
+        particlePos[i + 2] = camera.position.z + (Math.random() - 0.5) * initialRange;
+      }
+      particleGeo.attributes.position.needsUpdate = true;
+      _lastPartCamPos.set(Infinity, Infinity, Infinity);
+      sky.position.copy(camera.position);
+      sun.position.set(camera.position.x - 120, camera.position.y + 160, camera.position.z - 900);
+      sunLight.position.set(camera.position.x - 27, camera.position.y + 35, camera.position.z - 200);
+      sunLight.target.position.copy(camera.position);
+      sunLight.target.updateMatrixWorld();
+      stopScanTone(); clearKeys();
+      mission = createMarsMission(createMarsMissionDefinitions(expedition.signals, landerPos));
       // Clear path when teleporting to a new POI
-      explorationPath = [];
-      localStorage.removeItem(STORAGE_KEY);
-      lastPosition.set(x, 0, z);
+      clearPath();
       updateChunks();
     },
     dispose: () => {
+      controls.dispose()
+      vehicle.dispose()
+      collision.clear()
       expedition.dispose()
       landscape.dispose()
       environment.dispose()
@@ -764,10 +875,7 @@ export function createMarsSurface(renderer, options = {}) {
       sun.geometry.dispose()
       sun.material.dispose()
       if (wind.isPlaying) wind.stop()
-      if (saveTimeout) {
-        clearTimeout(saveTimeout)
-        saveToStorage() // Final save on dispose
-      }
+      explorationPath.dispose()
       // Dispose active chunks
       for (const chunk of chunks.values()) {
         chunk.children[0].dispose()

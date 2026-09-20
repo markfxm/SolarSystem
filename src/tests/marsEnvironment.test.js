@@ -31,9 +31,15 @@ test('rock deformation is deterministic, bounded and has finite normals', () => 
 test('expedition anchors its destination to terrain and releases shared resources exactly once', () => withCanvas(() => {
   const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera()
   const expedition = createMarsExpedition(scene, camera, () => 24, 1200, -800)
-  assert.equal(expedition.signal.y, 24)
-  assert.ok(Math.hypot(expedition.signal.x - 1200, expedition.signal.z + 800) > 100)
-  expedition.update(10)
+  assert.equal(expedition.signals[0].position.y, 24)
+  assert.ok(Math.hypot(expedition.signals[0].position.x - 1200, expedition.signals[0].position.z + 800) > 100)
+  const secondSignal = scene.getObjectByName('Signal 02 / survey beacon')
+  assert.equal(secondSignal.visible, false)
+  expedition.update(10, { stage: 'scanning', progress: 0.5, paused: false })
+  assert.equal(secondSignal.visible, false)
+  expedition.update(11, { stage: 'complete', unlockedTargetIds: ['signal01', 'signal02'] })
+  assert.equal(secondSignal.visible, true)
+  assert.equal(expedition.signals[1].position.y, 24)
   scene.updateMatrixWorld(true)
   const resources = new Set()
   scene.traverse(object => {
@@ -63,5 +69,44 @@ test('landscape disposal preserves the externally owned rock material', () => wi
   landscape.dispose()
   assert.equal(scene.children.length, 0)
   assert.equal(disposed, false)
+  material.dispose()
+}))
+
+test('solid expedition props register collision volumes and release them on disposal', () => withCanvas(() => {
+  const boxes = new Set()
+  const collision = { addBox(min, max) {
+    const box = { min, max }
+    boxes.add(box)
+    return () => boxes.delete(box)
+  } }
+  const expedition = createMarsExpedition(new THREE.Scene(), new THREE.PerspectiveCamera(), () => 24, 0, 0, collision)
+  for (const [name, x, z] of [
+    ['habitat', -9, -28], ['stairs', -9, -21], ['utility', -21, -35],
+    ['rover', 9, -21], ['crate', -6.7, -19], ['solar support', -4, -38],
+    ['probe', 26, -112], ['terminal', -12, -17],
+  ]) {
+    assert.ok([...boxes].some(({ min, max }) => min.x <= x && max.x >= x && min.z <= z && max.z >= z && min.y <= 25.7 && max.y > 24), name)
+  }
+  const count = boxes.size
+  expedition.update(1, { unlockedTargetIds: ['signal01', 'signal02'] })
+  assert.equal(boxes.size, count + 1)
+  expedition.update(2, { unlockedTargetIds: ['signal01', 'signal02'] })
+  assert.equal(boxes.size, count + 1)
+  expedition.dispose()
+  assert.equal(boxes.size, 0)
+}))
+
+test('large instanced outcrops have collision volumes and release them', () => withCanvas(() => {
+  const boxes = new Set()
+  const collision = { addBox(min, max) {
+    const box = { min, max }; boxes.add(box)
+    assert.ok(max.x > min.x && max.z > min.z && max.y > min.y)
+    return () => boxes.delete(box)
+  } }
+  const material = new THREE.MeshStandardMaterial()
+  const landscape = createMarsLandscape(new THREE.Scene(), () => 24, 0, 0, material, collision)
+  assert.equal(boxes.size, 16)
+  landscape.dispose()
+  assert.equal(boxes.size, 0)
   material.dispose()
 }))

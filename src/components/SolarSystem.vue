@@ -108,6 +108,7 @@
 
     <MarsHUD
       :isVisible="viewMode === 'mars'"
+      :controlMode="marsControlMode"
       planetId="mars"
       :planetName="t('planet.mars')"
       :playerPos="marsPlayerPos"
@@ -115,7 +116,12 @@
       :explorationPath="marsPath"
       :landerPos="marsLanderPos"
       :signalPos="marsSignalPos"
+      :mission="marsMission"
+      :vehicle="marsVehicle"
+      :baseMarker="marsBaseMarker"
+      @interact="marsSurface?.interact()"
       @continue="marsSurface?.requestPointerLock()"
+      @open-ui="marsSurface?.enterUi()"
       @exit="returnToOrbit"
       @clear-path="onClearMarsPath"
     />
@@ -220,6 +226,10 @@ const poiUI = reactive({
 // Optimization: Use reactive for position to avoid 60 object allocations per second
 const marsPlayerPos = reactive({ x: 0, y: 0, z: 0 })
 const marsPlayerYaw = ref(0)
+const marsBaseMarker = reactive({ x: 0, y: 0, visible: false })
+const marsVehicle = reactive({ mode: 'ON_FOOT', speed: 0, canEnter: false, exitBlocked: false })
+const marsMission = reactive({ stage: 'approach', progress: 0, discovered: false, completedCount: 0, paused: true })
+const marsControlMode = ref('ui')
 const marsSignalPos = reactive({ x: 0, z: 0 })
 const marsPath = shallowRef([])
 const marsLanderPos = reactive({ x: 0, y: 0, z: -10 })
@@ -330,7 +340,8 @@ async function onLandOnMars(coords = null) {
   const targetCoords = (coords && coords.lat !== undefined) ? coords : null;
 
   if (!marsSurface) {
-    const options = {};
+    marsControlMode.value = 'ui'
+    const options = { onControlModeChange: mode => { marsControlMode.value = mode } };
     if (targetCoords) {
       options.spawnX = (targetCoords.lon - 226.2) / DEG_PER_METER;
       options.spawnZ = (18.65 - targetCoords.lat) / DEG_PER_METER;
@@ -354,14 +365,6 @@ async function onLandOnMars(coords = null) {
   window.addEventListener('keyup', marsSurface.onKeyUp)
   window.addEventListener('mousemove', marsSurface.onMouseMove)
 
-  // Request pointer lock on first click when in Mars mode
-  const requestLock = () => {
-    if (viewMode.value === 'mars' && marsSurface.requestPointerLock) {
-      marsSurface.requestPointerLock()
-    }
-  }
-  container.value.addEventListener('click', requestLock)
-  marsSurface._requestLockRef = requestLock // Keep ref for removal
 
   cloudFadeIn.value = false
   setTimeout(() => { showCloudOverlay.value = false }, 2000)
@@ -375,6 +378,7 @@ function onClearMarsPath() {
 }
 
 function returnToOrbit() {
+  marsSurface?.pause()
   isLanding.value = false
   showCloudOverlay.value = true
   setTimeout(() => { cloudFadeIn.value = true }, 10)
@@ -391,9 +395,6 @@ function returnToOrbit() {
     window.removeEventListener('keydown', marsSurface.onKeyDown)
     window.removeEventListener('keyup', marsSurface.onKeyUp)
     window.removeEventListener('mousemove', marsSurface.onMouseMove)
-    if (marsSurface._requestLockRef) {
-      container.value.removeEventListener('click', marsSurface._requestLockRef)
-    }
 
     // Clear exploration history when returning to orbit
     marsSurface.clearPath()
@@ -899,13 +900,16 @@ onMounted(async () => {
       }
     } else if (viewMode.value === 'mars' && marsSurface) {
       marsSurface.update(delta)
+      Object.assign(marsVehicle, marsSurface.getVehicleState())
+      Object.assign(marsMission, marsSurface.getMissionState())
+      Object.assign(marsBaseMarker, marsSurface.getBaseMarker())
       Object.assign(marsSignalPos, marsSurface.getSignalPosition())
-      const pPos = marsSurface.camera.position
+      const pPos = marsSurface.getPlayerPosition()
       // Optimization: Mutate reactive properties directly
       marsPlayerPos.x = pPos.x
       marsPlayerPos.y = pPos.y
       marsPlayerPos.z = pPos.z
-      marsPlayerYaw.value = marsSurface.camera.rotation.y
+      marsPlayerYaw.value = marsSurface.getPlayerYaw()
       const currentPath = marsSurface.getExplorationPath();
       // Optimization: Avoid shallow copy spread; MarsHUD handles the array
       if (currentPath.length !== marsPath.value.length) {

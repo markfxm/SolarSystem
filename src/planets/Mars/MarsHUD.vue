@@ -1,8 +1,13 @@
 <script setup>
 import { ref, onUnmounted, computed, watch } from 'vue';
+import LanguagePanel from '../../components/LanguagePanel.vue'
 
 const props = defineProps({
   isVisible: Boolean,
+  vehicle: { type: Object, default: () => ({ mode: 'ON_FOOT', speed: 0, canEnter: false }) },
+  controlMode: { type: String, default: 'ui' },
+  baseMarker: { type: Object, default: () => ({ visible: false }) },
+  mission: { type: Object, default: () => ({ stage: 'approach', progress: 0 }) },
   signalPos: { type: Object, default: () => ({ x: 80, z: -180 }) },
   planetId: String,
   planetName: String,
@@ -26,12 +31,52 @@ const props = defineProps({
 
 import { t } from '../../utils/i18n'
 
-const emit = defineEmits(['exit', 'clear-path', 'continue'])
+const emit = defineEmits(['exit', 'clear-path', 'continue', 'open-ui'])
 
 const isExpanded = ref(false)
-const targetDistance = computed(() => Math.round(Math.hypot(props.signalPos.x - props.playerPos.x, props.signalPos.z - props.playerPos.z)))
+const miniMapVisible = ref(true)
+const hasSeenControls = ref(false)
+try { hasSeenControls.value = localStorage.getItem('hasSeenMarsControls') === 'true' } catch {}
+watch(() => props.controlMode, mode => {
+  if (mode === 'explore') {
+    isExpanded.value = false
+    hasSeenControls.value = true
+    try { localStorage.setItem('hasSeenMarsControls', 'true') } catch {}
+  }
+})
+watch(() => props.isVisible, () => {
+  isExpanded.value = false
+  miniMapVisible.value = true
+  mapOffset.x = 0; mapOffset.z = 0
+  waypoint = null
+  mapDrag = null
+})
+const showCompletionNotice = ref(false)
+watch(() => props.mission.completedCount, (count, _previous, onCleanup) => {
+  showCompletionNotice.value = count > 0
+  if (!showCompletionNotice.value) return
+  const timeout = window.setTimeout(() => { showCompletionNotice.value = false }, 5000)
+  onCleanup(() => window.clearTimeout(timeout))
+}, { immediate: true })
+const returning = computed(() => ['return', 'upload'].includes(props.mission.stage))
+const target = computed(() => props.mission.activeTarget?.position || props.signalPos)
+const signalLabel = computed(() => props.mission.signalLabel ? t(props.mission.signalLabel) : '')
+const scanPrompt = computed(() => props.mission.scanTarget ? t(props.mission.scanTarget.prompt, { signal: signalLabel.value }) : '')
+const interactionPrompt = computed(() => props.mission.activeTarget ? t(props.mission.activeTarget.prompt, { signal: signalLabel.value }) : '')
+const targetLabel = computed(() => returning.value ? t('mars.base_terminal') : signalLabel.value)
+const objective = computed(() => {
+  if (['ready', 'upload'].includes(props.mission.stage)) return interactionPrompt.value
+  const key = { approach: 'investigate_target', scanning: 'scanning_target', return: 'return_base', complete: 'mission_complete_number' }[props.mission.stage] || 'investigate_target'
+  return t('mars.' + key, { signal: signalLabel.value, number: props.mission.number })
+})
+const targetDistance = computed(() => Math.round(Math.hypot(target.value.x - props.playerPos.x, target.value.z - props.playerPos.z)))
 const handleMapKey = (event) => {
-  if (props.isVisible && event.key.toLowerCase() === 'm') toggleExpand()
+  if (!props.isVisible || event.repeat || event.target?.closest?.('input, textarea, select, [contenteditable="true"]')) return
+  if (event.key.toLowerCase() === 'm') {
+    if (isExpanded.value) toggleExpand()
+    else miniMapVisible.value = !miniMapVisible.value
+  }
+  if (event.key.toLowerCase() === 'f') toggleExpand()
 }
 window.addEventListener('keydown', handleMapKey)
 
@@ -55,6 +100,37 @@ const currentLon = computed(() => {
 
 const zoomLevel = ref(0.4) // Base zoom
 const canvasRef = ref(null)
+const mapOffset = { x: 0, z: 0 }
+let mapDrag = null
+let waypoint = null
+function mapPointerDown(event) {
+  if (!isExpanded.value || event.button !== 0) return
+  event.currentTarget.setPointerCapture(event.pointerId)
+  mapDrag = { x: event.clientX, y: event.clientY, moved: false }
+}
+function mapPointerMove(event) {
+  if (!mapDrag) return
+  const rect = canvasRef.value.getBoundingClientRect()
+  const dx = event.clientX - mapDrag.x, dy = event.clientY - mapDrag.y
+  if (!mapDrag.moved && Math.hypot(dx, dy) < 4) return
+  mapDrag.moved = true
+  mapOffset.x -= dx * EXPANDED_MAP_SIZE / rect.width / zoomLevel.value
+  mapOffset.z -= dy * EXPANDED_MAP_SIZE / rect.height / zoomLevel.value
+  mapDrag.x = event.clientX; mapDrag.y = event.clientY
+  drawMap(true)
+}
+function mapPointerUp(event) {
+  if (!mapDrag) return
+  if (!mapDrag.moved) {
+    const rect = canvasRef.value.getBoundingClientRect()
+    waypoint = {
+      x: props.playerPos.x + mapOffset.x + ((event.clientX - rect.left) / rect.width - 0.5) * EXPANDED_MAP_SIZE / zoomLevel.value,
+      z: props.playerPos.z + mapOffset.z + ((event.clientY - rect.top) / rect.height - 0.5) * EXPANDED_MAP_SIZE / zoomLevel.value,
+    }
+  }
+  mapDrag = null
+  drawMap(true)
+}
 
 // i18n Caching: Pre-translate static labels to avoid lookup overhead in the 60fps loop
 const labels = computed(() => ({
@@ -77,6 +153,9 @@ const EXPANDED_MAP_SIZE = 500
 
 const toggleExpand = () => {
   isExpanded.value = !isExpanded.value
+  if (props.controlMode === 'paused') return
+  if (isExpanded.value) emit('open-ui')
+  else emit('continue')
 }
 
 const handleWheel = (e) => {
@@ -87,6 +166,7 @@ const handleWheel = (e) => {
 
 // Cache canvas context at component level to avoid redundant lookups in the 60fps loop
 let cachedCtx = null;
+watch(canvasRef, () => { cachedCtx = null; if (canvasRef.value) drawMap(true) }, { flush: 'post' })
 
 // Performance Optimization: Track last state to skip redundant draws when stationary
 const lastState = {
@@ -109,14 +189,17 @@ const drawMap = (force = false) => {
   const size = expanded ? EXPANDED_MAP_SIZE : MAP_SIZE
   const zoom = zoomLevel.value
   const path = props.explorationPath
-  const px = props.playerPos?.x ?? 0
-  const pz = props.playerPos?.z ?? 0
+  const px = (props.playerPos?.x ?? 0) + (expanded ? mapOffset.x : 0)
+  const pz = (props.playerPos?.z ?? 0) + (expanded ? mapOffset.z : 0)
   const pyaw = props.playerYaw
   const lx = props.landerPos?.x ?? 0
   const lz = props.landerPos?.z ?? 0
 
   // Dirty check: Only redraw if state changed or forced (e.g. resize)
   if (!force &&
+      lastState.targetX === target.value.x &&
+      lastState.targetZ === target.value.z &&
+      lastState.targetLabel === targetLabel.value &&
       lastState.px === px &&
       lastState.pz === pz &&
       lastState.yaw === pyaw &&
@@ -127,6 +210,9 @@ const drawMap = (force = false) => {
   }
 
   // Update last state
+  lastState.targetX = target.value.x
+  lastState.targetZ = target.value.z
+  lastState.targetLabel = targetLabel.value
   lastState.px = px
   lastState.pz = pz
   lastState.yaw = pyaw
@@ -203,17 +289,18 @@ const drawMap = (force = false) => {
   ctx.textAlign = 'left'
   ctx.fillText(labels.value.start, startPosMX + 6, startPosMY + 4)
 
-  const signalX = Math.max(18, Math.min(size - 18, centerX + (props.signalPos.x - px) * zoom))
-  const signalY = Math.max(25, Math.min(size - 25, centerY + (props.signalPos.z - pz) * zoom))
+  const signalX = Math.max(18, Math.min(size - 18, centerX + (target.value.x - px) * zoom))
+  const signalY = Math.max(25, Math.min(size - 25, centerY + (target.value.z - pz) * zoom))
   ctx.strokeStyle = '#91dcff'
   ctx.lineWidth = 2
   ctx.beginPath()
   ctx.arc(signalX, signalY, 6, 0, Math.PI * 2)
   ctx.stroke()
+  ctx.fillText(targetLabel.value, Math.min(size - 65, signalX + 10), signalY - 10)
 
   // Draw Player Marker (Always at center because we are centering on player)
   ctx.save()
-  ctx.translate(centerX, centerY)
+  ctx.translate(centerX + (props.playerPos.x - px) * zoom, centerY + (props.playerPos.z - pz) * zoom)
   ctx.rotate(-props.playerYaw) // North is up, so we rotate the marker by yaw
 
   ctx.fillStyle = '#00A3FF'
@@ -224,6 +311,12 @@ const drawMap = (force = false) => {
   ctx.closePath()
   ctx.fill()
   ctx.restore()
+  if (waypoint) {
+    ctx.strokeStyle = '#ffdf80'
+    ctx.beginPath()
+    ctx.arc(centerX + (waypoint.x - px) * zoom, centerY + (waypoint.z - pz) * zoom, 5, 0, Math.PI * 2)
+    ctx.stroke()
+  }
 
   // Labels
   ctx.fillStyle = 'rgba(255, 255, 255, 0.8)'
@@ -237,7 +330,7 @@ const drawMap = (force = false) => {
   ctx.fillText(labels.value.east, size - 15, centerY + 4)
 
   if (expanded) {
-    const dist = Math.sqrt((px - lx) * (px - lx) + (pz - lz) * (pz - lz)).toFixed(1)
+    const dist = Math.hypot(props.playerPos.x - lx, props.playerPos.z - lz).toFixed(1)
     ctx.textAlign = 'left'
     // Dynamic translation: still involves lookup but only when expanded and once per frame
     ctx.fillText(t('mars.dist_start', { dist }), 10, size - 25)
@@ -288,9 +381,16 @@ onUnmounted(() => {
           </div>
 
           <section class="mission-section">
-            <div class="label">{{ t('mars.mission') }}</div>
-            <h2>{{ targetDistance < 15 ? t('mars.signal_found') : t('mars.investigate') }}</h2>
+            <div class="label">{{ t('mars.mission_number', { number: mission.number }) }}</div>
+            <h2>{{ objective }}</h2>
             <p>{{ t('mars.mission_desc') }}</p>
+            <div class="mission-status" role="status" aria-live="polite">
+              <div :class="{ active: mission.stage === 'approach' }" :aria-current="mission.stage === 'approach' ? 'step' : undefined">{{ mission.stage === 'approach' ? '○' : '✓' }} {{ t('mars.reach_target', { signal: signalLabel }) }}</div>
+              <div :class="{ active: ['ready', 'scanning'].includes(mission.stage) }" :aria-current="['ready', 'scanning'].includes(mission.stage) ? 'step' : undefined">{{ mission.discovered ? '✓' : '○' }} {{ scanPrompt }}</div>
+              <div :class="{ active: mission.stage === 'return' }" :aria-current="mission.stage === 'return' ? 'step' : undefined">{{ ['upload', 'complete'].includes(mission.stage) ? '✓' : '○' }} {{ t('mars.return_base') }}</div>
+              <div :class="{ active: mission.stage === 'upload' }" :aria-current="mission.stage === 'upload' ? 'step' : undefined">{{ mission.stage === 'complete' ? '✓' : '○' }} {{ t('mars.upload_data') }}</div>
+              <p v-if="mission.discovered">{{ t(mission.discoveryKey) }}</p>
+            </div>
           </section>
           <section class="suit-section">
             <div class="label">{{ t('mars.suit_status') }}</div>
@@ -299,7 +399,7 @@ onUnmounted(() => {
             <div class="telemetry"><span>{{ t('mars.radiation') }}</span><span>0.12 mSv/h<meter min="0" max="1" value="0.12" /></span></div>
             <div class="telemetry"><span>{{ t('mars.temperature') }}</span><span>−52°C</span></div>
           </section>
-          <div class="target-distance">{{ t('mars.target_distance') }} <strong>{{ targetDistance }} m</strong></div>
+          <div class="target-distance">{{ returning ? t('mars.distance_base') : targetLabel }} <strong>{{ targetDistance }} m</strong></div>
           <div v-if="planetId === 'mars'" class="history-actions">
             <button class="clear-btn" @click="$emit('clear-path')">{{ labels.resetPath }}</button>
           </div>
@@ -308,7 +408,7 @@ onUnmounted(() => {
 
       <!-- Minimap -->
       <div
-        v-if="planetId === 'mars'"
+        v-if="planetId === 'mars' && (miniMapVisible || isExpanded)"
         class="minimap-wrapper"
         :class="{ expanded: isExpanded }"
       >
@@ -316,25 +416,64 @@ onUnmounted(() => {
           class="minimap-container"
           role="button"
           tabindex="0"
-          :aria-label="labels.mapHintCollapsed"
+          :aria-label="isExpanded ? labels.mapHintExpanded : labels.mapHintCollapsed"
           :aria-expanded="isExpanded"
-          @keydown.enter="toggleExpand"
-          @keydown.space.prevent="toggleExpand"
-          @click="toggleExpand"
+          @keydown.enter.self="toggleExpand"
+          @keydown.space.prevent.self="toggleExpand"
+          @click="!isExpanded && toggleExpand()"
           @wheel.prevent="handleWheel"
+          @pointerdown="mapPointerDown"
+          @pointermove="mapPointerMove"
+          @pointerup="mapPointerUp"
+          @pointercancel="mapDrag = null"
+          @lostpointercapture="mapDrag = null"
         >
           <canvas ref="canvasRef"></canvas>
         </div>
         <div class="map-hint">{{ isExpanded ? labels.mapHintExpanded : labels.mapHintCollapsed }}</div>
+        <button v-if="isExpanded" class="map-action" @click="toggleExpand">{{ t(controlMode === 'paused' ? 'mars.close_map_paused' : 'mars.close_map') }}</button>
+        <button v-if="isExpanded" class="map-action" @click="emit('clear-path')">{{ labels.resetPath }}</button>
       </div>
 
-      <div class="crosshair" aria-hidden="true">·</div>
+      <div v-if="baseMarker.visible && returning" class="base-world-marker" :style="{ left: baseMarker.x + '%', top: baseMarker.y + '%' }">
+        ◉ {{ t('mars.base_terminal') }}<small>{{ targetDistance }} m</small>
+      </div>
+      <div v-if="controlMode === 'explore'" class="crosshair" aria-hidden="true">·</div>
       <div class="expedition-actions">
-        <div class="control-hint">{{ t('mars.controls') }}</div>
+        <div v-if="vehicle.mode === 'IN_VEHICLE'" class="scan-feedback" role="status">
+          NOMAD · {{ Math.round(Math.abs(vehicle.speed) * 3.6) }} km/h · E · {{ t('mars.vehicle_exit') }}
+          <span v-if="vehicle.exitBlocked"> — {{ t('mars.vehicle_blocked') }}</span>
+        </div>
+        <div v-else-if="vehicle.canEnter && controlMode === 'explore'" class="scan-button">E · {{ t('mars.vehicle_enter') }}</div>
+        <div v-else-if="mission.stage === 'scanning'" class="scan-feedback">
+          {{ objective }} {{ Math.round(mission.progress * 100) }}% {{ mission.paused ? t('mars.paused') : '' }}
+          <progress :value="mission.progress" max="1" :aria-label="objective"></progress>
+        </div>
+        <div v-else-if="['ready', 'upload'].includes(mission.stage) && controlMode === 'explore'" class="scan-button" :class="{ 'upload-button': mission.stage === 'upload' }">E · {{ interactionPrompt }}</div>
+        <div v-if="showCompletionNotice" class="scan-feedback" role="status">{{ t('mars.data_uploaded') }}</div>
+        <div v-if="!isExpanded && controlMode === 'explore'" class="control-hint">{{ t('mars.controls') }}</div>
+      </div>
+      <section v-if="controlMode === 'paused'" class="pause-bar" :aria-label="t('mars.pause_title')">
+        <span role="status">{{ t('mars.pause_title') }}</span>
         <div class="action-row">
-          <button class="continue-button" @click="emit('continue')">{{ t('mars.continue') }} <span aria-hidden="true">→</span></button>
+          <button class="continue-button" @click="emit('continue')">{{ t('mars.continue') }}</button>
           <button @click="emit('exit')">{{ t('mars.return_orbit') }}</button>
         </div>
+      </section>
+      <div v-if="controlMode === 'ui' && !isExpanded" class="control-overlay">
+        <section class="control-panel" role="dialog" aria-modal="true" :aria-label="t('mars.surface')">
+          <h2>{{ t('mars.surface') }}</h2>
+          <p v-if="!hasSeenControls">{{ t('mars.onboarding') }}</p>
+          <details :open="!hasSeenControls">
+            <summary>{{ t('mars.control_help') }}</summary>
+            <p>{{ t('mars.control_details') }}</p>
+          </details>
+          <details><summary>{{ t('mars.settings') }}</summary><LanguagePanel /></details>
+          <div class="action-row">
+            <button class="continue-button" @click="emit('continue')">{{ t(hasSeenControls ? 'mars.continue' : 'mars.start_exploring') }}</button>
+            <button @click="emit('exit')">{{ t('mars.return_orbit') }}</button>
+          </div>
+        </section>
       </div>
       <!-- Scanline / Sci-fi Overlay Effect -->
       <div class="scanlines"></div>
@@ -545,4 +684,28 @@ button:focus-visible, [role=button]:focus-visible { outline: 2px solid #a9e4ff; 
   .action-row button { padding: 12px 14px; font-size: 12px; }
 }
 @media (max-height: 600px) { .suit-section { display: none; } .location-panel { padding: 14px; } }
+</style>
+
+<style scoped>
+.location-panel { max-height: calc(100vh - 120px); overflow-y: auto; }
+.mission-status .active { color: #d7f5ff; background: #1b465c; border-left: 2px solid #68ccff; padding-left: 5px; }
+.base-world-marker { position: absolute; transform: translate(-50%, -100%); padding: 6px 10px; border: 1px solid #68ccff; border-radius: 12px; background: #091a29d9; color: #d7f5ff; text-align: center; pointer-events: none; }
+.base-world-marker small { display: block; margin-top: 3px; }
+.mission-status { font-size: 12px; line-height: 1.7; color: #b8d9e5; }
+.mission-status p { font-size: 12px; margin: 8px 0 0; }
+.scan-feedback, .scan-button { color: #b9eeff; background: #091a29e8; border: 1px solid #68ccff; border-radius: 8px; padding: 10px 18px; margin-bottom: 10px; }
+.scan-feedback progress { display: block; width: 100%; height: 5px; margin-top: 8px; accent-color: #68ccff; }
+.control-overlay { position: absolute; inset: 0; display: grid; place-items: center; background: #09121b99; pointer-events: auto; }
+.control-panel { width: min(440px, 90vw); max-height: 85vh; overflow-y: auto; box-sizing: border-box; padding: 28px; border: 1px solid #8196a9; border-radius: 16px; background: #172332f5; }
+.control-panel p { font-size: 13px; line-height: 1.8; white-space: pre-line; }
+.control-panel details { margin: 16px 0; }
+.control-panel summary { cursor: pointer; }
+.control-panel .action-row { flex-wrap: wrap; margin-top: 20px; }
+.map-action { pointer-events: auto; margin-top: 8px; padding: 8px 14px; color: #edf7ff; background: #172332; border: 1px solid #8196a9; border-radius: 8px; cursor: pointer; }
+.expanded .minimap-container { touch-action: none; cursor: crosshair; }
+.pause-bar { position: absolute; top: 16px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 12px; padding: 8px 12px; border: 1px solid #8196a9; border-radius: 12px; background: #172332ed; pointer-events: auto; }
+.pause-bar > span { font-size: 12px; white-space: nowrap; color: #d7f5ff; }
+.pause-bar .action-row { gap: 8px; }
+.pause-bar .action-row button { padding: 8px 12px; font-size: 12px; }
+@media (max-width: 700px) { .pause-bar { top: auto; bottom: 12px; max-width: calc(100vw - 24px); flex-wrap: wrap; justify-content: center; } }
 </style>

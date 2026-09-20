@@ -1,9 +1,15 @@
 import * as THREE from 'three'
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js'
 import { makeSurfaceTexture } from './MarsEnvironment.js'
+import { createMarsRover } from './MarsRover.js'
 
 // Modular expedition hardware. Resources are local to one landing site's lifetime.
-export function createMarsExpedition(scene, camera, getHeight, x, z) {
+export function createMarsExpedition(scene, camera, getHeight, x, z, collision, origin = { x: 0, z: 0 }) {
+  // Generate GPU geometry near the landing site; exported mission anchors stay global.
+  const originX = origin.x, originZ = origin.z, globalHeight = getHeight
+  x -= originX; z -= originZ
+  getHeight = (lx, lz) => globalHeight(lx + originX, lz + originZ)
+  const globalPosition = object => object.position.clone().add(new THREE.Vector3(originX, 0, originZ))
   const root = new THREE.Group()
   root.name = 'Aurora expedition outpost'
   scene.add(root)
@@ -22,6 +28,15 @@ export function createMarsExpedition(scene, camera, getHeight, x, z) {
     amber: new THREE.MeshBasicMaterial({ color: 0xffc073 }),
     solar: new THREE.MeshStandardMaterial({ map: solarMap, metalness: 0.55, roughness: 0.28, color: 0xc2d6e4, side: THREE.DoubleSide }),
     screen: new THREE.MeshBasicMaterial({ map: scannerMap, toneMapped: false }),
+  }
+  const removeColliders = []
+  function solid(parent, size, center = [0, 0, 0]) {
+    if (!collision) return
+    parent.updateWorldMatrix(true, false)
+    const bounds = new THREE.Box3().setFromCenterAndSize(new THREE.Vector3(...center), new THREE.Vector3(...size)).applyMatrix4(parent.matrixWorld)
+    const remove = collision.addBox(bounds.min, bounds.max)
+    removeColliders.push(remove)
+    return remove
   }
   const geometryCache = new Map()
   function geometry(key, create) {
@@ -134,11 +149,22 @@ export function createMarsExpedition(scene, camera, getHeight, x, z) {
   for (const a of [0, 2.094, 4.189]) strut(dishPivot, [Math.cos(a) * 1.1, 0.5, Math.sin(a) * 1.1], [0, 1.3, 0], 0.025, materials.panel)
   cylinder(dishPivot, 0.11, 0.3, [0, 1.3, 0], materials.dark)
 
+  solid(base, [8.4, 8, 10], [0, 4, 0])
+  solid(base, [2.9, 2.5, 4.6], [0, 1.25, 7])
+  // Reachable ground-level upload terminal beside the entrance staircase.
+  const terminal = groundGroup(-12, -17, 'Base Terminal')
+  panel(terminal, [0.55, 1.2, 0.45], [0, 0.6, 0], materials.dark)
+  panel(terminal, [0.8, 0.65, 0.22], [0, 1.5, 0], materials.panel)
+  panel(terminal, [0.64, 0.45, 0.03], [0, 1.5, 0.13], materials.blue)
+  solid(terminal, [0.8, 1.85, 0.5], [0, 0.925, 0])
+
   // A connected utility pod extends the silhouette instead of one large box.
   const utility = groundGroup(-21, -35, 'Utility module')
   const pod = cylinder(utility, 2.25, 5.5, [0, 3.1, 0]); pod.rotation.x = Math.PI / 2
   for (const depth of [-2.7, 2.7]) ring(utility, 2.25, 0.12, [0, 3.1, depth], materials.dark)
   cable(root, [[x - 15, base.position.y + 1, z - 27], [x - 18, getHeight(x - 18, z - 30) + 0.2, z - 30], [x - 21, utility.position.y + 1, z - 32]], 0.16)
+
+  solid(utility, [4.5, 5.5, 5.6], [0, 2.75, 0])
 
   // Tilted photovoltaic wings, tubular frames, pivot motors and supply cables.
   for (let i = 0; i < 4; i++) {
@@ -146,63 +172,22 @@ export function createMarsExpedition(scene, camera, getHeight, x, z) {
     cylinder(support, 0.12, 1.9, [0, 0.95, 0], materials.panel)
     cylinder(support, 0.4, 0.1, [0, 0.06, 0], materials.dark)
     const pivot = cylinder(support, 0.24, 0.6, [0, 1.9, 0], materials.dark); pivot.rotation.z = Math.PI / 2
+    solid(support, [0.8, 1.9, 0.8], [0, 0.95, 0])
     const cells = group(support, [0, 2.1, 0]); cells.rotation.x = 0.62
     panel(cells, [3.5, 0.13, 4.5], [0, 0, 0], materials.panel, 0.045)
     const sheet = mesh(cells, geometry('solar-sheet', () => new THREE.PlaneGeometry(3.3, 4.3)), [0, 0.076, 0], materials.solar)
     sheet.rotation.x = -Math.PI / 2
+    solid(cells, [3.5, 0.13, 4.5])
     for (const side of [-1, 1]) strut(support, [0, 0.7, 0], [side * 1.2, 1.8, 0.5], 0.055, materials.panel)
     cable(support, [[0, 1.9, 0], [0.3, 0.4, 0.5], [1, 0.08, 1], [3, 0.06, 1]], 0.04)
   }
 
-  // Six-wheel pressurized rover with visible suspension and machined hubs.
-  const rover = groundGroup(9, -21, 'Nomad six-wheel rover')
+  // The visual model keeps the existing landing-site anchor and front direction.
+  const rover = createMarsRover()
+  rover.position.set(x + 9, getHeight(x + 9, z - 21), z - 21)
   rover.rotation.y = -0.65
-  panel(rover, [2.9, 0.55, 5.3], [0, 1.25, 0], materials.dark, 0.18)
-  panel(rover, [3, 1.3, 4.4], [0, 2.05, 0], materials.shell, 0.3)
-  const cabin = panel(rover, [2.6, 1.65, 2.9], [0, 3.02, 0.5], materials.shell, 0.42)
-  cabin.rotation.x = -0.06
-  const windshield = panel(rover, [2.22, 0.96, 0.1], [0, 3.15, 1.92], materials.glass, 0.15)
-  windshield.rotation.x = -0.18
-  panel(rover, [0.08, 1.02, 0.1], [0, 3.14, 2], materials.dark)
-  for (const side of [-1, 1]) {
-    panel(rover, [0.08, 0.8, 1.7], [side * 1.3, 3.13, 0.5], materials.glass, 0.025)
-    panel(rover, [0.07, 0.14, 0.5], [side * 1.54, 2.17, 0.65], materials.dark)
-    strut(rover, [side * 1.45, 1.4, -2], [side * 1.45, 1.4, 2], 0.1, materials.panel)
-    panel(rover, [0.55, 0.24, 0.15], [side * 0.98, 2.05, 2.28], materials.amber)
-    glow(rover, [side * 0.98, 2.05, 2.42], 0xffce8a, 1.4, 0.23)
-    for (const depth of [-1.85, 0, 1.85]) {
-      strut(rover, [side * 0.8, 1.6, depth - 0.45], [side * 1.9, 1, depth], 0.12, materials.panel)
-      strut(rover, [side * 1.3, 1.7, depth + 0.35], [side * 1.9, 1, depth], 0.065, materials.orange)
-      const wheel = group(rover, [side * 1.82, 0.98, depth])
-      const tire = cylinder(wheel, 0.94, 0.72, [0, 0, 0], materials.rubber); tire.rotation.z = Math.PI / 2
-      const hub = cylinder(wheel, 0.51, 0.77, [0, 0, 0], materials.panel); hub.rotation.z = Math.PI / 2
-      const axle = cylinder(wheel, 0.2, 0.81, [0, 0, 0], materials.dark); axle.rotation.z = Math.PI / 2
-      const lip = ring(wheel, 0.7, 0.055, [side * 0.39, 0, 0], materials.dark); lip.rotation.y = Math.PI / 2
-      for (let bolt = 0; bolt < 8; bolt++) {
-        const a = bolt / 8 * Math.PI * 2
-        const screw = cylinder(wheel, 0.055, 0.045, [side * 0.405, Math.cos(a) * 0.35, Math.sin(a) * 0.35], materials.dark)
-        screw.rotation.z = Math.PI / 2
-      }
-    }
-  }
-  // One draw call for all of the tire tread blocks.
-  const treadGeo = new THREE.BoxGeometry(0.76, 0.1, 0.14)
-  const treads = new THREE.InstancedMesh(treadGeo, materials.rubber, 6 * 32)
-  const dummy = new THREE.Object3D()
-  let treadIndex = 0
-  for (const side of [-1, 1]) for (const depth of [-1.85, 0, 1.85]) for (let i = 0; i < 32; i++) {
-    const a = i / 32 * Math.PI * 2
-    dummy.position.set(side * 1.82, 0.98 + Math.cos(a) * 0.955, depth + Math.sin(a) * 0.955)
-    dummy.rotation.set(a, 0.16 * side, 0); dummy.updateMatrix(); treads.setMatrixAt(treadIndex++, dummy.matrix)
-  }
-  treads.castShadow = true; rover.add(treads)
-  panel(rover, [2.4, 0.12, 1.8], [0, 3.95, 0.3], materials.dark)
-  for (const side of [-1, 1]) strut(rover, [side * 1, 4, -0.7], [side * 1, 4, 1.3], 0.045, materials.panel)
-  const sensor = cylinder(rover, 0.2, 0.4, [0, 4.15, 0.4], materials.glass)
-  sensor.name = 'Navigation lidar'
-  strut(rover, [-1, 2.8, -1.7], [-1, 5.5, -1.7], 0.025, materials.dark)
-  panel(rover, [1.7, 0.8, 1.15], [0, 2.9, -1.5], materials.orange, 0.12)
-  label(rover, 'NOMAD', '06 / FIELD OPERATIONS', [0, 1.62, 2.68], 1.5)
+  root.add(rover)
+  rover.userData.releaseStaticCollider = solid(rover, [4.6, 4.1, 5.7], [0, 2.05, 0])
 
   // Supply cases and flexible umbilicals give the landing site a lived-in scale.
   for (let i = 0; i < 4; i++) {
@@ -213,6 +198,7 @@ export function createMarsExpedition(scene, camera, getHeight, x, z) {
       panel(crate, [0.18, 0.13, 0.06], [side * 0.33, 0.53, 0.46], materials.shell)
     }
     panel(crate, [0.35, 0.08, 0.1], [0, 0.8, 0], materials.dark)
+    solid(crate, [1.1, 0.85, 0.95], [0, 0.425, 0])
   }
 
   // Signal 01: a damaged deep-space probe exposing a suspended energy core.
@@ -239,6 +225,8 @@ export function createMarsExpedition(scene, camera, getHeight, x, z) {
   })
   mesh(signal, new THREE.CylinderGeometry(0.15, 1.4, 58, 32, 1, true), [0, 34, 0], beamMaterial).castShadow = false
   label(wreck, 'KEPLER', 'DEEP SPACE / 07', [0, 1.7, 2.4], 2)
+
+  solid(signal, [8, 7, 8], [0, 3.5, 0])
 
   // Beveled handheld instrument: rubber bumpers, recessed glass, screws and controls.
   const scanner = group(camera, [0.43, -0.3, -0.85])
@@ -271,9 +259,54 @@ export function createMarsExpedition(scene, camera, getHeight, x, z) {
     finger.rotation.x = Math.PI / 2
   }
   cable(scanner, [[-0.1, -0.13, 0], [-0.17, -0.22, 0.06], [-0.09, -0.26, 0.3]], 0.011)
+  const signal02 = groundGroup(-65, -155, 'Signal 02 / survey beacon')
+  cylinder(signal02, 0.6, 3, [0, 1.5, 0], materials.panel)
+  const beacon = mesh(signal02, new THREE.IcosahedronGeometry(0.7, 1), [0, 3.4, 0], materials.blue)
+  glow(signal02, [0, 3.4, 0], 0x4cbfff, 12, 0.6)
+  signal02.visible = false
+  const sweep = panel(scanner, [0.174, 0.008, 0.002], [0, 0.065, 0.1], materials.blue, 0)
+  sweep.visible = false
+  let scannerStatus = ''
+  const signals = [
+    { id: 'signal01', position: globalPosition(signal), object: signal,
+      scanEffect(pulse) { core.scale.setScalar(1 + pulse * 0.08); energyLight.intensity = 170 + pulse * 80 } },
+    { id: 'signal02', position: globalPosition(signal02), object: signal02,
+      unlock() { solid(signal02, [1.4, 4.2, 1.4], [0, 2.1, 0]) },
+      scanEffect(pulse) { beacon.scale.setScalar(1 + pulse * 0.2) } },
+  ]
   return {
-    signal: signal.position,
-    update(time) {
+    rover, scanner,
+    signals,
+    baseTarget: globalPosition(terminal),
+    shiftOrigin(dx, dz) { root.position.x -= dx; root.position.z -= dz },
+    update(time, mission = {}) {
+      const scanning = mission.stage === 'scanning' && !mission.paused
+      const status = mission.discovered ? 'DATA ACQUIRED' : scanning ? 'SCANNING' : 'READY'
+      const screenKey = `${mission.number}:${status}`
+      if (mission.number && screenKey !== scannerStatus) {
+        scannerStatus = screenKey
+        const context = scannerMap.image.getContext('2d')
+        context.fillStyle = '#031725'
+        context.fillRect(20, 54, 478, 32)
+        context.fillRect(20, 434, 478, 34)
+        context.fillStyle = '#b7f0ff'; context.font = '18px monospace'
+        context.fillText(`CH ${mission.number} / ${status}`, 25, 78)
+        context.fillStyle = '#64dfff'; context.font = '19px monospace'
+        context.fillText(`SIGNAL ${mission.number}`, 25, 458)
+        scannerMap.needsUpdate = true
+      }
+      sweep.visible = scanning
+      sweep.position.y = -0.04 + (mission.progress || 0) * 0.21
+      for (const target of signals) {
+        if (mission.unlockedTargetIds) {
+          const unlocked = mission.unlockedTargetIds.includes(target.id)
+          if (unlocked && !target.object.visible) target.unlock?.()
+          target.object.visible = unlocked
+        }
+        const pulse = scanning && mission.activeTarget?.id === target.id ? Math.sin(time * 18) : 0
+        target.scanEffect(pulse)
+      }
+      beacon.rotation.y = time * 0.5
       core.position.y = 5.8 + Math.sin(time * 1.3) * 0.22
       core.rotation.y = time * 0.3
       orbit.rotation.z = time * 0.18
@@ -282,6 +315,7 @@ export function createMarsExpedition(scene, camera, getHeight, x, z) {
       scanner.position.y = -0.3 + Math.sin(time * 1.4) * 0.003
     },
     dispose() {
+      removeColliders.forEach(remove => remove())
       const geometries = new Set(geometryCache.values())
       const usedMaterials = new Set(Object.values(materials))
       for (const parent of [root, scanner]) parent.traverse(object => {
@@ -290,7 +324,10 @@ export function createMarsExpedition(scene, camera, getHeight, x, z) {
         if (object.isInstancedMesh) object.dispose()
       })
       const textures = new Set([metalMap, solarMap, scannerMap, glowMap])
-      usedMaterials.forEach(material => { if (material.map) textures.add(material.map); material.dispose() })
+      usedMaterials.forEach(material => {
+        for (const value of Object.values(material)) if (value?.isTexture) textures.add(value)
+        material.dispose()
+      })
       textures.forEach(texture => texture.dispose())
       geometries.forEach(geo => geo.dispose())
       root.removeFromParent(); scanner.removeFromParent()

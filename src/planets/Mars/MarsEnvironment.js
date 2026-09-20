@@ -58,7 +58,7 @@ export function makeSurfaceTexture(kind) {
     ctx.beginPath(); ctx.moveTo(256, 258); ctx.lineTo(330, 160); ctx.stroke()
     ctx.fillStyle = '#b7f0ff'
     ctx.font = 'bold 29px monospace'; ctx.fillText('SPECTRAL SCANNER', 25, 46)
-    ctx.font = '18px monospace'; ctx.fillText('CH 01 / ANOMALY DETECTED', 25, 78)
+    ctx.font = '18px monospace'; ctx.fillText('CH -- / READY', 25, 78)
     ctx.fillStyle = '#64dfff'
     ctx.beginPath(); ctx.arc(320, 185, 7, 0, Math.PI * 2); ctx.fill()
     ctx.strokeStyle = '#8ceaff'; ctx.beginPath()
@@ -67,7 +67,7 @@ export function makeSurfaceTexture(kind) {
       if (i === 0) ctx.moveTo(30 + i, h); else ctx.lineTo(30 + i, h)
     }
     ctx.stroke()
-    ctx.font = '19px monospace'; ctx.fillText('SIGNAL 01     8.42 GHz', 25, 458)
+    ctx.font = '19px monospace'; ctx.fillText('SIGNAL --', 25, 458)
     ctx.fillStyle = '#ffb658'; ctx.fillRect(25, 481, 170, 5)
   } else if (kind === 'solar') {
     ctx.fillStyle = '#10283e'; ctx.fillRect(0, 0, size, size)
@@ -99,8 +99,12 @@ export function makeSurfaceTexture(kind) {
   return texture
 }
 
-export function createMarsLandscape(scene, getHeight, x, z, rockMaterial) {
+export function createMarsLandscape(scene, getHeight, x, z, rockMaterial, collision, origin = { x: 0, z: 0 }) {
+  const originX = origin.x, originZ = origin.z, globalHeight = getHeight
+  x -= originX; z -= originZ
+  getHeight = (lx, lz) => globalHeight(lx + originX, lz + originZ)
   const root = new THREE.Group()
+  const removeColliders = []
   root.name = 'Mars geological layers'
   scene.add(root)
   const random = marsRandom(826)
@@ -147,7 +151,7 @@ export function createMarsLandscape(scene, getHeight, x, z, rockMaterial) {
   for (let variant = 0; variant < 4; variant++) {
     const geometry = createRockGeometry(variant === 0 ? 3 : 1, variant + 5)
     geometries.push(geometry)
-    const count = variant === 0 ? 32 : 450
+    const count = variant === 0 ? 16 : 180
     const mesh = new THREE.InstancedMesh(geometry, rockMaterial, count)
     const dummy = new THREE.Object3D()
     for (let i = 0; i < count; i++) {
@@ -160,6 +164,11 @@ export function createMarsLandscape(scene, getHeight, x, z, rockMaterial) {
       dummy.rotation.set(random(), random() * 6.28, random() * 0.6)
       dummy.scale.set(scale * (1 + random()), scale, scale * (0.8 + random()))
       dummy.updateMatrix(); mesh.setMatrixAt(i, dummy.matrix)
+      if (collision && variant === 0) {
+        if (!geometry.boundingBox) geometry.computeBoundingBox()
+        const bounds = geometry.boundingBox.clone().applyMatrix4(dummy.matrix)
+        removeColliders.push(collision.addBox(bounds.min, bounds.max))
+      }
       mesh.setColorAt(i, new THREE.Color().setScalar(0.65 + random() * 0.5))
     }
     mesh.castShadow = variant === 0
@@ -178,8 +187,10 @@ export function createMarsLandscape(scene, getHeight, x, z, rockMaterial) {
     dust.push({ sprite, startX: sprite.position.x, phase: random() * 6.28 })
   }
   return {
+    shiftOrigin(dx, dz) { root.position.x -= dx; root.position.z -= dz },
     update(time) { for (const item of dust) item.sprite.position.x = item.startX + Math.sin(time * 0.035 + item.phase) * 18 },
     dispose() {
+      removeColliders.forEach(remove => remove())
       root.traverse(object => { if (object.isInstancedMesh) object.dispose() })
       geometries.forEach(geometry => geometry.dispose())
       materials.forEach(material => material.dispose())
