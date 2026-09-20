@@ -40,6 +40,7 @@ for (const key in ASPECT_TYPES) {
     aspect.colorStr = '#' + aspect.color.toString(16).padStart(6, '0');
     ASPECT_DATA.push(aspect);
 }
+const ASPECT_DATA_LEN = ASPECT_DATA.length;
 const HELIOCENTRIC_PLANETS = ['mercury', 'venus', 'earth', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune'];
 export const GEOCENTRIC_PLANETS = ['sun', 'moon', 'mercury', 'venus', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune'];
 export const GEOCENTRIC_PLANET_SET = new Set(GEOCENTRIC_PLANETS);
@@ -117,6 +118,7 @@ const ALL_BODY_ENTRIES = ALL_BODIES.map(name => ({
     name,
     id: BODY_TO_ID[name]
 }));
+const ALL_BODY_ENTRIES_LEN = ALL_BODY_ENTRIES.length;
 
 export const ZODIAC_ELEMENTS = {
     aries: 'fire', leo: 'fire', sagittarius: 'fire',
@@ -323,7 +325,7 @@ export class AstrologyService {
         if (diff > 180) diff = 360 - diff;
 
         // Use pre-cached flattened data to avoid entry indexing and key lookups
-        for (let i = 0; i < ASPECT_DATA.length; i++) {
+        for (let i = 0; i < ASPECT_DATA_LEN; i++) {
             const data = ASPECT_DATA[i];
             const orb = Math.abs(diff - data.angle);
             if (orb <= data.orb) {
@@ -353,16 +355,20 @@ export class AstrologyService {
     static _wrapperPoolIdx = 0;
     static _aspectsResult = [];
 
+    /**
+     * Calculates active aspects between celestial bodies in the chart.
+     * Performance Optimization: Inlines aspect matching angle check directly within the 45-pair
+     * evaluation loop, pre-caches ASPECT_DATA_LEN and ALL_BODY_ENTRIES_LEN, and replaces modulo
+     * pool index resets (% 100) with fast ternary branch checks.
+     */
     static calculateAspects(chart) {
         const aspects = this._aspectsResult;
         aspects.length = 0;
-        this._aspectPoolIdx = 0;
-        this._wrapperPoolIdx = 0;
         const entries = ALL_BODY_ENTRIES;
 
         // Pre-calculate longitudes to avoid redundant math and object lookups in inner loop
         _longitudes.fill(-1);
-        for (let i = 0; i < entries.length; i++) {
+        for (let i = 0; i < ALL_BODY_ENTRIES_LEN; i++) {
             const entry = entries[i];
             const c = chart[entry.name];
             if (c) {
@@ -371,33 +377,59 @@ export class AstrologyService {
             }
         }
 
-        for (let i = 0; i < entries.length; i++) {
+        const aspectPool = this._aspectPool;
+        const wrapperPool = this._wrapperPool;
+        let aspectPoolIdx = 0;
+        let wrapperPoolIdx = 0;
+
+        for (let i = 0; i < ALL_BODY_ENTRIES_LEN; i++) {
             const e1 = entries[i];
             const id1 = e1.id;
             const long1 = _longitudes[id1];
             if (long1 === -1) continue;
 
-            for (let j = i + 1; j < entries.length; j++) {
+            for (let j = i + 1; j < ALL_BODY_ENTRIES_LEN; j++) {
                 const e2 = entries[j];
                 const id2 = e2.id;
                 const long2 = _longitudes[id2];
                 if (long2 === -1) continue;
 
-                const aspect = this.findAspect(long1, long2, this._aspectPool[this._aspectPoolIdx]);
-                if (aspect) {
-                    const wrapper = this._wrapperPool[this._wrapperPoolIdx];
-                    wrapper.p1 = e1.name;
-                    wrapper.p2 = e2.name;
-                    wrapper.p1Id = id1;
-                    wrapper.p2Id = id2;
-                    wrapper.aspect = aspect;
-                    aspects.push(wrapper);
+                let diff = Math.abs(long1 - long2);
+                if (diff > 180) diff = 360 - diff;
 
-                    this._aspectPoolIdx = (this._aspectPoolIdx + 1) % this._aspectPool.length;
-                    this._wrapperPoolIdx = (this._wrapperPoolIdx + 1) % this._wrapperPool.length;
+                for (let k = 0; k < ASPECT_DATA_LEN; k++) {
+                    const data = ASPECT_DATA[k];
+                    const orb = Math.abs(diff - data.angle);
+                    if (orb <= data.orb) {
+                        const aspectRes = aspectPool[aspectPoolIdx];
+                        aspectRes.type = data.type;
+                        aspectRes.typeLower = data.typeLower;
+                        aspectRes.typeId = data.typeId;
+                        aspectRes.orb = orb;
+                        aspectRes.angle = data.angle;
+                        aspectRes.color = data.color;
+                        aspectRes.label = data.label;
+                        aspectRes.colorStr = data.colorStr;
+                        aspectRes.priority = data.priority;
+
+                        const wrapper = wrapperPool[wrapperPoolIdx];
+                        wrapper.p1 = e1.name;
+                        wrapper.p2 = e2.name;
+                        wrapper.p1Id = id1;
+                        wrapper.p2Id = id2;
+                        wrapper.aspect = aspectRes;
+                        aspects.push(wrapper);
+
+                        aspectPoolIdx = aspectPoolIdx + 1 < 100 ? aspectPoolIdx + 1 : 0;
+                        wrapperPoolIdx = wrapperPoolIdx + 1 < 100 ? wrapperPoolIdx + 1 : 0;
+                        break;
+                    }
                 }
             }
         }
+
+        this._aspectPoolIdx = aspectPoolIdx;
+        this._wrapperPoolIdx = wrapperPoolIdx;
         return aspects;
     }
 
