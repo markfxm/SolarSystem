@@ -36,7 +36,7 @@
         >
           <!-- Ruler Ticks -->
           <div class="ruler-ticks">
-            <div v-for="i in 21" :key="i" class="tick" :class="{ major: (i-1) % 5 === 0 }"></div>
+            <div v-for="t in TICKS" :key="t.id" class="tick" :class="{ major: t.isMajor }"></div>
           </div>
 
           <!-- EQ Track Fill (Thick bright line) -->
@@ -49,7 +49,7 @@
             v-for="p in presets"
             :key="p.val"
             class="preset-point"
-            :style="getPresetStyle(p.norm)"
+            :style="vertical ? p.styleV : p.styleH"
             @click.stop="setByPos(p.norm)"
           >
             <span class="node-label">{{ p.label }}</span>
@@ -82,13 +82,26 @@ const MIN = 1
 const MAX = 500000
 const SNAP_THRESHOLD = 0.03
 
+// Performance Optimization: Pre-compute static style objects on presets to eliminate
+// 5 function calls and object allocations per render frame during speed scrubbing.
 const presets = [
   { val: 1, norm: 0, label: 'x1' },
   { val: 125000, norm: (125000 - MIN) / (MAX - MIN), label: '125K' },
   { val: 250000, norm: (250000 - MIN) / (MAX - MIN), label: '250K' },
   { val: 375000, norm: (375000 - MIN) / (MAX - MIN), label: '375K' },
   { val: 500000, norm: 1, label: 'MAX' }
-]
+].map(p => ({
+  ...p,
+  styleH: { left: `${p.norm * 100}%`, top: '50%' },
+  styleV: { bottom: `${p.norm * 100}%`, left: '50%', top: 'auto' }
+}))
+
+// Performance Optimization: Pre-define static ruler ticks in module scope to eliminate
+// 21 modulo operations per frame during speed control interaction.
+const TICKS = Array.from({ length: 21 }, (_, i) => ({
+  id: i + 1,
+  isMajor: i % 5 === 0
+}))
 
 const multiplierFormatter = new Intl.NumberFormat()
 </script>
@@ -129,13 +142,6 @@ const knobStyle = computed(() => {
   }
   return { left: (pos.value * 100) + '%', top: '0', bottom: '0', width: '0', transform: 'translateX(-50%)' }
 })
-
-function getPresetStyle(norm) {
-  if (props.vertical) {
-    return { bottom: (norm * 100) + '%', left: '50%', top: 'auto' }
-  }
-  return { left: (norm * 100) + '%', top: '50%' }
-}
 
 emit('speed-change', multiplier.value)
 
