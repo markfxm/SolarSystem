@@ -36,10 +36,19 @@ const SNAPSHOT_BODY_INDEX = {
 
 export const OCCASION_TYPES = Object.keys(OCCASION_FALLBACKS)
 
-const SNAPSHOT_PLANETOID_ENTRIES = [...SNAPSHOT_BODY_IDS.filter(id => id !== 'sun'), 'earth'].map(id => ({
-  id,
-  data: PLANETS_DATA[id]
-}))
+// Performance Optimization: Pre-calculate normalized orbit radii for planetoid entries and moon orbit
+// at module scope. This eliminates SNAPSHOT_BODY_INDEX dictionary lookups and repeated arithmetic
+// inside buildSnapshotBodies on every snapshot call.
+const SNAPSHOT_MOON_RADIUS = SNAPSHOT_MOON_ORBIT_RADIUS / SNAPSHOT_OUTER_ORBIT_RADIUS
+const SNAPSHOT_PLANETOID_ENTRIES = [...SNAPSHOT_BODY_IDS.filter(id => id !== 'sun'), 'earth'].map(id => {
+  const index = SNAPSHOT_BODY_INDEX[id]
+  const radius = (SNAPSHOT_ORBIT_BASE_RADIUS + index * SNAPSHOT_ORBIT_STEP) / SNAPSHOT_OUTER_ORBIT_RADIUS
+  return {
+    id,
+    data: PLANETS_DATA[id],
+    radius
+  }
+})
 
 // Performance Optimization: Per-body scratch objects for poster meta generation.
 // This enables the "warm-start" Kepler solver and threshold optimizations in Astronomy.js.
@@ -92,8 +101,9 @@ function buildSnapshotBodies(date) {
     // Passing entry.data directly eliminates string lookup and parsing in computeElements.
     const elements = computeElements(entry.data, d, _posterScratch[id], 1)
     const pos = computePosition(elements)
-    const index = SNAPSHOT_BODY_INDEX[id]
-    const radius = (SNAPSHOT_ORBIT_BASE_RADIUS + index * SNAPSHOT_ORBIT_STEP) / SNAPSHOT_OUTER_ORBIT_RADIUS
+    // Performance Optimization: Use pre-calculated entry.radius to eliminate dictionary lookups
+    // and orbital radius arithmetic in the snapshot generation loop.
+    const radius = entry.radius
 
     // Optimization: Replace Math.hypot with explicit squares to avoid overhead
     const len = Math.sqrt(pos.x * pos.x + pos.y * pos.y) || 1
@@ -103,10 +113,9 @@ function buildSnapshotBodies(date) {
   const moonElements = computeElements(PLANETS_DATA.moon, d, _posterScratch.moon, 1)
   const moonPos = computePosition(moonElements)
   const moonLen = Math.sqrt(moonPos.x * moonPos.x + moonPos.y * moonPos.y) || 1
-  const moonRadius = SNAPSHOT_MOON_ORBIT_RADIUS / SNAPSHOT_OUTER_ORBIT_RADIUS
   bodies.moon = {
-    x: bodies.earth.x + (moonPos.x / moonLen) * moonRadius,
-    y: bodies.earth.y + (moonPos.y / moonLen) * moonRadius
+    x: bodies.earth.x + (moonPos.x / moonLen) * SNAPSHOT_MOON_RADIUS,
+    y: bodies.earth.y + (moonPos.y / moonLen) * SNAPSHOT_MOON_RADIUS
   }
 
   return bodies
