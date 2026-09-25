@@ -69,7 +69,11 @@ const objective = computed(() => {
   const key = { approach: 'investigate_target', scanning: 'scanning_target', return: 'return_base', complete: 'mission_complete_number' }[props.mission.stage] || 'investigate_target'
   return t('mars.' + key, { signal: signalLabel.value, number: props.mission.number })
 })
-const targetDistance = computed(() => Math.round(Math.hypot(target.value.x - props.playerPos.x, target.value.z - props.playerPos.z)))
+const targetDistance = computed(() => {
+  const dx = target.value.x - props.playerPos.x
+  const dz = target.value.z - props.playerPos.z
+  return Math.round(Math.sqrt(dx * dx + dz * dz))
+})
 const handleMapKey = (event) => {
   if (!props.isVisible || event.repeat || event.target?.closest?.('input, textarea, select, [contenteditable="true"]')) return
   if (event.key.toLowerCase() === 'm') {
@@ -112,7 +116,7 @@ function mapPointerMove(event) {
   if (!mapDrag) return
   const rect = canvasRef.value.getBoundingClientRect()
   const dx = event.clientX - mapDrag.x, dy = event.clientY - mapDrag.y
-  if (!mapDrag.moved && Math.hypot(dx, dy) < 4) return
+  if (!mapDrag.moved && (dx * dx + dy * dy) < 16) return
   mapDrag.moved = true
   mapOffset.x -= dx * EXPANDED_MAP_SIZE / rect.width / zoomLevel.value
   mapOffset.z -= dy * EXPANDED_MAP_SIZE / rect.height / zoomLevel.value
@@ -330,7 +334,9 @@ const drawMap = (force = false) => {
   ctx.fillText(labels.value.east, size - 15, centerY + 4)
 
   if (expanded) {
-    const dist = Math.hypot(props.playerPos.x - lx, props.playerPos.z - lz).toFixed(1)
+    const dx = props.playerPos.x - lx
+    const dz = props.playerPos.z - lz
+    const dist = Math.sqrt(dx * dx + dz * dz).toFixed(1)
     ctx.textAlign = 'left'
     // Dynamic translation: still involves lookup but only when expanded and once per frame
     ctx.fillText(t('mars.dist_start', { dist }), 10, size - 25)
