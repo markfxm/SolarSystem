@@ -3,33 +3,53 @@
 export function createPlayerCollision({ radius = 0.4, height = 1.8, cellSize = 12 } = {}) {
   const cells = new Map()
   const boxes = new Set()
-  function keys(minX, maxX, minZ, maxZ) {
-    const result = []
-    for (let x = Math.floor(minX / cellSize); x <= Math.floor(maxX / cellSize); x++) {
-      for (let z = Math.floor(minZ / cellSize); z <= Math.floor(maxZ / cellSize); z++) result.push(`${x},${z}`)
-    }
-    return result
+
+  // Performance Optimization: Reusable scratch set to eliminate temporary Set and Array allocations
+  // during high-frequency 60fps collision spatial queries.
+  const _scratchBoxSet = new Set()
+
+  // Performance Optimization: Fast numeric cell key calculation avoids string interpolation (${x},${z})
+  // and eliminates string object allocations in Map key lookups.
+  function cellKey(x, z) {
+    return (x + 2000000) * 4000000 + (z + 2000000)
   }
+
   function addBox(min, max, { vehiclePassable = false } = {}) {
     const box = { min: { ...min }, max: { ...max }, vehiclePassable, occupied: [] }
     boxes.add(box)
     indexBox(box)
     return () => {
       boxes.delete(box)
-      for (const key of box.occupied) {
+      for (let i = 0; i < box.occupied.length; i++) {
+        const key = box.occupied[i]
         const cell = cells.get(key)
         cell?.delete(box)
         if (cell?.size === 0) cells.delete(key)
       }
     }
   }
+
   function indexBox(box) {
-    box.occupied = keys(box.min.x, box.max.x, box.min.z, box.max.z)
-    for (const key of box.occupied) {
-      if (!cells.has(key)) cells.set(key, new Set())
-      cells.get(key).add(box)
+    const minX = Math.floor(box.min.x / cellSize)
+    const maxX = Math.floor(box.max.x / cellSize)
+    const minZ = Math.floor(box.min.z / cellSize)
+    const maxZ = Math.floor(box.max.z / cellSize)
+
+    box.occupied.length = 0
+    for (let x = minX; x <= maxX; x++) {
+      for (let z = minZ; z <= maxZ; z++) {
+        const key = cellKey(x, z)
+        box.occupied.push(key)
+        let cell = cells.get(key)
+        if (!cell) {
+          cell = new Set()
+          cells.set(key, cell)
+        }
+        cell.add(box)
+      }
     }
   }
+
   function shiftOrigin(dx, dz) {
     cells.clear()
     for (const box of boxes) {
@@ -38,30 +58,56 @@ export function createPlayerCollision({ radius = 0.4, height = 1.8, cellSize = 1
       indexBox(box)
     }
   }
-  function nearby(x, z) {
-    const boxes = new Set()
-    for (const key of keys(x - radius, x + radius, z - radius, z + radius)) {
-      for (const box of cells.get(key) || []) boxes.add(box)
+
+  // Performance Optimization: Populates candidate boxes into a reusable scratch Set without heap allocations.
+  function populateNearby(x, z, checkRadius = radius) {
+    _scratchBoxSet.clear()
+    const minX = Math.floor((x - checkRadius) / cellSize)
+    const maxX = Math.floor((x + checkRadius) / cellSize)
+    const minZ = Math.floor((z - checkRadius) / cellSize)
+    const maxZ = Math.floor((z + checkRadius) / cellSize)
+
+    for (let cx = minX; cx <= maxX; cx++) {
+      for (let cz = minZ; cz <= maxZ; cz++) {
+        const cell = cells.get(cellKey(cx, cz))
+        if (cell) {
+          for (const box of cell) {
+            _scratchBoxSet.add(box)
+          }
+        }
+      }
     }
-    return boxes
   }
+
   function move(position, displacement, groundHeight) {
-    const steps = Math.max(1, Math.ceil(Math.hypot(displacement.x, displacement.z) / (radius * 0.5)))
-    const dx = displacement.x / steps, dz = displacement.z / steps
+    const dispX = displacement.x
+    const dispZ = displacement.z
+    // Performance Optimization: Direct sqrt replaces Math.hypot for step count calculation.
+    const dispLen = Math.sqrt(dispX * dispX + dispZ * dispZ)
+    const steps = Math.max(1, Math.ceil(dispLen / (radius * 0.5)))
+    const dx = dispX / steps, dz = dispZ / steps
+    const radiusSq = radius * radius
+
     for (let step = 0; step < steps; step++) {
       let x = position.x + dx, z = position.z + dz
       // Re-query after correction; corners can involve several adjacent props.
       for (let pass = 0; pass < 8; pass++) {
         let corrected = false
         const feet = groundHeight(x, z)
-        for (const box of nearby(x, z)) {
+        populateNearby(x, z)
+
+        for (const box of _scratchBoxSet) {
           if (feet >= box.max.y || feet + height <= box.min.y) continue
           const closestX = Math.max(box.min.x, Math.min(box.max.x, x))
           const closestZ = Math.max(box.min.z, Math.min(box.max.z, z))
           const nx = x - closestX, nz = z - closestZ
-          const distance = Math.hypot(nx, nz)
-          if (distance >= radius) continue
-          if (distance > 0.000001) {
+          const distanceSq = nx * nx + nz * nz
+
+          // Performance Optimization: Compare squared distance first to avoid Math.sqrt on non-colliding AABBs.
+          if (distanceSq >= radiusSq) continue
+
+          if (distanceSq > 1e-12) {
+            const distance = Math.sqrt(distanceSq)
             const correction = (radius - distance + 0.00001) / distance
             x += nx * correction; z += nz * correction
           } else {
@@ -83,17 +129,31 @@ export function createPlayerCollision({ radius = 0.4, height = 1.8, cellSize = 1
     }
     return position
   }
+
   function isClear(position, clearance = radius, bodyHeight = height, forVehicle = false) {
-    for (const key of keys(position.x - clearance, position.x + clearance, position.z - clearance, position.z + clearance)) {
-      for (const box of cells.get(key) || []) {
-        if (forVehicle && box.vehiclePassable) continue
-        if (position.y >= box.max.y || position.y + bodyHeight <= box.min.y) continue
-        const x = Math.max(box.min.x, Math.min(box.max.x, position.x))
-        const z = Math.max(box.min.z, Math.min(box.max.z, position.z))
-        if (Math.hypot(position.x - x, position.z - z) < clearance) return false
+    const clearanceSq = clearance * clearance
+    const minX = Math.floor((position.x - clearance) / cellSize)
+    const maxX = Math.floor((position.x + clearance) / cellSize)
+    const minZ = Math.floor((position.z - clearance) / cellSize)
+    const maxZ = Math.floor((position.z + clearance) / cellSize)
+
+    for (let cx = minX; cx <= maxX; cx++) {
+      for (let cz = minZ; cz <= maxZ; cz++) {
+        const cell = cells.get(cellKey(cx, cz))
+        if (!cell) continue
+        for (const box of cell) {
+          if (forVehicle && box.vehiclePassable) continue
+          if (position.y >= box.max.y || position.y + bodyHeight <= box.min.y) continue
+          const x = Math.max(box.min.x, Math.min(box.max.x, position.x))
+          const z = Math.max(box.min.z, Math.min(box.max.z, position.z))
+          const dx = position.x - x, dz = position.z - z
+          // Performance Optimization: Compare squared distance directly to skip Math.sqrt calculations.
+          if (dx * dx + dz * dz < clearanceSq) return false
+        }
       }
     }
     return true
   }
+
   return { addBox, move, isClear, shiftOrigin, clear: () => { cells.clear(); boxes.clear() } }
 }
