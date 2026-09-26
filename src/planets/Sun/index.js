@@ -52,6 +52,8 @@ export class Sun {
   }
 
   updateVisuals(deltaSeconds) {
+    // Performance Optimization: Skip shader uniform updates when the Sun mesh is hidden.
+    if (this.mesh && !this.mesh.visible) return;
     if (this.originalMaterial) {
       this.originalMaterial.uniforms.time.value += deltaSeconds;
     }
