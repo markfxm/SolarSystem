@@ -129,12 +129,14 @@ export function createPOIMarkers(planetName, radius) {
   return group;
 }
 
-const _tempScale = new THREE.Vector3();
-
 export function updatePOIVisibility(group, camera, planetPosition) {
   if (!group) return;
 
-  const distSq = camera.position.distanceToSquared(planetPosition);
+  // Optimization: Direct component scalar math eliminates Vector3 method call overhead
+  const dx = camera.position.x - planetPosition.x;
+  const dy = camera.position.y - planetPosition.y;
+  const dz = camera.position.z - planetPosition.z;
+  const distSq = dx * dx + dy * dy + dz * dz;
   const isVisible = distSq < 1600;
 
   // Optimized: Only update visibility if it changed to avoid redundant Three.js state updates
@@ -154,23 +156,24 @@ export function animatePOIs(group) {
 
     // Performance Optimization: Short-circuit early if scale already matches target scale
     // to avoid redundant property lookups and floating point comparisons for static POIs in 60fps loops.
-    if (dot.scale.x === targetScale) continue;
+    const currentScale = dot.scale.x;
+    if (currentScale === targetScale) continue;
 
     const label = poiGroup.userData.label;
 
-    // Optimization: Skip Three.js property updates and matrix recalculations
-    // if the target scale is already reached.
-    if (Math.abs(dot.scale.x - targetScale) > 0.001) {
-      _tempScale.setScalar(targetScale);
-      dot.scale.lerp(_tempScale, 0.1);
-      label.scale.lerp(_tempScale, 0.1);
+    // Optimization: Direct scalar lerp math avoids Vector3.lerp method calls
+    const diff = targetScale - currentScale;
+    if (Math.abs(diff) > 0.001) {
+      const newScale = currentScale + diff * 0.1;
+      dot.scale.set(newScale, newScale, newScale);
+      label.scale.set(newScale, newScale, newScale);
       // Manual update required as matrixAutoUpdate = false
       dot.updateMatrix();
       label.updateMatrix();
-    } else if (dot.scale.x !== targetScale) {
+    } else {
       // Snap to target if very close to avoid persistent sub-pixel updates
-      dot.scale.setScalar(targetScale);
-      label.scale.setScalar(targetScale);
+      dot.scale.set(targetScale, targetScale, targetScale);
+      label.scale.set(targetScale, targetScale, targetScale);
       // Manual update required as matrixAutoUpdate = false
       dot.updateMatrix();
       label.updateMatrix();
