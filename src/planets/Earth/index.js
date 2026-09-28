@@ -31,6 +31,8 @@ export class Earth extends BasePlanet {
   }
 
   updateVisuals(deltaSeconds) {
+    // Performance Optimization: Skip shader uniform updates when the Earth mesh is hidden.
+    if (this.mesh && !this.mesh.visible) return;
     if (this.cloudMaterial) {
       this.cloudMaterial.uniforms.time.value += deltaSeconds;
     }
