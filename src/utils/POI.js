@@ -129,12 +129,15 @@ export function createPOIMarkers(planetName, radius) {
   return group;
 }
 
-const _tempScale = new THREE.Vector3();
-
 export function updatePOIVisibility(group, camera, planetPosition) {
   if (!group) return;
 
-  const distSq = camera.position.distanceToSquared(planetPosition);
+  // Performance Optimization: Replace Vector3.distanceToSquared call with direct scalar component math
+  // to avoid method call overhead in high-frequency visibility loops.
+  const dx = camera.position.x - planetPosition.x;
+  const dy = camera.position.y - planetPosition.y;
+  const dz = camera.position.z - planetPosition.z;
+  const distSq = dx * dx + dy * dy + dz * dz;
   const isVisible = distSq < 1600;
 
   // Optimized: Only update visibility if it changed to avoid redundant Three.js state updates
@@ -154,23 +157,24 @@ export function animatePOIs(group) {
 
     // Performance Optimization: Short-circuit early if scale already matches target scale
     // to avoid redundant property lookups and floating point comparisons for static POIs in 60fps loops.
-    if (dot.scale.x === targetScale) continue;
+    const currentScale = dot.scale.x;
+    if (currentScale === targetScale) continue;
 
     const label = poiGroup.userData.label;
 
-    // Optimization: Skip Three.js property updates and matrix recalculations
-    // if the target scale is already reached.
-    if (Math.abs(dot.scale.x - targetScale) > 0.001) {
-      _tempScale.setScalar(targetScale);
-      dot.scale.lerp(_tempScale, 0.1);
-      label.scale.lerp(_tempScale, 0.1);
+    // Performance Optimization: Replace Vector3.prototype.lerp and _tempScale allocations
+    // with direct scalar lerp math to eliminate method call overhead per animated POI in 60fps loops.
+    if (Math.abs(currentScale - targetScale) > 0.001) {
+      const s = currentScale + (targetScale - currentScale) * 0.1;
+      dot.scale.set(s, s, s);
+      label.scale.set(s, s, s);
       // Manual update required as matrixAutoUpdate = false
       dot.updateMatrix();
       label.updateMatrix();
-    } else if (dot.scale.x !== targetScale) {
+    } else {
       // Snap to target if very close to avoid persistent sub-pixel updates
-      dot.scale.setScalar(targetScale);
-      label.scale.setScalar(targetScale);
+      dot.scale.set(targetScale, targetScale, targetScale);
+      label.scale.set(targetScale, targetScale, targetScale);
       // Manual update required as matrixAutoUpdate = false
       dot.updateMatrix();
       label.updateMatrix();
