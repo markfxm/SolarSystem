@@ -103,17 +103,51 @@ const TICKS = Array.from({ length: 21 }, (_, i) => ({
   isMajor: i % 5 === 0
 }))
 
-/**
- * Performance Optimization: Fast custom integer formatting function.
- * Bypasses Intl.NumberFormat / toLocaleString to format integer multipliers [1, 500000]
- * in O(1) time without internal string/object allocations or locale engine overhead,
- * ensuring silky smooth 60fps rendering during slider dragging.
- */
+// Read the active locale's integer formatting rules once, then apply them without
+// invoking Intl.NumberFormat while the slider is being dragged.
+const multiplierFormatter = new Intl.NumberFormat()
+const formatterParts = multiplierFormatter.formatToParts(123456789012345)
+const integerParts = formatterParts.filter(part => part.type === 'integer')
+const groupingSeparator = formatterParts.find(part => part.type === 'group')?.value ?? ''
+const primaryGroupingSize = Array.from(integerParts[integerParts.length - 1]?.value ?? '').length
+const secondaryGroupingSize = Array.from(integerParts[integerParts.length - 2]?.value ?? '').length || primaryGroupingSize
+const firstIntegerPart = formatterParts.findIndex(part => part.type === 'integer')
+let lastIntegerPart = formatterParts.length - 1
+while (lastIntegerPart >= 0 && formatterParts[lastIntegerPart].type !== 'integer') lastIntegerPart--
+const formatterPrefix = formatterParts.slice(0, firstIntegerPart).map(part => part.value).join('')
+const formatterSuffix = formatterParts.slice(lastIntegerPart + 1).map(part => part.value).join('')
+const localizedDigits = Array.from({ length: 10 }, (_, digit) =>
+  multiplierFormatter.formatToParts(digit).find(part => part.type === 'integer')?.value ?? String(digit)
+)
+const firstGroupedSample = [1000, 10000, 100000, 1000000].find(sample =>
+  multiplierFormatter.formatToParts(sample).some(part => part.type === 'group')
+)
+const minimumGroupedDigits = firstGroupedSample === undefined ? Infinity : String(firstGroupedSample).length
+
 function formatFastInt(val) {
-  if (val < 1000) return String(val)
-  const k = Math.floor(val / 1000)
-  const rem = val % 1000
-  return k + ',' + (rem < 10 ? '00' : rem < 100 ? '0' : '') + rem
+  const digits = String(val)
+  const groups = []
+  let end = digits.length
+
+  if (groupingSeparator && digits.length >= minimumGroupedDigits) {
+    let groupSize = primaryGroupingSize
+    while (end > groupSize) {
+      groups.unshift(localizeDigits(digits.slice(end - groupSize, end)))
+      end -= groupSize
+      groupSize = secondaryGroupingSize
+    }
+  }
+
+  groups.unshift(localizeDigits(digits.slice(0, end)))
+  return formatterPrefix + groups.join(groupingSeparator) + formatterSuffix
+}
+
+function localizeDigits(digits) {
+  let localized = ''
+  for (let i = 0; i < digits.length; i++) {
+    localized += localizedDigits[digits.charCodeAt(i) - 48]
+  }
+  return localized
 }
 </script>
 
