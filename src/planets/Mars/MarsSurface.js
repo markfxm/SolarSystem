@@ -291,12 +291,15 @@ export function createMarsSurface(renderer, options = {}) {
   let landingHeight = naturalHeight(spawnX, spawnZ)
   const getH = (x, z) => {
     const dx = x - spawnX, dz = z - spawnZ
-    const distance = Math.hypot(dx, dz)
+    // Performance Optimization: Direct multiplication and Math.sqrt replace Math.hypot and exponentiation (** 2)
+    // for faster 2D distance calculations and height sampling in high-frequency terrain queries.
+    const distance = Math.sqrt(dx * dx + dz * dz)
     const bumps = perlin.noise2D(dx * 0.025 + 7, dz * 0.025 + 3) * 5
     const dunes = Math.sin(dx * 0.017 + dz * 0.01) * 5 + perlin.noise2D(dx * 0.008, dz * 0.008) * 14
     const outsideCamp = THREE.MathUtils.smoothstep(distance, 38, 100)
     let local = landingHeight + bumps * outsideCamp + dunes * THREE.MathUtils.smoothstep(distance, 80, 200)
-    const signalHill = Math.exp(-((dx - 26) ** 2 + (dz + 112) ** 2) / 800)
+    const dxSig = dx - 26, dzSig = dz + 112
+    const signalHill = Math.exp(-(dxSig * dxSig + dzSig * dzSig) / 800)
     local = THREE.MathUtils.lerp(local, landingHeight + 7, signalHill)
     const blend = THREE.MathUtils.smoothstep(distance, 450, 900)
     return THREE.MathUtils.lerp(local, naturalHeight(x, z), blend)
@@ -545,9 +548,12 @@ export function createMarsSurface(renderer, options = {}) {
       }
 
       // Sort queue by distance to camera so nearest chunks load first
+      // Performance Optimization: Direct multiplication replaces exponentiation (** 2) in sorting.
       chunkQueue.sort((a, b) => {
-        const da = (a.x - camX) ** 2 + (a.z - camZ) ** 2;
-        const db = (b.x - camX) ** 2 + (b.z - camZ) ** 2;
+        const dax = a.x - camX, daz = a.z - camZ;
+        const dbx = b.x - camX, dbz = b.z - camZ;
+        const da = dax * dax + daz * daz;
+        const db = dbx * dbx + dbz * dbz;
         return da - db;
       });
     }
