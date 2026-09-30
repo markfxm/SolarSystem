@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "test": "node --test",
+    "test": "tsx --test",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -22,6 +22,7 @@
     "@types/three": "^0.183.1",
     "@vitejs/plugin-vue": "^6.0.1",
     "playwright": "^1.58.2",
+    "tsx": "^4.23.15",
     "typescript": "^5.9.3",
     "vite": "^7.2.2",
     "vue-tsc": "^3.2.5"
