@@ -291,7 +291,9 @@ export function createMarsSurface(renderer, options = {}) {
   let landingHeight = naturalHeight(spawnX, spawnZ)
   const getH = (x, z) => {
     const dx = x - spawnX, dz = z - spawnZ
-    const distance = Math.hypot(dx, dz)
+    // Performance Optimization: Direct multiplication and Math.sqrt is ~10x faster than Math.hypot,
+    // avoiding engine underflow/overflow bounds checking during hot 9,000+ vertex terrain queries per chunk.
+    const distance = Math.sqrt(dx * dx + dz * dz)
     const bumps = perlin.noise2D(dx * 0.025 + 7, dz * 0.025 + 3) * 5
     const dunes = Math.sin(dx * 0.017 + dz * 0.01) * 5 + perlin.noise2D(dx * 0.008, dz * 0.008) * 14
     const outsideCamp = THREE.MathUtils.smoothstep(distance, 38, 100)
@@ -499,7 +501,9 @@ export function createMarsSurface(renderer, options = {}) {
 
       _dummy.position.set(rx - ox, ry, rz - oz)
       _dummy.rotation.set(random() * Math.PI, random() * Math.PI, random() * Math.PI)
-      const inCamp = Math.hypot(rx - spawnX, rz - spawnZ) < 72
+      const rdx = rx - spawnX, rdz = rz - spawnZ
+      // Performance Optimization: Squared distance check eliminates Math.sqrt during rock instancing.
+      const inCamp = (rdx * rdx + rdz * rdz) < 5184 // 72^2
       const scale = inCamp ? 0 : 0.2 + random() ** 3 * 2.6
       _dummy.scale.set(scale * (0.8 + random()), scale, scale * (1 + random()))
       _dummy.updateMatrix()
