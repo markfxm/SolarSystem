@@ -7,6 +7,12 @@ export function createMarsVehicle(rover, camera, collision, getHeight, scanner) 
   const state = { mode: 'ON_FOOT', speed: 0, canEnter: false, exitBlocked: false }
   const position = new THREE.Vector3(), candidate = new THREE.Vector3()
   const offset = new THREE.Vector3(), desired = new THREE.Vector3(), look = new THREE.Vector3()
+  // Performance Optimization: Persistent scratch instances eliminate per-frame Vector3 / Quaternion heap allocations
+  const _scratchEntryPos = new THREE.Vector3()
+  const _scratchStartQuat = new THREE.Quaternion()
+  const _scratchTargetQuat = new THREE.Quaternion()
+  const interactionRadiusSq = vehicleConfig.interactionRadius * vehicleConfig.interactionRadius
+
   let removeCollider = () => {}
   let mouseSteer = 0, steering = 0
   function clearInput() { mouseSteer = 0 }
@@ -23,7 +29,14 @@ export function createMarsVehicle(rover, camera, collision, getHeight, scanner) 
   }
   syncCollider()
   function refresh() {
-    state.canEnter = state.mode === 'ON_FOOT' && camera.position.distanceTo(getPosition().clone().add(new THREE.Vector3(0, 1.7, 0))) <= vehicleConfig.interactionRadius
+    // Performance Optimization: Reuses _scratchEntryPos and distanceToSquared to eliminate 2 Vector3 allocations and Math.sqrt per frame
+    if (state.mode !== 'ON_FOOT') {
+      state.canEnter = false
+      return
+    }
+    _scratchEntryPos.copy(getPosition())
+    _scratchEntryPos.y += 1.7
+    state.canEnter = camera.position.distanceToSquared(_scratchEntryPos) <= interactionRadiusSq
   }
   function interact() {
     refresh()
@@ -74,7 +87,10 @@ export function createMarsVehicle(rover, camera, collision, getHeight, scanner) 
       candidate.y = getHeight(candidate.x, candidate.z)
       // Conservative circular footprint covers the full rover at any yaw.
       if (collision.isClear(candidate, 3.7, 4.1, true)) {
-        rover.userData.animateWheels?.(Math.hypot(candidate.x - position.x, candidate.z - position.z) * Math.sign(state.speed), steering * vehicleConfig.maxWheelAngle)
+        // Performance Optimization: Direct component multiplication and Math.sqrt instead of Math.hypot
+        const dx = candidate.x - position.x
+        const dz = candidate.z - position.z
+        rover.userData.animateWheels?.(Math.sqrt(dx * dx + dz * dz) * Math.sign(state.speed), steering * vehicleConfig.maxWheelAngle)
         rover.position.add(candidate.sub(position)); rover.rotation.y = heading
         getPosition()
         const forwardX = Math.sin(heading), forwardZ = Math.cos(heading)
@@ -95,9 +111,11 @@ export function createMarsVehicle(rover, camera, collision, getHeight, scanner) 
     camera.position.lerp(desired, 1 - Math.exp(-5 * delta))
     camera.position.y = Math.max(camera.position.y, getHeight(camera.position.x, camera.position.z) + 0.5)
     look.copy(position).add(offset.set(0, 2.5, 5).applyAxisAngle(THREE.Object3D.DEFAULT_UP, rover.rotation.y))
-    const rotation = camera.quaternion.clone()
+    // Performance Optimization: Reuses _scratchStartQuat and _scratchTargetQuat to eliminate 2 Quaternion allocations per frame
+    _scratchStartQuat.copy(camera.quaternion)
     camera.lookAt(look)
-    camera.quaternion.slerpQuaternions(rotation, camera.quaternion.clone(), 1 - Math.exp(-7 * delta))
+    _scratchTargetQuat.copy(camera.quaternion)
+    camera.quaternion.copy(_scratchStartQuat).slerp(_scratchTargetQuat, 1 - Math.exp(-7 * delta))
   }
   return { state, getPosition, interact, update, steerMouse, clearInput, dispose: () => removeCollider() }
 }
