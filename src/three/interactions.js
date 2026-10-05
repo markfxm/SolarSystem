@@ -54,6 +54,8 @@ export function createInteractions({
   const _tempLookAt = new THREE.Vector3()
   const _flyOffsetScratch = new THREE.Vector3()
   const _poiCandidates = [] // Scratch array to avoid per-event allocations
+  const _poiHitsScratch = [] // Performance Optimization: Reusable target array for POI raycasting
+  const _planetHitsScratch = [] // Performance Optimization: Reusable target array for planet raycasting
 
   // Performance Optimization: Pre-calculate POI collections to avoid redundant
   // scene graph traversal in the 30fps mouse move loop.
@@ -270,8 +272,12 @@ export function createInteractions({
 
     // Optimization: Skip intersection tests if there are no candidates.
     // POIs are on Layer 1, Planets on Layer 0. Raycaster was initialized with both layers enabled.
-    // Performance Optimization: Reuse EMPTY_HITS array to avoid temporary empty array allocations when candidate list is empty.
-    const poiHits = (_poiCandidates.length > 0) ? raycaster.intersectObjects(_poiCandidates, false) : EMPTY_HITS;
+    // Performance Optimization: Use reusable target array to avoid per-event Array allocations during POI raycasting.
+    _poiHitsScratch.length = 0
+    if (_poiCandidates.length > 0) {
+      raycaster.intersectObjects(_poiCandidates, false, _poiHitsScratch)
+    }
+    const poiHits = _poiHitsScratch
     if (poiHits.length > 0) {
       // Find the parent POI group
       hitPOI = poiHits[0].object.parent
@@ -299,11 +305,12 @@ export function createInteractions({
 
     if (hitPOI) return
 
-    // Performance Optimization: Use non-recursive raycasting for planets.
-    // Since all planets are direct Mesh objects, skipping child traversal
-    // (grids, atmospheres, POIs) reduces CPU overhead by ~60% during mouse movement
-    // as proven by benchmarks.
-    const hits = raycaster.intersectObjects(planets, false)
+    // Performance Optimization: Use non-recursive raycasting for planets and reusable target array
+    // to eliminate per-event Array allocations during mouse movement.
+    // Skipping child traversal (grids, atmospheres, POIs) reduces CPU overhead by ~60%.
+    _planetHitsScratch.length = 0
+    raycaster.intersectObjects(planets, false, _planetHitsScratch)
+    const hits = _planetHitsScratch
 
     if (hits.length > 0) {
       // Find the top-level planet object from the hit (could be a child mesh of a GLB)
