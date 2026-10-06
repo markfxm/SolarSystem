@@ -188,7 +188,8 @@ const drawMap = (force = false) => {
   if (!cachedCtx) cachedCtx = canvas.getContext('2d', { alpha: true });
   const ctx = cachedCtx;
 
-  // Capture reactive values into local variables to minimize proxy overhead
+  // Capture reactive values into local variables to minimize proxy overhead and avoid
+  // redundant Vue computed property evaluation calls in the 60fps animation frame loop.
   const expanded = isExpanded.value;
   const size = expanded ? EXPANDED_MAP_SIZE : MAP_SIZE
   const zoom = zoomLevel.value
@@ -198,12 +199,15 @@ const drawMap = (force = false) => {
   const pyaw = props.playerYaw
   const lx = props.landerPos?.x ?? 0
   const lz = props.landerPos?.z ?? 0
+  const curTarget = target.value
+  const curTargetLabel = targetLabel.value
+  const lbls = labels.value
 
   // Dirty check: Only redraw if state changed or forced (e.g. resize)
   if (!force &&
-      lastState.targetX === target.value.x &&
-      lastState.targetZ === target.value.z &&
-      lastState.targetLabel === targetLabel.value &&
+      lastState.targetX === curTarget.x &&
+      lastState.targetZ === curTarget.z &&
+      lastState.targetLabel === curTargetLabel &&
       lastState.px === px &&
       lastState.pz === pz &&
       lastState.yaw === pyaw &&
@@ -214,9 +218,9 @@ const drawMap = (force = false) => {
   }
 
   // Update last state
-  lastState.targetX = target.value.x
-  lastState.targetZ = target.value.z
-  lastState.targetLabel = targetLabel.value
+  lastState.targetX = curTarget.x
+  lastState.targetZ = curTarget.z
+  lastState.targetLabel = curTargetLabel
   lastState.px = px
   lastState.pz = pz
   lastState.yaw = pyaw
@@ -291,16 +295,16 @@ const drawMap = (force = false) => {
   ctx.fillStyle = '#fff'
   ctx.font = '10px Arial'
   ctx.textAlign = 'left'
-  ctx.fillText(labels.value.start, startPosMX + 6, startPosMY + 4)
+  ctx.fillText(lbls.start, startPosMX + 6, startPosMY + 4)
 
-  const signalX = Math.max(18, Math.min(size - 18, centerX + (target.value.x - px) * zoom))
-  const signalY = Math.max(25, Math.min(size - 25, centerY + (target.value.z - pz) * zoom))
+  const signalX = Math.max(18, Math.min(size - 18, centerX + (curTarget.x - px) * zoom))
+  const signalY = Math.max(25, Math.min(size - 25, centerY + (curTarget.z - pz) * zoom))
   ctx.strokeStyle = '#91dcff'
   ctx.lineWidth = 2
   ctx.beginPath()
   ctx.arc(signalX, signalY, 6, 0, Math.PI * 2)
   ctx.stroke()
-  ctx.fillText(targetLabel.value, Math.min(size - 65, signalX + 10), signalY - 10)
+  ctx.fillText(curTargetLabel, Math.min(size - 65, signalX + 10), signalY - 10)
 
   // Draw Player Marker (Always at center because we are centering on player)
   ctx.save()
@@ -328,17 +332,16 @@ const drawMap = (force = false) => {
   ctx.textAlign = 'center'
 
   // N S W E
-  ctx.fillText(labels.value.north, centerX, 15)
-  ctx.fillText(labels.value.south, centerX, size - 10)
-  ctx.fillText(labels.value.west, 10, centerY + 4)
-  ctx.fillText(labels.value.east, size - 15, centerY + 4)
+  ctx.fillText(lbls.north, centerX, 15)
+  ctx.fillText(lbls.south, centerX, size - 10)
+  ctx.fillText(lbls.west, 10, centerY + 4)
+  ctx.fillText(lbls.east, size - 15, centerY + 4)
 
   if (expanded) {
     const dx = props.playerPos.x - lx
     const dz = props.playerPos.z - lz
     const dist = Math.sqrt(dx * dx + dz * dz).toFixed(1)
     ctx.textAlign = 'left'
-    // Dynamic translation: still involves lookup but only when expanded and once per frame
     ctx.fillText(t('mars.dist_start', { dist }), 10, size - 25)
   }
 }
