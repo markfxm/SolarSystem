@@ -268,15 +268,30 @@ const drawMap = (force = false) => {
 
     // Only show recent path on small map, or full path on expanded?
     const startIdx = expanded ? 0 : Math.max(0, path.length - 50)
+    const count = path.length - startIdx
 
-    // Optimized path drawing: Inline coordinate transformation to avoid object allocations
-    for (let i = startIdx; i < path.length; i++) {
+    // Performance Optimization: Downsample dense exploration path points when count exceeds 300
+    // to reduce 2D canvas lineTo calls by up to 90% in the 60fps minimap render loop.
+    const step = count > 300 ? Math.ceil(count / 300) : 1
+
+    let first = true
+    for (let i = startIdx; i < path.length; i += step) {
       const p = path[i]
       const mx = centerX + (p.x - px) * zoom
       const my = centerY + (p.z - pz) * zoom
-      if (i === startIdx) ctx.moveTo(mx, my)
-      else ctx.lineTo(mx, my)
+      if (first) {
+        ctx.moveTo(mx, my)
+        first = false
+      } else {
+        ctx.lineTo(mx, my)
+      }
     }
+    // Always connect to the latest recorded point to ensure path continuity to player position
+    const lastP = path[path.length - 1]
+    if (lastP) {
+      ctx.lineTo(centerX + (lastP.x - px) * zoom, centerY + (lastP.z - pz) * zoom)
+    }
+
     ctx.stroke()
     ctx.setLineDash([])
   }
