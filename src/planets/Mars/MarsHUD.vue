@@ -199,24 +199,32 @@ const drawMap = (force = false) => {
   const lx = props.landerPos?.x ?? 0
   const lz = props.landerPos?.z ?? 0
 
-  // Dirty check: Only redraw if state changed or forced (e.g. resize)
+  // Performance Optimization: Check primitive scalar changes first (px, pz, yaw, zoom, expanded, pathLen).
+  // When stationary, evaluate target position and label to confirm no target change, then early exit.
+  // This completely avoids evaluating computed properties and i18n translation lookups (t()) on early exits.
   if (!force &&
-      lastState.targetX === target.value.x &&
-      lastState.targetZ === target.value.z &&
-      lastState.targetLabel === targetLabel.value &&
       lastState.px === px &&
       lastState.pz === pz &&
       lastState.yaw === pyaw &&
       lastState.zoom === zoom &&
       lastState.expanded === expanded &&
       lastState.pathLen === path.length) {
-    return
+    const tPos = target.value
+    if (lastState.targetX === tPos.x &&
+        lastState.targetZ === tPos.z &&
+        lastState.targetLabel === targetLabel.value) {
+      return
+    }
   }
 
+  // Pre-capture computed values once for recording state and drawing on canvas
+  const targetVal = target.value
+  const targetLbl = targetLabel.value
+
   // Update last state
-  lastState.targetX = target.value.x
-  lastState.targetZ = target.value.z
-  lastState.targetLabel = targetLabel.value
+  lastState.targetX = targetVal.x
+  lastState.targetZ = targetVal.z
+  lastState.targetLabel = targetLbl
   lastState.px = px
   lastState.pz = pz
   lastState.yaw = pyaw
@@ -293,14 +301,14 @@ const drawMap = (force = false) => {
   ctx.textAlign = 'left'
   ctx.fillText(labels.value.start, startPosMX + 6, startPosMY + 4)
 
-  const signalX = Math.max(18, Math.min(size - 18, centerX + (target.value.x - px) * zoom))
-  const signalY = Math.max(25, Math.min(size - 25, centerY + (target.value.z - pz) * zoom))
+  const signalX = Math.max(18, Math.min(size - 18, centerX + (targetVal.x - px) * zoom))
+  const signalY = Math.max(25, Math.min(size - 25, centerY + (targetVal.z - pz) * zoom))
   ctx.strokeStyle = '#91dcff'
   ctx.lineWidth = 2
   ctx.beginPath()
   ctx.arc(signalX, signalY, 6, 0, Math.PI * 2)
   ctx.stroke()
-  ctx.fillText(targetLabel.value, Math.min(size - 65, signalX + 10), signalY - 10)
+  ctx.fillText(targetLbl, Math.min(size - 65, signalX + 10), signalY - 10)
 
   // Draw Player Marker (Always at center because we are centering on player)
   ctx.save()
