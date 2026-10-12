@@ -502,7 +502,9 @@ export function createMarsSurface(renderer, options = {}) {
 
       _dummy.position.set(rx - ox, ry, rz - oz)
       _dummy.rotation.set(random() * Math.PI, random() * Math.PI, random() * Math.PI)
-      const inCamp = Math.hypot(rx - spawnX, rz - spawnZ) < 72
+      // Performance Optimization: Squared distance check avoids Math.hypot/Math.sqrt overhead (72^2 = 5184)
+      const cdx = rx - spawnX, cdz = rz - spawnZ
+      const inCamp = (cdx * cdx + cdz * cdz) < 5184
       const scale = inCamp ? 0 : 0.2 + random() ** 3 * 2.6
       _dummy.scale.set(scale * (0.8 + random()), scale, scale * (1 + random()))
       _dummy.updateMatrix()
