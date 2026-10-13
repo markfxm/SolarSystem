@@ -4,6 +4,27 @@ import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js'
 import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js'
 import { TWO_PI } from './Astronomy.js'
 
+// Module-level cache for static trigonometric lookup tables (cosE, sinE) keyed by segment count.
+// Optimization: Pre-calculating cos(E) and sin(E) for common orbit segment counts (e.g. 512, 128)
+// eliminates ~1,026 Math.cos/Math.sin calls per 512-segment orbit line initialization.
+const TRIG_TABLE_CACHE = new Map<number, Float32Array>()
+
+function getTrigTable(segments: number): Float32Array {
+  let table = TRIG_TABLE_CACHE.get(segments)
+  if (!table) {
+    // Interleaved Float32Array storing [cos(E_0), sin(E_0), cos(E_1), sin(E_1), ...]
+    table = new Float32Array((segments + 1) * 2)
+    const step = TWO_PI / segments
+    for (let k = 0; k <= segments; k++) {
+      const E = k * step
+      table[k * 2] = Math.cos(E)
+      table[k * 2 + 1] = Math.sin(E)
+    }
+    TRIG_TABLE_CACHE.set(segments, table)
+  }
+  return table
+}
+
 export interface OrbitalElements {
   a: number // semi-major axis
   e: number // eccentricity
@@ -35,15 +56,13 @@ export function createEllipticalOrbit(
   const points = new Float32Array((segments + 1) * 3)
 
   const { e, PxA, PyA, PzA, QxAS, QyAS, QzAS } = elements
-  const step = TWO_PI / segments
+  // Optimization: Read pre-calculated cos(E) and sin(E) from static Float32Array lookup table,
+  // bypassing ~1,026 Math.cos/Math.sin function calls per orbit creation.
+  const trigTable = getTrigTable(segments)
 
   for (let k = 0; k <= segments; k++) {
-    // Optimization: Sweep Eccentric Anomaly (E) directly from 0 to 2π.
-    // This eliminates ~1,500 iterative Kepler solver calls per orbit initialization.
-    // It also results in a more uniform point distribution for high-eccentricity orbits.
-    const E = k * step
-    const cosE = Math.cos(E)
-    const sinE = Math.sin(E)
+    const cosE = trigTable[k * 2]
+    const sinE = trigTable[k * 2 + 1]
 
     // Transform directly to World space using pre-calculated combined coefficients
     // Optimized: Factored formula pos = PxA * (cosE - e) + QxAS * sinE.
