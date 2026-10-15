@@ -188,7 +188,8 @@ const drawMap = (force = false) => {
   if (!cachedCtx) cachedCtx = canvas.getContext('2d', { alpha: true });
   const ctx = cachedCtx;
 
-  // Capture reactive values into local variables to minimize proxy overhead
+  // Performance Optimization: Capture reactive computed getters into local variables once per frame
+  // to eliminate redundant Vue computed getter calls and reactive proxy tracking in the 60fps loop.
   const expanded = isExpanded.value;
   const size = expanded ? EXPANDED_MAP_SIZE : MAP_SIZE
   const zoom = zoomLevel.value
@@ -198,15 +199,20 @@ const drawMap = (force = false) => {
   const pyaw = props.playerYaw
   const lx = props.landerPos?.x ?? 0
   const lz = props.landerPos?.z ?? 0
+  const targetVal = target.value
+  const targetLabelVal = targetLabel.value
+  const labelsVal = labels.value
 
-  // Dirty check: Only redraw if state changed or forced (e.g. resize)
+  // Performance Optimization: Use spatial threshold checks for px, pz, and pyaw (<0.05m / <0.005rad)
+  // to skip redundant 2D canvas clearing, grid, path, marker, and text draws during player stillness,
+  // idling, or sub-pixel movement without visual degradation.
   if (!force &&
-      lastState.targetX === target.value.x &&
-      lastState.targetZ === target.value.z &&
-      lastState.targetLabel === targetLabel.value &&
-      lastState.px === px &&
-      lastState.pz === pz &&
-      lastState.yaw === pyaw &&
+      lastState.targetX === targetVal.x &&
+      lastState.targetZ === targetVal.z &&
+      lastState.targetLabel === targetLabelVal &&
+      Math.abs(lastState.px - px) < 0.05 &&
+      Math.abs(lastState.pz - pz) < 0.05 &&
+      Math.abs(lastState.yaw - pyaw) < 0.005 &&
       lastState.zoom === zoom &&
       lastState.expanded === expanded &&
       lastState.pathLen === path.length) {
@@ -214,9 +220,9 @@ const drawMap = (force = false) => {
   }
 
   // Update last state
-  lastState.targetX = target.value.x
-  lastState.targetZ = target.value.z
-  lastState.targetLabel = targetLabel.value
+  lastState.targetX = targetVal.x
+  lastState.targetZ = targetVal.z
+  lastState.targetLabel = targetLabelVal
   lastState.px = px
   lastState.pz = pz
   lastState.yaw = pyaw
@@ -268,14 +274,22 @@ const drawMap = (force = false) => {
 
     // Only show recent path on small map, or full path on expanded?
     const startIdx = expanded ? 0 : Math.max(0, path.length - 50)
+    // Performance Optimization: Downsample dense exploration paths (if > 300 points) using a stride step
+    // while explicitly connecting the final recorded point to maintain path continuity.
+    const pathCount = path.length - startIdx
+    const step = expanded && pathCount > 300 ? Math.ceil(pathCount / 300) : 1
 
     // Optimized path drawing: Inline coordinate transformation to avoid object allocations
-    for (let i = startIdx; i < path.length; i++) {
+    for (let i = startIdx; i < path.length; i += step) {
       const p = path[i]
       const mx = centerX + (p.x - px) * zoom
       const my = centerY + (p.z - pz) * zoom
       if (i === startIdx) ctx.moveTo(mx, my)
       else ctx.lineTo(mx, my)
+    }
+    if (step > 1 && (path.length - 1 - startIdx) % step !== 0) {
+      const lastP = path[path.length - 1]
+      ctx.lineTo(centerX + (lastP.x - px) * zoom, centerY + (lastP.z - pz) * zoom)
     }
     ctx.stroke()
     ctx.setLineDash([])
@@ -291,16 +305,16 @@ const drawMap = (force = false) => {
   ctx.fillStyle = '#fff'
   ctx.font = '10px Arial'
   ctx.textAlign = 'left'
-  ctx.fillText(labels.value.start, startPosMX + 6, startPosMY + 4)
+  ctx.fillText(labelsVal.start, startPosMX + 6, startPosMY + 4)
 
-  const signalX = Math.max(18, Math.min(size - 18, centerX + (target.value.x - px) * zoom))
-  const signalY = Math.max(25, Math.min(size - 25, centerY + (target.value.z - pz) * zoom))
+  const signalX = Math.max(18, Math.min(size - 18, centerX + (targetVal.x - px) * zoom))
+  const signalY = Math.max(25, Math.min(size - 25, centerY + (targetVal.z - pz) * zoom))
   ctx.strokeStyle = '#91dcff'
   ctx.lineWidth = 2
   ctx.beginPath()
   ctx.arc(signalX, signalY, 6, 0, Math.PI * 2)
   ctx.stroke()
-  ctx.fillText(targetLabel.value, Math.min(size - 65, signalX + 10), signalY - 10)
+  ctx.fillText(targetLabelVal, Math.min(size - 65, signalX + 10), signalY - 10)
 
   // Draw Player Marker (Always at center because we are centering on player)
   ctx.save()
@@ -328,10 +342,10 @@ const drawMap = (force = false) => {
   ctx.textAlign = 'center'
 
   // N S W E
-  ctx.fillText(labels.value.north, centerX, 15)
-  ctx.fillText(labels.value.south, centerX, size - 10)
-  ctx.fillText(labels.value.west, 10, centerY + 4)
-  ctx.fillText(labels.value.east, size - 15, centerY + 4)
+  ctx.fillText(labelsVal.north, centerX, 15)
+  ctx.fillText(labelsVal.south, centerX, size - 10)
+  ctx.fillText(labelsVal.west, 10, centerY + 4)
+  ctx.fillText(labelsVal.east, size - 15, centerY + 4)
 
   if (expanded) {
     const dx = props.playerPos.x - lx
