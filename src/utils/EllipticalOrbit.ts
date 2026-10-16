@@ -19,11 +19,35 @@ export interface OrbitalElements {
   QzAS: number
 }
 
+// Module-level cache for pre-calculated trigonometric lookup tables
+// Caches interleaved Float32Array [cosE_0, sinE_0, cosE_1, sinE_1, ...] keyed by segment count.
+// Eliminates thousands of Math.cos and Math.sin calls per orbit line generation.
+const TRIG_TABLE_CACHE = new Map<number, Float32Array>()
+
+function getTrigTable(segments: number): Float32Array {
+  let table = TRIG_TABLE_CACHE.get(segments)
+  if (!table) {
+    const totalPoints = segments + 1
+    table = new Float32Array(totalPoints * 2)
+    const step = TWO_PI / segments
+    for (let k = 0; k <= segments; k++) {
+      const E = k * step
+      const idx = k * 2
+      table[idx] = Math.cos(E)
+      table[idx + 1] = Math.sin(E)
+    }
+    TRIG_TABLE_CACHE.set(segments, table)
+  }
+  return table
+}
+
 /**
  * Creates a perfect elliptical orbit line.
  * Optimized: Sweeps Eccentric Anomaly (E) directly instead of Mean Anomaly (M)
  * to eliminate the iterative Kepler solver. Uses pre-scaled Gaussian constants for
  * coordinate transformation, matching the high-performance logic in Astronomy.js.
+ * Also uses a module-level trigonometric lookup table (TRIG_TABLE_CACHE) to skip
+ * Math.cos / Math.sin calls on subsequent orbit creations.
  */
 export function createEllipticalOrbit(
   elements: OrbitalElements,
@@ -35,15 +59,14 @@ export function createEllipticalOrbit(
   const points = new Float32Array((segments + 1) * 3)
 
   const { e, PxA, PyA, PzA, QxAS, QyAS, QzAS } = elements
-  const step = TWO_PI / segments
+  // Performance Optimization: Retrieve pre-computed trigonometric lookup table
+  // to avoid ~1,026 Math.cos/Math.sin calls per 512-segment orbit initialization.
+  const trigTable = getTrigTable(segments)
 
   for (let k = 0; k <= segments; k++) {
-    // Optimization: Sweep Eccentric Anomaly (E) directly from 0 to 2π.
-    // This eliminates ~1,500 iterative Kepler solver calls per orbit initialization.
-    // It also results in a more uniform point distribution for high-eccentricity orbits.
-    const E = k * step
-    const cosE = Math.cos(E)
-    const sinE = Math.sin(E)
+    const trigIdx = k * 2
+    const cosE = trigTable[trigIdx]
+    const sinE = trigTable[trigIdx + 1]
 
     // Transform directly to World space using pre-calculated combined coefficients
     // Optimized: Factored formula pos = PxA * (cosE - e) + QxAS * sinE.
