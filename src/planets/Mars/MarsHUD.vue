@@ -200,23 +200,28 @@ const drawMap = (force = false) => {
   const lz = props.landerPos?.z ?? 0
 
   // Dirty check: Only redraw if state changed or forced (e.g. resize)
+  // Reorder primitive scalar checks first so when stationary, JS short-circuits
+  // before evaluating Vue computed getters (target.value, targetLabel.value) and i18n translation lookups.
   if (!force &&
-      lastState.targetX === target.value.x &&
-      lastState.targetZ === target.value.z &&
-      lastState.targetLabel === targetLabel.value &&
       lastState.px === px &&
       lastState.pz === pz &&
       lastState.yaw === pyaw &&
       lastState.zoom === zoom &&
       lastState.expanded === expanded &&
-      lastState.pathLen === path.length) {
+      lastState.pathLen === path.length &&
+      lastState.targetX === target.value.x &&
+      lastState.targetZ === target.value.z &&
+      lastState.targetLabel === targetLabel.value) {
     return
   }
 
+  const tgt = target.value
+  const tgtLabel = targetLabel.value
+
   // Update last state
-  lastState.targetX = target.value.x
-  lastState.targetZ = target.value.z
-  lastState.targetLabel = targetLabel.value
+  lastState.targetX = tgt.x
+  lastState.targetZ = tgt.z
+  lastState.targetLabel = tgtLabel
   lastState.px = px
   lastState.pz = pz
   lastState.yaw = pyaw
@@ -293,14 +298,14 @@ const drawMap = (force = false) => {
   ctx.textAlign = 'left'
   ctx.fillText(labels.value.start, startPosMX + 6, startPosMY + 4)
 
-  const signalX = Math.max(18, Math.min(size - 18, centerX + (target.value.x - px) * zoom))
-  const signalY = Math.max(25, Math.min(size - 25, centerY + (target.value.z - pz) * zoom))
+  const signalX = Math.max(18, Math.min(size - 18, centerX + (tgt.x - px) * zoom))
+  const signalY = Math.max(25, Math.min(size - 25, centerY + (tgt.z - pz) * zoom))
   ctx.strokeStyle = '#91dcff'
   ctx.lineWidth = 2
   ctx.beginPath()
   ctx.arc(signalX, signalY, 6, 0, Math.PI * 2)
   ctx.stroke()
-  ctx.fillText(targetLabel.value, Math.min(size - 65, signalX + 10), signalY - 10)
+  ctx.fillText(tgtLabel, Math.min(size - 65, signalX + 10), signalY - 10)
 
   // Draw Player Marker (Always at center because we are centering on player)
   ctx.save()
