@@ -199,14 +199,16 @@ const drawMap = (force = false) => {
   const lx = props.landerPos?.x ?? 0
   const lz = props.landerPos?.z ?? 0
 
-  // Dirty check: Only redraw if state changed or forced (e.g. resize)
+  // Dirty check: Only redraw if state changed or forced (e.g. resize).
+  // Performance Optimization: Use spatial threshold checks for floating-point coordinates
+  // (px, pz, pyaw) to skip redundant 2D canvas clearing and drawing during sub-pixel motion (< 0.02 px).
   if (!force &&
       lastState.targetX === target.value.x &&
       lastState.targetZ === target.value.z &&
       lastState.targetLabel === targetLabel.value &&
-      lastState.px === px &&
-      lastState.pz === pz &&
-      lastState.yaw === pyaw &&
+      Math.abs(lastState.px - px) < 0.05 &&
+      Math.abs(lastState.pz - pz) < 0.05 &&
+      Math.abs(lastState.yaw - pyaw) < 0.005 &&
       lastState.zoom === zoom &&
       lastState.expanded === expanded &&
       lastState.pathLen === path.length) {
