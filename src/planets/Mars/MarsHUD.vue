@@ -188,7 +188,12 @@ const drawMap = (force = false) => {
   if (!cachedCtx) cachedCtx = canvas.getContext('2d', { alpha: true });
   const ctx = cachedCtx;
 
-  // Capture reactive values into local variables to minimize proxy overhead
+  // Performance Optimization: Pre-capture Vue computed property values once at function entry
+  // to eliminate redundant Proxy getter evaluations throughout the 60fps render loop.
+  const tgt = target.value
+  const tgtLabel = targetLabel.value
+  const lbls = labels.value
+
   const expanded = isExpanded.value;
   const size = expanded ? EXPANDED_MAP_SIZE : MAP_SIZE
   const zoom = zoomLevel.value
@@ -201,9 +206,9 @@ const drawMap = (force = false) => {
 
   // Dirty check: Only redraw if state changed or forced (e.g. resize)
   if (!force &&
-      lastState.targetX === target.value.x &&
-      lastState.targetZ === target.value.z &&
-      lastState.targetLabel === targetLabel.value &&
+      lastState.targetX === tgt.x &&
+      lastState.targetZ === tgt.z &&
+      lastState.targetLabel === tgtLabel &&
       lastState.px === px &&
       lastState.pz === pz &&
       lastState.yaw === pyaw &&
@@ -214,9 +219,9 @@ const drawMap = (force = false) => {
   }
 
   // Update last state
-  lastState.targetX = target.value.x
-  lastState.targetZ = target.value.z
-  lastState.targetLabel = targetLabel.value
+  lastState.targetX = tgt.x
+  lastState.targetZ = tgt.z
+  lastState.targetLabel = tgtLabel
   lastState.px = px
   lastState.pz = pz
   lastState.yaw = pyaw
@@ -266,16 +271,27 @@ const drawMap = (force = false) => {
     ctx.setLineDash([5, 5])
     ctx.lineWidth = 2
 
-    // Only show recent path on small map, or full path on expanded?
     const startIdx = expanded ? 0 : Math.max(0, path.length - 50)
+    const count = path.length - startIdx
+    // Performance Optimization: Downsample dense exploration path points when point count exceeds 300.
+    // Computing a stride step reduces 2D canvas lineTo() drawing operations by up to 90% during
+    // extended exploration sessions without sacrificing visual path continuity.
+    const step = count > 300 ? Math.ceil(count / 300) : 1
 
-    // Optimized path drawing: Inline coordinate transformation to avoid object allocations
-    for (let i = startIdx; i < path.length; i++) {
+    let moved = false
+    for (let i = startIdx; i < path.length; i += step) {
       const p = path[i]
       const mx = centerX + (p.x - px) * zoom
       const my = centerY + (p.z - pz) * zoom
-      if (i === startIdx) ctx.moveTo(mx, my)
+      if (!moved) { ctx.moveTo(mx, my); moved = true }
       else ctx.lineTo(mx, my)
+    }
+    // Always connect the final recorded point to maintain exact path continuity
+    if (step > 1 && (path.length - 1 - startIdx) % step !== 0) {
+      const lastP = path[path.length - 1]
+      const mx = centerX + (lastP.x - px) * zoom
+      const my = centerY + (lastP.z - pz) * zoom
+      ctx.lineTo(mx, my)
     }
     ctx.stroke()
     ctx.setLineDash([])
@@ -291,16 +307,16 @@ const drawMap = (force = false) => {
   ctx.fillStyle = '#fff'
   ctx.font = '10px Arial'
   ctx.textAlign = 'left'
-  ctx.fillText(labels.value.start, startPosMX + 6, startPosMY + 4)
+  ctx.fillText(lbls.start, startPosMX + 6, startPosMY + 4)
 
-  const signalX = Math.max(18, Math.min(size - 18, centerX + (target.value.x - px) * zoom))
-  const signalY = Math.max(25, Math.min(size - 25, centerY + (target.value.z - pz) * zoom))
+  const signalX = Math.max(18, Math.min(size - 18, centerX + (tgt.x - px) * zoom))
+  const signalY = Math.max(25, Math.min(size - 25, centerY + (tgt.z - pz) * zoom))
   ctx.strokeStyle = '#91dcff'
   ctx.lineWidth = 2
   ctx.beginPath()
   ctx.arc(signalX, signalY, 6, 0, Math.PI * 2)
   ctx.stroke()
-  ctx.fillText(targetLabel.value, Math.min(size - 65, signalX + 10), signalY - 10)
+  ctx.fillText(tgtLabel, Math.min(size - 65, signalX + 10), signalY - 10)
 
   // Draw Player Marker (Always at center because we are centering on player)
   ctx.save()
@@ -328,10 +344,10 @@ const drawMap = (force = false) => {
   ctx.textAlign = 'center'
 
   // N S W E
-  ctx.fillText(labels.value.north, centerX, 15)
-  ctx.fillText(labels.value.south, centerX, size - 10)
-  ctx.fillText(labels.value.west, 10, centerY + 4)
-  ctx.fillText(labels.value.east, size - 15, centerY + 4)
+  ctx.fillText(lbls.north, centerX, 15)
+  ctx.fillText(lbls.south, centerX, size - 10)
+  ctx.fillText(lbls.west, 10, centerY + 4)
+  ctx.fillText(lbls.east, size - 15, centerY + 4)
 
   if (expanded) {
     const dx = props.playerPos.x - lx
