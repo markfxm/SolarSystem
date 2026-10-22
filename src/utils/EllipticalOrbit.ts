@@ -19,11 +19,34 @@ export interface OrbitalElements {
   QzAS: number
 }
 
+// Module-scoped trigonometric lookup table cache keyed by segment count.
+// Stores interleaved [cosE, sinE, cosE, sinE, ...] for 0 <= k <= segments.
+// Eliminates (segments + 1) * 2 Math.cos/Math.sin calls per orbit initialization.
+const TRIG_TABLE_CACHE = new Map<number, Float32Array>()
+
+function getTrigTable(segments: number): Float32Array {
+  let table = TRIG_TABLE_CACHE.get(segments)
+  if (!table) {
+    table = new Float32Array((segments + 1) * 2)
+    const step = TWO_PI / segments
+    for (let k = 0; k <= segments; k++) {
+      const E = k * step
+      const idx = k * 2
+      table[idx] = Math.cos(E)
+      table[idx + 1] = Math.sin(E)
+    }
+    TRIG_TABLE_CACHE.set(segments, table)
+  }
+  return table
+}
+
 /**
  * Creates a perfect elliptical orbit line.
  * Optimized: Sweeps Eccentric Anomaly (E) directly instead of Mean Anomaly (M)
  * to eliminate the iterative Kepler solver. Uses pre-scaled Gaussian constants for
  * coordinate transformation, matching the high-performance logic in Astronomy.js.
+ * Performance Boost: Reuses pre-computed trigonometric lookup tables (cosE, sinE)
+ * for the segment sweep, eliminating ~1,026 Math.cos/Math.sin calls per 512-segment orbit line.
  */
 export function createEllipticalOrbit(
   elements: OrbitalElements,
@@ -35,15 +58,14 @@ export function createEllipticalOrbit(
   const points = new Float32Array((segments + 1) * 3)
 
   const { e, PxA, PyA, PzA, QxAS, QyAS, QzAS } = elements
-  const step = TWO_PI / segments
+  const trigTable = getTrigTable(segments)
 
   for (let k = 0; k <= segments; k++) {
-    // Optimization: Sweep Eccentric Anomaly (E) directly from 0 to 2π.
-    // This eliminates ~1,500 iterative Kepler solver calls per orbit initialization.
-    // It also results in a more uniform point distribution for high-eccentricity orbits.
-    const E = k * step
-    const cosE = Math.cos(E)
-    const sinE = Math.sin(E)
+    // Optimization: Read pre-computed cos(E) and sin(E) from module-scoped lookup table.
+    // This eliminates (segments + 1) * 2 trigonometric function calls per orbit line initialization.
+    const trigIdx = k * 2
+    const cosE = trigTable[trigIdx]
+    const sinE = trigTable[trigIdx + 1]
 
     // Transform directly to World space using pre-calculated combined coefficients
     // Optimized: Factored formula pos = PxA * (cosE - e) + QxAS * sinE.
